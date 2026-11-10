@@ -18,4 +18,4 @@ export const channelStyle = (kind: "video" | "image") => CHANNEL_STYLE[kind];
  * Audio waveforms are a neutral cool grey, not a hue: green sat right next to the teal stills, and
  * a neutral waveform also lets the amber and red mix bands read clearly on top of it.
  */
-export const AUDIO_WAVEFORM = "#cbd5e1";
+export const AUDIO_WAVEFORM = "#a3b0c2";
