@@ -60,12 +60,10 @@ function TileShell({
         role="group"
         aria-label={`${name[0].toUpperCase()}${name.slice(1)} is on screen`}
         data-testid="tile-active"
-        class={`${TILE_BASE} ring-2 ${still ? "ring-teal-400" : "ring-sky-400"}`}
+        class={`${TILE_BASE} ring-1 ring-neutral-700`}
       >
-        {children}
-        <span
-          class={`absolute right-1 top-1 rounded ${still ? "bg-teal-600" : "bg-sky-600"} px-1.5 text-[10px] font-semibold uppercase tracking-wide text-white`}
-        >
+        <div class="h-full w-full opacity-40">{children}</div>
+        <span class="absolute inset-0 flex items-center justify-center text-xs font-semibold uppercase tracking-wide text-white">
           on screen
         </span>
       </div>

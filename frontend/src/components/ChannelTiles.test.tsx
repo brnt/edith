@@ -149,7 +149,7 @@ test("stills are teal and cameras blue, on the tiles and on the active tile", ()
   expect(chip("Preview of camera 2: switch to it")?.className).toContain("bg-sky");
   expect(chip("Preview of still 4: switch to it")?.className).toContain("bg-teal");
   rerender(grid("car"));
-  expect(screen.getByTestId("tile-active").className).toContain("ring-teal");
+  expect(screen.getByTestId("tile-active")).toHaveTextContent("on screen");
 });
 
 test("clicking a tile activates that camera", () => {
