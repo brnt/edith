@@ -1,12 +1,22 @@
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 
 import { fetchSilence, type EditList, type MediaItem, type SyncState } from "./api";
-import { addCuts, setCamera, setRange, showOver } from "./editOps";
+import {
+  addCuts,
+  deleteSegment,
+  moveSegmentEdge,
+  removeCut,
+  setCamera,
+  setCut,
+  setRange,
+  showOver,
+} from "./editOps";
 import {
   advancePlayhead,
   channelsOf,
   cutRanges,
   defaultCamera,
+  EPS,
   firstKeptMoment,
   fitPxPerSec,
   keepIntervals,
@@ -14,6 +24,7 @@ import {
   playbackEnd,
   skipCuts,
   timelineEnd,
+  type Picked,
   type Range,
 } from "./timeline";
 
@@ -44,6 +55,8 @@ export function useEditor({ slug, media, sync, edit, onEdit, onError, ready }: A
   const [t, setT] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [selection, setSelection] = useState<Range | null>(null);
+  // A segment or cut selected by clicking it (the thing Delete removes and whose edges can be dragged).
+  const [picked, setPicked] = useState<Picked | null>(null);
   // null = fit the window width (and keep fitting on resize) until the user zooms.
   const [zoom, setZoom] = useState<number | null>(null);
   const [width, setWidth] = useState(0);
@@ -59,8 +72,8 @@ export function useEditor({ slug, media, sync, edit, onEdit, onError, ready }: A
   const fitPx = fitPxPerSec(width, end);
   const pxPerSec = zoom ?? fitPx;
 
-  const state = useRef({ t, playing, keeps, selection, edit, lo, fallback });
-  state.current = { t, playing, keeps, selection, edit, lo, fallback };
+  const state = useRef({ t, playing, keeps, selection, picked, edit, lo, fallback });
+  state.current = { t, playing, keeps, selection, picked, edit, lo, fallback };
 
   useEffect(() => {
     const el = timelineBox.current;
@@ -123,14 +136,40 @@ export function useEditor({ slug, media, sync, edit, onEdit, onError, ready }: A
     setSelection(null);
   };
 
+  const deletePicked = () => {
+    const { picked: p, edit: current } = state.current;
+    if (!p) return;
+    onEdit(p.kind === "segment" ? deleteSegment(current, p.index) : removeCut(current, p.index));
+    setPicked(null);
+  };
+
+  /** Pick something to work on; a range selection and a picked item don't coexist. */
+  const pick = (next: Picked | null) => {
+    setPicked(next);
+    if (next) setSelection(null);
+  };
+
+  const changeSegmentEdge = (switchIndex: number, at_s: number) =>
+    onEdit(moveSegmentEdge(state.current.edit, switchIndex, at_s, end));
+
+  const changeCut = (index: number, start_s: number, end_s: number) => {
+    const next = setCut(state.current.edit, index, start_s, end_s);
+    onEdit(next);
+    // Merging with a neighbour can renumber the cuts: stay on the one that was dragged.
+    const now = next.cuts.findIndex((c) => c.start_s <= start_s + EPS && c.end_s >= end_s - EPS);
+    setPicked(now >= 0 ? { kind: "cut", index: now } : null);
+  };
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (isTyping(e.target) || e.metaKey || e.ctrlKey || e.altKey) return;
       const cur = state.current;
       if (e.key === "Escape") {
-        if (!cur.selection) return;
-        setSelection(null);
-      } else if (e.key === " ") togglePlay();
+        if (!cur.picked && !cur.selection) return;
+        if (cur.picked) setPicked(null);
+        else setSelection(null);
+      } else if ((e.key === "Delete" || e.key === "Backspace") && cur.picked) deletePicked();
+      else if (e.key === " ") togglePlay();
       else if (e.key === "ArrowLeft") setT(Math.max(0, cur.t - (e.shiftKey ? 10 : 1)));
       else if (e.key === "ArrowRight") setT(Math.min(end, cur.t + (e.shiftKey ? 10 : 1)));
       else if (e.key === "x") cutSelection();
@@ -170,6 +209,10 @@ export function useEditor({ slug, media, sync, edit, onEdit, onError, ready }: A
     togglePlay,
     selection,
     setSelection,
+    picked,
+    pick,
+    changeSegmentEdge,
+    changeCut,
     zoom,
     setZoom,
     pxPerSec,

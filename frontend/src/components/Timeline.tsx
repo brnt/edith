@@ -3,14 +3,17 @@ import { useRef, useState } from "preact/hooks";
 
 import type { EditList, MediaItem, Peaks } from "../lib/api";
 import {
-  channelSpans,
   channelsOf,
   defaultCamera,
   effectiveTracks,
   formatTime,
+  movedSwitches,
+  segments,
   TIMELINE_LABEL_W as LABEL_W,
   type Channel,
+  type Picked,
   type Range,
+  type Segment,
 } from "../lib/timeline";
 import { AUDIO_WAVEFORM, channelStyle } from "../lib/channelStyle";
 import { ChannelChip } from "./ChannelChip";
@@ -38,6 +41,11 @@ interface Props {
   corner?: ComponentChildren;
   /** A cut's edges were dragged: its index and its new start and end. */
   onCutChange?: (index: number, start_s: number, end_s: number) => void;
+  /** A segment or cut is selected (click it): only a selected one can be dragged. */
+  picked: Picked | null;
+  onPick: (picked: Picked | null) => void;
+  /** A selected segment's edge was dragged: the switch that starts the segment on that edge, and its new time. */
+  onSegmentEdge?: (switchIndex: number, at_s: number) => void;
 }
 
 const MIN_CUT_S = 0.1; // a dragged edge cannot squeeze a cut below this
@@ -48,13 +56,17 @@ export function Timeline(props: Props) {
   const px = Math.min(props.pxPerSec, MAX_CANVAS_PX / Math.max(end, 1));
   const total = Math.max(end * px, 1);
   const lanes = useRef<HTMLDivElement>(null);
-  const drag = useRef<{ x: number; t: number; moved: boolean } | null>(null);
+  const drag = useRef<{ x: number; t: number; moved: boolean; target: EventTarget | null } | null>(
+    null,
+  );
   // An edge being dragged: shown live, committed once on release (one undo step).
   const [edgeDrag, setEdgeDrag] = useState<{
     index: number;
     edge: "start" | "end";
     value: number;
   } | null>(null);
+  const [segDrag, setSegDrag] = useState<{ index: number; value: number } | null>(null);
+  const { picked } = props;
 
   const channels = channelsOf(media, edit.disabled);
   // A disabled channel stays on the timeline (the edit may use it), but dimmed.
@@ -82,7 +94,7 @@ export function Timeline(props: Props) {
 
   const down = (e: PointerEvent) => {
     (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
-    drag.current = { x: e.clientX, t: timeAt(e.clientX), moved: false };
+    drag.current = { x: e.clientX, t: timeAt(e.clientX), moved: false, target: e.target };
   };
   const move = (e: PointerEvent) => {
     const d = drag.current;
@@ -97,7 +109,17 @@ export function Timeline(props: Props) {
     const d = drag.current;
     drag.current = null;
     if (d && !d.moved) {
-      props.onSeek(timeAt(e.clientX));
+      // A click on a segment or a cut selects it; anywhere else it moves the playhead.
+      const hit = (d.target as HTMLElement | null)?.closest?.("[data-pick]") as HTMLElement | null;
+      if (hit) {
+        props.onPick({
+          kind: hit.dataset.pick as Picked["kind"],
+          index: Number(hit.dataset.index),
+        });
+      } else {
+        props.onSeek(timeAt(e.clientX));
+        props.onPick(null);
+      }
       props.onSelect(null);
     }
   };
@@ -110,6 +132,73 @@ export function Timeline(props: Props) {
       style={{ left: x(range[0]), width: Math.max(1, x(range[1] - range[0])), top, height }}
     />
   );
+
+  // Segments, with a dragged edge shown live (the neighbour on the other side of it follows).
+  const live = segDrag
+    ? movedSwitches(edit.switches, segDrag.index, segDrag.value, end)
+    : edit.switches;
+  const segs = segments(live, fallback, end);
+  const switchCount = edit.switches.length;
+
+  const segHandle = (switchIndex: number, edge: "start" | "end", at: number) => (
+    <div
+      role="separator"
+      aria-label={`Drag the ${edge} of the segment`}
+      title="Drag to adjust"
+      class={`absolute inset-y-0 z-10 w-2 cursor-ew-resize hover:bg-white/50 ${edge === "start" ? "-left-1" : "-right-1"}`}
+      onPointerDown={(e) => {
+        e.stopPropagation();
+        (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+        setSegDrag({ index: switchIndex, value: at });
+      }}
+      onPointerMove={(e) => {
+        if (segDrag?.index !== switchIndex) return;
+        e.stopPropagation();
+        setSegDrag({ index: switchIndex, value: timeAt(e.clientX) });
+      }}
+      onPointerUp={(e) => {
+        if (segDrag?.index !== switchIndex) return;
+        e.stopPropagation();
+        const at_s = movedSwitches(edit.switches, switchIndex, segDrag.value, end)[switchIndex]
+          .at_s;
+        props.onSegmentEdge?.(switchIndex, at_s);
+        setSegDrag(null);
+      }}
+    />
+  );
+
+  const segmentBox = (seg: Segment, kind: "video" | "image", top: number, height: number) => {
+    const from = Math.max(seg.start, lo);
+    const to = Math.min(seg.end, hi);
+    if (to <= from) return null;
+    const on = picked?.kind === "segment" && picked.index === seg.index;
+    return (
+      <div
+        key={`seg${seg.index}`}
+        data-pick="segment"
+        data-index={seg.index}
+        data-testid="segment"
+        aria-selected={on}
+        title={on ? undefined : "Click to select"}
+        class={`absolute cursor-pointer ${channelStyle(kind).span} ${on ? "ring-2 ring-white" : "hover:brightness-125"}`}
+        style={{ left: x(from), width: Math.max(1, x(to - from)), top, height }}
+      >
+        {on && seg.index >= 0 && seg.start >= lo && segHandle(seg.index, "start", seg.start)}
+        {on &&
+          seg.index + 1 < switchCount &&
+          seg.end <= hi &&
+          segHandle(seg.index + 1, "end", seg.end)}
+        {on && segDrag && (segDrag.index === seg.index || segDrag.index === seg.index + 1) && (
+          <div
+            class="pointer-events-none absolute -top-5 z-20 whitespace-nowrap rounded bg-black/80 px-1 text-[10px] text-white"
+            style={segDrag.index === seg.index ? { left: 0 } : { right: 0 }}
+          >
+            {formatTime(segDrag.index === seg.index ? seg.start : seg.end, 2)}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const ticks: number[] = [];
   for (let t = 0; t <= end; t += step) ticks.push(t);
@@ -222,9 +311,7 @@ export function Timeline(props: Props) {
                 style={{ height: ROW.video }}
               >
                 {band([off, off + (m.duration_s ?? 0)], "bg-neutral-700/60", "avail", 6, "22px")}
-                {channelSpans(edit.switches, m.id, fallback, lo, hi).map((span, i) =>
-                  band(span, channelStyle("video").span, i, 6, "22px"),
-                )}
+                {segs.filter((g) => g.channel === m.id).map((g) => segmentBox(g, "video", 6, 22))}
               </div>
             );
           })}
@@ -233,11 +320,9 @@ export function Timeline(props: Props) {
             <>
               <div class="relative border-t border-neutral-800" style={{ height: ROW.still }}>
                 {!stillsOpen &&
-                  stills.flatMap(({ item: m }) =>
-                    channelSpans(edit.switches, m.id, fallback, lo, hi).map((span, i) =>
-                      band(span, channelStyle("image").span, `${m.id}-${i}`, 4, "20px"),
-                    ),
-                  )}
+                  segs
+                    .filter((g) => stills.some((c) => c.item.id === g.channel))
+                    .map((g) => segmentBox(g, "image", 4, 20))}
               </div>
               {stillsOpen &&
                 stills.map((c) => (
@@ -246,9 +331,9 @@ export function Timeline(props: Props) {
                     class={`relative border-t border-neutral-800 ${dim(c)}`}
                     style={{ height: ROW.still }}
                   >
-                    {channelSpans(edit.switches, c.item.id, fallback, lo, hi).map((span, i) =>
-                      band(span, channelStyle("image").span, i, 4, "20px"),
-                    )}
+                    {segs
+                      .filter((g) => g.channel === c.item.id)
+                      .map((g) => segmentBox(g, "image", 4, 20))}
                   </div>
                 ))}
             </>
@@ -290,6 +375,7 @@ export function Timeline(props: Props) {
           {lo > 0 && band([0, lo], "bg-black/50", "in", ROW.ruler, `${bodyHeight}px`)}
           {hi < end && band([hi, end], "bg-black/50", "out", ROW.ruler, `${bodyHeight}px`)}
           {edit.cuts.map((c, i) => {
+            const on = picked?.kind === "cut" && picked.index === i;
             const live = edgeDrag?.index === i ? edgeDrag : null;
             const start = live?.edge === "start" ? live.value : c.start_s;
             const stop = live?.edge === "end" ? live.value : c.end_s;
@@ -329,7 +415,12 @@ export function Timeline(props: Props) {
             return (
               <div
                 key={`cut${i}`}
-                class="absolute"
+                data-pick="cut"
+                data-index={i}
+                data-testid="cut"
+                aria-selected={on}
+                title={on ? undefined : "Click to select"}
+                class="absolute cursor-pointer"
                 style={{
                   left: x(start),
                   width: Math.max(1, x(stop - start)),
@@ -337,9 +428,11 @@ export function Timeline(props: Props) {
                   height: bodyHeight,
                 }}
               >
-                <div class="pointer-events-none absolute inset-0 bg-red-600/40 ring-1 ring-red-500" />
-                {handle("start")}
-                {handle("end")}
+                <div
+                  class={`pointer-events-none absolute inset-0 bg-red-600/40 ${on ? "ring-2 ring-white" : "ring-1 ring-red-500"}`}
+                />
+                {on && handle("start")}
+                {on && handle("end")}
                 {live && (
                   <div
                     class="pointer-events-none absolute -top-5 z-20 whitespace-nowrap rounded bg-black/80 px-1 text-[10px] text-red-200"

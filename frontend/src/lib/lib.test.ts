@@ -6,6 +6,8 @@ import {
   addMix,
   removeCut,
   setAudioIncluded,
+  deleteSegment,
+  moveSegmentEdge,
   setCamera,
   showOver,
   setCut,
@@ -16,7 +18,8 @@ import * as history from "./history";
 import {
   activeChannel,
   advancePlayhead,
-  channelSpans,
+  movedSwitches,
+  segments,
   channelsOf,
   effectiveTracks,
   firstKeptMoment,
@@ -204,18 +207,36 @@ describe("offsets and frame state", () => {
   });
 });
 
-describe("camera spans", () => {
-  test("spans follow the switches", () => {
+describe("segments", () => {
+  test("segments follow the switches, from the opening default camera to the end", () => {
+    const switches = [
+      { at_s: 30, media_id: "camA" },
+      { at_s: 10, media_id: "camB" },
+    ]; // unordered on purpose
+    expect(segments(switches, "camA", 50)).toEqual([
+      { index: -1, channel: "camA", start: 0, end: 10 },
+      { index: 0, channel: "camB", start: 10, end: 30 },
+      { index: 1, channel: "camA", start: 30, end: 50 },
+    ]);
+  });
+
+  test("no opening segment when a switch is at 0; a null switch is the default camera", () => {
+    expect(segments([{ at_s: 0, media_id: null }], "camA", 20)).toEqual([
+      { index: 0, channel: "camA", start: 0, end: 20 },
+    ]);
+    expect(segments([], "camA", 20)).toEqual([{ index: -1, channel: "camA", start: 0, end: 20 }]);
+  });
+
+  test("a moved switch can't pass its neighbours or leave the timeline", () => {
     const switches = [
       { at_s: 10, media_id: "camB" },
       { at_s: 30, media_id: "camA" },
     ];
-    expect(channelSpans(switches, "camA", "camA", 0, 50)).toEqual([
-      [0, 10],
-      [30, 50],
-    ]);
-    expect(channelSpans(switches, "camB", "camA", 0, 50)).toEqual([[10, 30]]);
-    expect(channelSpans([], "camB", "camA", 0, 50)).toEqual([]);
+    expect(movedSwitches(switches, 0, 20, 50)[0].at_s).toBe(20);
+    expect(movedSwitches(switches, 0, 99, 50)[0].at_s).toBeCloseTo(29.9);
+    expect(movedSwitches(switches, 1, 0, 50)[1].at_s).toBeCloseTo(10.1);
+    expect(movedSwitches(switches, 0, -5, 50)[0].at_s).toBe(0);
+    expect(movedSwitches(switches, 1, 99, 50)[1].at_s).toBe(50);
   });
 });
 
@@ -326,7 +347,11 @@ describe("channels: cameras and stills", () => {
     });
     expect(activeChannel(e.switches, 25, "camA")).toBe("car");
     expect(activeChannel(e.switches, 35, "camA")).toBe("camA");
-    expect(channelSpans(e.switches, "car", "camA", 0, 60)).toEqual([[20, 30]]);
+    expect(segments(e.switches, "camA", 60).map((x) => [x.channel, x.start, x.end])).toEqual([
+      ["camA", 0, 20],
+      ["car", 20, 30],
+      ["camA", 30, 60],
+    ]);
   });
 
   test("a null switch means the default camera", () => {
@@ -367,6 +392,42 @@ describe("showOver", () => {
     expect(showOver(edit(), "camA", "camB", 10, 14).switches).toEqual([
       { at_s: 10, media_id: "camB" },
       { at_s: 14, media_id: "camA" },
+    ]);
+  });
+});
+
+describe("segment operations", () => {
+  const two = edit({
+    switches: [
+      { at_s: 10, media_id: "camB" },
+      { at_s: 30, media_id: "camA" },
+    ],
+  });
+
+  test("deleting a segment lets the one before it carry on", () => {
+    // camB's segment goes; camA (the opening default) continues, and the camA switch at 30 merges in.
+    expect(deleteSegment(two, 0).switches).toEqual([{ at_s: 30, media_id: "camA" }]);
+    expect(deleteSegment(two, 1).switches).toEqual([{ at_s: 10, media_id: "camB" }]);
+    expect(deleteSegment(two, -1)).toBe(two); // the opening stretch has no switch to delete
+  });
+
+  test("deleting between two segments of one channel merges them", () => {
+    const e = edit({
+      switches: [
+        { at_s: 5, media_id: "camB" },
+        { at_s: 10, media_id: "car" },
+        { at_s: 20, media_id: "camB" },
+      ],
+    });
+    expect(deleteSegment(e, 1).switches).toEqual([{ at_s: 5, media_id: "camB" }]);
+  });
+
+  test("moving an edge changes both neighbours: one grows, one shrinks", () => {
+    const moved = moveSegmentEdge(two, 1, 25, 50);
+    expect(segments(moved.switches, "camA", 50).map((x) => [x.channel, x.start, x.end])).toEqual([
+      ["camA", 0, 10],
+      ["camB", 10, 25],
+      ["camA", 25, 50],
     ]);
   });
 });

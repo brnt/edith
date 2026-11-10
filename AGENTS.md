@@ -75,6 +75,11 @@ Root `justfile` delegates to both; Compose runs `api` (:8000) and `web` (:8080).
   plain `<img>` tiles. Every channel keeps a fixed slot (cameras by number, then stills); the
   active one is the same tile, dimmed with an "on screen" overlay and inert (`TileShell`), so the grid never reorders.
   Painting a live copy costs ~0.01 ms/frame, measured.
+- **Timeline selection (`picked`) is separate from the range selection.** Segments come from
+  `segments()` in `lib/timeline.ts` (index = the switch that starts it, in time order; -1 = the
+  opening stretch with no switch). Edge drags and deletes are switch edits (`moveSegmentEdge`,
+  `deleteSegment`); handles show only on the picked item. Click targets carry `data-pick`/`data-index`,
+  read at pointer-up (the lanes hold pointer capture, so `e.target` there is the lanes).
 - **Clicking a tile or pressing a number while a range is selected is a cutaway** (`showOver` in
   `lib/editOps.ts`, via `cutTo` in `useEditor`): the channel is shown over the range, then the edit
   returns to what was showing at its end, and the selection clears. No selection: switch at the playhead.
