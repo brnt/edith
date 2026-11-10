@@ -486,11 +486,10 @@ export function Timeline(props: Props) {
                 />
                 {on && handle("start")}
                 {on && handle("end")}
-                {/* The cut spans every row, so the grips sit level with the first one. */}
                 {on && x(stop - start) >= MIN_GRIP_PX && (
                   <>
-                    <Grip edge="start" height={ROW.video} />
-                    <Grip edge="end" height={ROW.video} />
+                    <Grip edge="start" />
+                    <Grip edge="end" />
                   </>
                 )}
                 {live && (
@@ -530,12 +529,12 @@ export function Timeline(props: Props) {
  * ellipsis turned on its side), a few pixels in from the edge. They say the edge, not the whole
  * block, can be dragged. The glyph has padding, hence the small negative offset.
  */
-function Grip({ edge, height }: { edge: "start" | "end"; height?: number }) {
+function Grip({ edge }: { edge: "start" | "end" }) {
   return (
     <span
       data-grip={edge}
-      class={`pointer-events-none absolute top-0 flex items-center text-xs text-white/60 ${edge === "start" ? "-left-[0.03em]" : "-right-[0.03em]"}`}
-      style={{ height: height ?? "100%" }}
+      class={`pointer-events-none absolute top-0 flex items-center text-xs text-white/60 ${edge === "start" ? "-left-[0.113em]" : "-right-[0.113em]"}`}
+      style={{ height: "100%" }}
     >
       {/* The stroke thickens the dots: that is what makes them bold. */}
       <Icon icon={Ellipsis} class="rotate-90 [&_path]:stroke-current [&_path]:stroke-[60]" />
