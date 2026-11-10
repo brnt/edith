@@ -483,73 +483,78 @@ function MediaCard({
           new
         </span>
       )}
-      <div class="absolute right-1 top-1 flex gap-1">
-        <button
-          type="button"
-          class={iconButton}
-          aria-label={`Details for ${m.label}`}
-          title="Details"
-          onClick={(e) => onDetails((e.currentTarget as HTMLElement).getBoundingClientRect())}
-        >
-          <Icon icon={InfoCircle} />
-        </button>
-        <label class={`${iconButton} cursor-pointer`} title={title}>
-          <input
-            type="checkbox"
-            class="h-3.5 w-3.5 cursor-pointer accent-sky-400"
-            aria-label={label}
-            checked={on}
-            onChange={toggle}
-          />
-        </label>
-      </div>
-      <div class="absolute bottom-[1.2rem] right-1 flex items-center gap-1">
-        {showsAudioToggle && (
-          <label
-            class={`${iconButton} cursor-pointer ${trackIncluded(edit, media, m.id) ? "text-sky-300" : "text-neutral-300"}`}
-            title="Use this camera's own audio in the output (normally discarded)"
-          >
-            <input
-              type="checkbox"
-              class="sr-only"
-              aria-label={`Use audio from ${m.label}`}
-              checked={trackIncluded(edit, media, m.id)}
-              onChange={(e) => onEdit(setAudioIncluded(edit, media, m.id, e.currentTarget.checked))}
-            />
-            {trackIncluded(edit, media, m.id) ? <Icon icon={Sound} /> : <SoundOff />}
-          </label>
-        )}
-        {syncable && (
-          <span
-            role="img"
-            aria-label={`Sync: ${sync.label}`}
-            title={`Sync: ${sync.label}${syncResult?.score ? ` (match ${syncResult.score.toFixed(2)})` : ""}`}
-            class={`${iconButton} ${sync.tone}`}
-          >
-            <Icon icon={sync.icon} />
-          </span>
-        )}
-        {notes.length > 0 && (
+      {/* Both rows of chips in one column, so the space between rows equals the space between chips. */}
+      <div class="absolute right-1 top-1 flex flex-col items-end gap-1">
+        <div class="flex gap-1">
           <button
             type="button"
-            class={`${iconButton} text-amber-300`}
-            aria-label={notes.join(". ")}
-            title={`${notes.join("\n")}\nClick for the details`}
+            class={iconButton}
+            aria-label={`Details for ${m.label}`}
+            title="Details"
             onClick={(e) => onDetails((e.currentTarget as HTMLElement).getBoundingClientRect())}
           >
-            <Icon icon={Warning} />
+            <Icon icon={InfoCircle} />
           </button>
-        )}
-        {m.proxy_building && (
-          <span class={`${iconButton} text-sky-300`} title="Preparing the preview…">
-            <Icon icon={Loading} class="animate-spin" />
-          </span>
-        )}
-        {!m.proxy_building && !m.proxy_ready && !m.missing && m.kind !== "image" && (
-          <span class={`${iconButton} text-amber-400`} title="The preview couldn't be made">
-            <Icon icon={Thunderbolt} />
-          </span>
-        )}
+          <label class={`${iconButton} cursor-pointer`} title={title}>
+            <input
+              type="checkbox"
+              class="h-3.5 w-3.5 cursor-pointer accent-sky-400"
+              aria-label={label}
+              checked={on}
+              onChange={toggle}
+            />
+          </label>
+        </div>
+        <div class="flex items-center gap-1">
+          {showsAudioToggle && (
+            <label
+              class={`${iconButton} cursor-pointer ${trackIncluded(edit, media, m.id) ? "text-sky-300" : "text-neutral-300"}`}
+              title="Use this camera's own audio in the output (normally discarded)"
+            >
+              <input
+                type="checkbox"
+                class="sr-only"
+                aria-label={`Use audio from ${m.label}`}
+                checked={trackIncluded(edit, media, m.id)}
+                onChange={(e) =>
+                  onEdit(setAudioIncluded(edit, media, m.id, e.currentTarget.checked))
+                }
+              />
+              {trackIncluded(edit, media, m.id) ? <Icon icon={Sound} /> : <SoundOff />}
+            </label>
+          )}
+          {syncable && (
+            <span
+              role="img"
+              aria-label={`Sync: ${sync.label}`}
+              title={`Sync: ${sync.label}${syncResult?.score ? ` (match ${syncResult.score.toFixed(2)})` : ""}`}
+              class={`${iconButton} ${sync.tone}`}
+            >
+              <Icon icon={sync.icon} />
+            </span>
+          )}
+          {notes.length > 0 && (
+            <button
+              type="button"
+              class={`${iconButton} text-amber-300`}
+              aria-label={notes.join(". ")}
+              title={`${notes.join("\n")}\nClick for the details`}
+              onClick={(e) => onDetails((e.currentTarget as HTMLElement).getBoundingClientRect())}
+            >
+              <Icon icon={Warning} />
+            </button>
+          )}
+          {m.proxy_building && (
+            <span class={`${iconButton} text-sky-300`} title="Preparing the preview…">
+              <Icon icon={Loading} class="animate-spin" />
+            </span>
+          )}
+          {!m.proxy_building && !m.proxy_ready && !m.missing && m.kind !== "image" && (
+            <span class={`${iconButton} text-amber-400`} title="The preview couldn't be made">
+              <Icon icon={Thunderbolt} />
+            </span>
+          )}
+        </div>
       </div>
       <span
         class={`absolute bottom-0 left-0 inline-flex items-center gap-1 rounded-tr px-1.5 text-[11px] leading-4 text-neutral-100 ${kind.tint} max-w-[calc(100%-0.25rem)]`}
