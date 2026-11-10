@@ -15,6 +15,7 @@ const cam = (id: string, has_audio = false): MediaItem => ({
   fps: 30,
   has_audio,
   proxy_ready: true,
+  proxy_building: false,
   included: true,
   missing: false,
   folder: "",
@@ -105,4 +106,22 @@ test("a comparison shows two videos side by side, before on the left, each at it
   // b starts 2 s into the timeline, so its first frame at 10 s is 8 s into the file.
   expect(elements.current.a?.currentTime).toBeCloseTo(9.97);
   expect(elements.current.b?.currentTime).toBeCloseTo(8);
+});
+
+test("a still shows in the viewer even though its proxy hasn't been built (it is made on demand)", () => {
+  const car = { ...cam("car"), kind: "image" as const, has_audio: false, proxy_ready: false };
+  const { container } = render(
+    <Player
+      slug="s"
+      media={[cam("a"), car]}
+      offsets={{ a: 0 }}
+      edit={edit({ switches: [{ at_s: 0, media_id: "car" }] })}
+      t={5}
+      playing={false}
+      elements={{ current: {} }}
+    />,
+  );
+  const picture = container.querySelector("img");
+  expect(picture).not.toBeNull();
+  expect(picture!.getAttribute("src")).toContain("/media/car/proxy");
 });

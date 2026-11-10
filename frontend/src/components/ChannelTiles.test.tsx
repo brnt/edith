@@ -16,6 +16,7 @@ const cam = (id: string, label: string, proxy_ready = true): MediaItem => ({
   fps: 30,
   has_audio: true,
   proxy_ready,
+  proxy_building: false,
   included: true,
   missing: false,
   folder: "",

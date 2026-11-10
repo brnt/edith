@@ -10,6 +10,7 @@ _UNPROCESSABLE = 422
 _STATUS: dict[type[errors.EdithError], int] = {
     errors.ProjectNotFound: status.HTTP_404_NOT_FOUND,
     errors.ProjectExists: status.HTTP_409_CONFLICT,
+    errors.AmbiguousProject: status.HTTP_409_CONFLICT,
     errors.InvalidProjectName: _UNPROCESSABLE,
     errors.NotAProjectFile: _UNPROCESSABLE,
     errors.UnsupportedVersion: _UNPROCESSABLE,

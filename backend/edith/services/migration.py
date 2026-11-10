@@ -137,7 +137,7 @@ def import_legacy_library(library: Path, state_dir: Path) -> list[Converted]:
         try:
             if _is_legacy(project_file):
                 converted.append(convert_project(library, folder.name))
-            recents.add_if_missing(state_dir, folder.resolve(), _name_of(project_file))
+            recents.add_if_missing(state_dir, project_file.resolve(), _name_of(project_file))
         except Exception:  # one project failing must not stop the others, or the server
             log.exception("project_conversion_failed", folder=folder.name)
     return converted

@@ -10,7 +10,7 @@ class ProjectCreate(BaseModel):
 
 
 class ProjectOpen(BaseModel):
-    folder: str  # absolute path of a folder that holds a project
+    path: str  # absolute path of a .edith file, or of a folder that holds exactly one
 
 
 class ProjectRead(BaseModel):
@@ -18,6 +18,7 @@ class ProjectRead(BaseModel):
 
     slug: str
     name: str
+    file: str
     folder: str
     created_at: datetime | None
     needs_upgrade: bool
@@ -46,6 +47,7 @@ class MediaRead(BaseModel):
     fps: float | None
     has_audio: bool
     proxy_ready: bool
+    proxy_building: bool = False  # its preview is queued or being made
     included: bool = True
     missing: bool = False
     folder: str = ""
@@ -57,7 +59,15 @@ class FolderEntryRead(BaseModel):
 
     name: str
     path: str
+    edith_files: int
     is_project: bool
+
+
+class FileEntryRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    name: str
+    path: str
 
 
 class FolderListingRead(BaseModel):
@@ -66,6 +76,7 @@ class FolderListingRead(BaseModel):
     dir: str
     parent: str | None
     entries: list[FolderEntryRead]
+    files: list[FileEntryRead]
     is_project: bool
 
 

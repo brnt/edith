@@ -137,14 +137,6 @@ def test_details_describe_the_streams(client: TestClient, project_dir: Path, pro
     assert d["size_bytes"] > 0 and d["container"]
 
 
-def test_proxies_are_only_built_for_included_media(
-    client: TestClient, project_dir: Path, project: str
-):
-    _age(write_video(project_dir / "cam.mp4"))
-    started = client.post(f"/projects/{project}/proxies")
-    assert started.status_code == 202  # nothing included: nothing to build, and no error
-
-
 def test_relinking_a_missing_file_carries_every_reference_to_the_new_one(
     client: TestClient, project_dir: Path, project: str
 ):

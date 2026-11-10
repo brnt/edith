@@ -5,7 +5,9 @@ const TOKEN = import.meta.env.VITE_API_TOKEN ?? "dev-token";
 export interface Project {
   slug: string;
   name: string;
-  /** The project's folder: absolute path. Media are named relative to it. */
+  /** The project file (`.edith`): absolute path. */
+  file: string;
+  /** The folder it is in: absolute path. Media are named relative to it. */
   folder: string;
   created_at: string | null;
   needs_upgrade: boolean;
@@ -27,6 +29,8 @@ export interface MediaItem {
   fps: number | null;
   has_audio: boolean;
   proxy_ready: boolean;
+  /** Its preview is queued or being made (done in the background as media is detected). */
+  proxy_building: boolean;
   /** False: found in the project folder but not part of the project until included (an edit). */
   included: boolean;
   /** The file is no longer where the project says it is (moved, deleted, drive unplugged). */
@@ -161,14 +165,20 @@ export interface FolderEntry {
   name: string;
   /** Absolute. */
   path: string;
-  /** It holds a project already. */
+  /** How many projects (`.edith` files) it holds. */
+  edith_files: number;
   is_project: boolean;
+}
+export interface FileEntry {
+  name: string;
+  path: string;
 }
 export interface FolderListing {
   dir: string;
   parent: string | null;
   entries: FolderEntry[];
-  /** The listed folder itself holds a project. */
+  /** The `.edith` project files in the listed folder. */
+  files: FileEntry[];
   is_project: boolean;
 }
 export interface Place {
@@ -212,8 +222,9 @@ const p = (slug: string) => `/projects/${encodeURIComponent(slug)}`;
 export const fetchProjects = () => request<Project[]>("/projects");
 export const createProject = (name: string, folder: string) =>
   request<Project>("/projects", json("POST", { name, folder }));
-export const openProject = (folder: string) =>
-  request<Project>("/projects/open", json("POST", { folder }));
+/** Open a project: a `.edith` file, or a folder that has exactly one. */
+export const openProject = (path: string) =>
+  request<Project>("/projects/open", json("POST", { path }));
 /** Note that a project was just opened (it goes to the top of the recent list). */
 export const touchProject = (slug: string) => request<void>(`${p(slug)}/opened`, json("POST"));
 export const forgetProject = (slug: string) => request<void>(`${p(slug)}/recent`, json("DELETE"));
@@ -225,7 +236,6 @@ export const fetchMedia = (slug: string) => request<MediaItem[]>(`${p(slug)}/med
 /** Make a file of the project folder part of the project (the edit that writes it). */
 export const includeMedia = (slug: string, path: string) =>
   request<MediaItem>(`${p(slug)}/media`, json("POST", { path }));
-export const startProxies = (slug: string) => request<Job>(`${p(slug)}/proxies`, json("POST"));
 export const relinkMedia = (slug: string, id: string, path: string) =>
   request<MediaItem>(`${p(slug)}/media/${id}/relink`, json("POST", { path }));
 

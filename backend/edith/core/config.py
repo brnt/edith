@@ -15,6 +15,8 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     log_format: str = "json"  # "json" (default) | "console" (local eyeballing)
     api_token: str = "dev-token"
+    # Prepare previews (proxies) in the background as soon as media is detected.
+    auto_proxies: bool = True
     # Edith's own small bits of state (the recent-projects list). Projects are self-contained
     # folders anywhere on disk and keep everything else in the folder, so this holds nothing else.
     state_dir: Path = Field(default_factory=lambda: Path.home() / ".edith")

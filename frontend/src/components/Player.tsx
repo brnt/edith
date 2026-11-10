@@ -145,7 +145,7 @@ export function Player({ slug, media, offsets, edit, t, playing, compare, elemen
           />
         ),
       )}
-      {still && still.proxy_ready && (
+      {still && (
         <img
           src={proxyUrl(slug, still.id)}
           alt={still.label}

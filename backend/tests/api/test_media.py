@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 from fastapi.testclient import TestClient
 
-from edith.services.jobs import jobs
+from edith.services import autoproxy, media_items
 from tests.conftest import needs_ffmpeg, settled, write_image, write_video, write_wav
 
 pytestmark = needs_ffmpeg
@@ -58,18 +58,16 @@ def test_adding_media_requires_the_token(client: TestClient, project_dir, projec
     assert denied.status_code == 401
 
 
-def test_proxies_build_in_a_job_and_are_served(client: TestClient, project_dir, project):
-    write_video(project_dir / "cam.mp4")
-    write_wav(project_dir / "mic.wav", np.zeros(44_100))
-    write_image(project_dir / "car.png", "1920x1080")
-    for name in ("cam.mp4", "mic.wav", "car.png"):
-        client.post(f"/projects/{project}/media", json={"path": name})
+def test_proxies_are_built_for_detected_media_and_served(client: TestClient, project_dir, project):
+    settled(write_video(project_dir / "cam.mp4"))
+    settled(write_wav(project_dir / "mic.wav", np.zeros(44_100)))
+    settled(write_image(project_dir / "car.png", "1920x1080"))
+    client.post(
+        f"/projects/{project}/media", json={"path": "cam.mp4"}
+    )  # one included, two just found
+    assert not any(m["proxy_ready"] for m in client.get(f"/projects/{project}/media").json())
 
-    job = client.post(f"/projects/{project}/proxies").json()
-    assert job["state"] in ("running", "done")
-    done = jobs.wait(job["id"])
-    assert done.state == "done", done.error
-
+    assert autoproxy.build_pending(project) == 3  # all of them: nobody has to ask
     media = client.get(f"/projects/{project}/media").json()
     assert all(m["proxy_ready"] for m in media)
     video = next(m for m in media if m["kind"] == "video")
@@ -80,10 +78,45 @@ def test_proxies_build_in_a_job_and_are_served(client: TestClient, project_dir, 
         f"/projects/{project}/media/{video['id']}/proxy", headers={"Range": "bytes=0-99"}
     )
     assert ranged.status_code == 206 and len(ranged.content) == 100
-    # Only missing proxies are rebuilt.
-    again = jobs.wait(client.post(f"/projects/{project}/proxies").json()["id"])
-    assert again.result == {"built": 0}
+    assert autoproxy.build_pending(project) == 0  # only what is missing is ever built
     assert client.get("/jobs/nope").status_code == 404
+
+
+def test_the_media_list_starts_the_builder_and_says_what_is_waiting(
+    client: TestClient, project_dir, project, monkeypatch
+):
+    from edith.core.config import get_settings
+
+    monkeypatch.setenv("AUTO_PROXIES", "true")
+    get_settings.cache_clear()
+    started: list[object] = []
+    monkeypatch.setattr(autoproxy, "_spawn", started.append)  # record, don't run a thread
+    settled(write_video(project_dir / "cam.mp4"))
+    listed = client.get(f"/projects/{project}/media").json()
+    assert [m["proxy_building"] for m in listed] == [True] and len(started) == 1
+    client.get(f"/projects/{project}/media")  # a worker is already queued for this folder
+    assert len(started) == 1
+    started[0]()  # the worker runs...
+    after = client.get(f"/projects/{project}/media").json()
+    assert after[0]["proxy_ready"] is True and after[0]["proxy_building"] is False
+
+
+def test_the_project_own_media_is_made_first_and_a_broken_file_is_skipped(
+    client: TestClient, project_dir, project
+):
+    settled(write_video(project_dir / "a-found.mp4"))
+    settled(write_video(project_dir / "z-included.mp4"))
+    (project_dir / "broken.mp4").write_bytes(b"not a video")
+    settled(project_dir / "broken.mp4")
+    client.post(f"/projects/{project}/media", json={"path": "z-included.mp4"})
+    records = media_items.list_media(project, with_available=True)
+    order = [r.item.label for r in autoproxy.needed(str(project_dir), records)]
+    assert order[0] == "z-included.mp4"  # included first, then what was just found
+    assert autoproxy.build_pending(project) == 2  # the broken file is skipped, not retried
+    assert (
+        autoproxy.needed(str(project_dir), media_items.list_media(project, with_available=True))
+        == []
+    )
 
 
 def test_peaks_reflect_loudness_and_are_cached(client: TestClient, project_dir, project):
@@ -133,3 +166,21 @@ def test_missing_media_is_a_404_that_names_the_file(client: TestClient, project_
         project_dir / "unplugged-drive"
     )  # a link whose target is gone
     assert client.get(peaks).json()["message"] == "Can't read media/mic.wav"
+
+
+def test_a_still_gets_its_proxy_the_first_time_it_is_wanted_but_a_video_does_not(
+    client: TestClient, project_dir, project
+):
+    settled(write_image(project_dir / "car.png"))
+    settled(write_video(project_dir / "cam.mp4"))
+    ids = {}
+    for name in ("car.png", "cam.mp4"):
+        ids[name] = client.post(f"/projects/{project}/media", json={"path": name}).json()["id"]
+    listed = {m["label"]: m for m in client.get(f"/projects/{project}/media").json()}
+    assert listed["car.png"]["proxy_ready"] is False  # nobody pressed Build proxies
+
+    served = client.get(f"/projects/{project}/media/{ids['car.png']}/proxy")
+    assert served.status_code == 200 and served.headers["content-type"] == "image/jpeg"
+    assert (project_dir / ".edith" / "proxy" / f"{ids['car.png']}.jpg").is_file()
+    # A video proxy takes real work, so it still waits for Build proxies.
+    assert client.get(f"/projects/{project}/media/{ids['cam.mp4']}/proxy").status_code == 404

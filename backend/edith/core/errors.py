@@ -18,6 +18,10 @@ class NotAProjectFile(EdithError):
     """The file is not an Edith project (not SQLite, or missing the format marker)."""
 
 
+class AmbiguousProject(EdithError):
+    """A folder has more than one .edith file, so it is not clear which project is meant."""
+
+
 class UnsupportedVersion(EdithError):
     """The file or a document in it was written by a newer Edith than this one."""
 

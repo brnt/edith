@@ -31,7 +31,7 @@ def install(workspace: Path, fixture: str) -> tuple[Path, str]:
                 (doc["kind"], doc["id"], doc["schema_version"], json.dumps(doc["body"])),
             )
     conn.close()
-    return folder / "project.edith", slug_for(folder)
+    return folder / "project.edith", slug_for(folder / "project.edith")
 
 
 def fingerprint(path: Path) -> tuple[str, int]:

@@ -21,6 +21,7 @@ def workspace(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     for name in ("LIBRARY_DIR", "LEGACY_LIBRARY_DIR"):
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setenv("STATE_DIR", str(tmp_path / "state"))
+    monkeypatch.setenv("AUTO_PROXIES", "false")  # tests ask for proxies explicitly, not in a thread
     get_settings.cache_clear()
     work = tmp_path / "work"
     work.mkdir()

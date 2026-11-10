@@ -6,6 +6,7 @@ import { App } from "./app";
 const existing = {
   slug: "pilot",
   name: "Pilot",
+  file: "/Volumes/SSD/pilot/project.edith",
   folder: "/Volumes/SSD/pilot",
   created_at: "2026-01-01T00:00:00Z",
   needs_upgrade: true,
@@ -16,32 +17,48 @@ const unplugged = {
   ...existing,
   slug: "gone",
   name: "On a drive",
+  file: "/Volumes/Away/show/Cut B.edith",
   folder: "/Volumes/Away/show",
   created_at: null,
   needs_upgrade: false,
   available: false,
 };
 
+const entry = (name: string, edith_files = 0) => ({
+  name,
+  path: `/Volumes/SSD/${name}`,
+  edith_files,
+  is_project: edith_files > 0,
+});
+const file = (dir: string, name: string) => ({ name, path: `${dir}/${name}` });
+
 const folders: Record<string, unknown> = {
   "/Volumes/SSD": {
     dir: "/Volumes/SSD",
     parent: "/Volumes",
     is_project: false,
-    entries: [
-      { name: "media", path: "/Volumes/SSD/media", is_project: false },
-      { name: "pilot", path: "/Volumes/SSD/pilot", is_project: true },
-    ],
+    files: [],
+    entries: [entry("media"), entry("pilot", 1), entry("twin", 2)],
   },
   "/Volumes/SSD/pilot": {
     dir: "/Volumes/SSD/pilot",
     parent: "/Volumes/SSD",
     is_project: true,
+    files: [file("/Volumes/SSD/pilot", "project.edith")],
+    entries: [],
+  },
+  "/Volumes/SSD/twin": {
+    dir: "/Volumes/SSD/twin",
+    parent: "/Volumes/SSD",
+    is_project: true,
+    files: [file("/Volumes/SSD/twin", "Cut A.edith"), file("/Volumes/SSD/twin", "Cut B.edith")],
     entries: [],
   },
   "/Volumes/SSD/media": {
     dir: "/Volumes/SSD/media",
     parent: "/Volumes/SSD",
     is_project: false,
+    files: [],
     entries: [],
   },
 };
@@ -138,7 +155,7 @@ test("or in the folder you have browsed into, with a name and a new sub-folder i
   expect(posts()[0][1]).toEqual({ name: "Ep 1", folder: "/Volumes/SSD/media/Episode 1" });
 });
 
-test("a folder that already has a project can't be used for a new one", async () => {
+test("a new project can go in a folder that already has one: it is saved beside it", async () => {
   render(<App />);
   await screen.findByText("Pilot");
   fireEvent.click(screen.getByRole("button", { name: /New project/ }));
@@ -146,10 +163,10 @@ test("a folder that already has a project can't be used for a new one", async ()
   fireEvent.click(within(dialog).getByRole("button", { name: "SSD" }));
   fireEvent.click(await within(dialog).findByRole("button", { name: "pilot .edith" }));
   expect(within(dialog).getByTestId("folder-hint")).toHaveTextContent("already has a project");
-  expect(within(dialog).getByRole("button", { name: "Create project here" })).toBeDisabled();
+  expect(within(dialog).getByRole("button", { name: "Create project here" })).toBeEnabled();
 });
 
-test("opening a project: select a folder with a .edith file in it, then Open", async () => {
+test("opening a project: select a folder that has one .edith file, then Open", async () => {
   render(<App />);
   await screen.findByText("Pilot");
   fireEvent.click(screen.getByRole("button", { name: /Open project/ }));
@@ -165,7 +182,7 @@ test("opening a project: select a folder with a .edith file in it, then Open", a
   );
   expect(open).toBeDisabled();
 
-  // Selecting the one that has a project is all it takes: no need to go inside it.
+  // The one with a project is all it takes: no need to go inside it.
   fireEvent.click(within(dialog).getByRole("button", { name: "pilot .edith" }));
   expect(within(dialog).getByTestId("folder-hint")).toHaveTextContent(
     "Open the project in “pilot”",
@@ -173,7 +190,28 @@ test("opening a project: select a folder with a .edith file in it, then Open", a
   await waitFor(() => expect(open).not.toBeDisabled());
   fireEvent.click(open);
   await waitFor(() => expect(window.location.hash).toBe("#/p/pilot"));
-  expect(posts()).toEqual([["/projects/open", { folder: "/Volumes/SSD/pilot" }]]);
+  expect(posts()).toEqual([["/projects/open", { path: "/Volumes/SSD/pilot" }]]);
+});
+
+test("a folder with several projects asks you to choose one; naming the file settles it", async () => {
+  render(<App />);
+  await screen.findByText("Pilot");
+  fireEvent.click(screen.getByRole("button", { name: /Open project/ }));
+  const dialog = await screen.findByRole("dialog");
+  fireEvent.click(within(dialog).getByRole("button", { name: "SSD" }));
+  const open = within(dialog).getByRole("button", { name: "Open this project" });
+
+  fireEvent.click(await within(dialog).findByRole("button", { name: "twin .edith" }));
+  expect(within(dialog).getByTestId("folder-hint")).toHaveTextContent("has 2 projects");
+  expect(open).toBeDisabled(); // which one? not clear from the folder alone
+
+  fireEvent.click(within(dialog).getByRole("button", { name: "Go inside twin" }));
+  fireEvent.click(await within(dialog).findByRole("button", { name: "Cut B.edith" })); // a file
+  expect(within(dialog).getByTestId("folder-hint")).toHaveTextContent("Open “Cut B.edith”");
+  await waitFor(() => expect(open).not.toBeDisabled());
+  fireEvent.click(open);
+  await waitFor(() => expect(posts()).toHaveLength(1));
+  expect(posts()).toEqual([["/projects/open", { path: "/Volumes/SSD/twin/Cut B.edith" }]]);
 });
 
 test("double-clicking a folder goes inside it, and so does its arrow", async () => {
@@ -186,7 +224,7 @@ test("double-clicking a folder goes inside it, and so does its arrow", async () 
   await waitFor(() =>
     expect(within(dialog).getByTestId("folder-path")).toHaveTextContent("/Volumes/SSD/media"),
   );
-  // Inside a folder with a project, with nothing selected, Open acts on that folder.
+  // Inside a folder with one project, with nothing selected, Open acts on that folder.
   fireEvent.click(within(dialog).getByRole("button", { name: "up" }));
   fireEvent.click(await within(dialog).findByRole("button", { name: "Go inside pilot" }));
   await waitFor(() =>

@@ -47,10 +47,10 @@ Root `justfile` delegates to both; Compose runs `api` (:8000) and `web` (:8080).
   use a throwaway SQLite file under `tmp_path`).
 
 **Rules specific to this project:**
-- **A project is a self-contained folder anywhere on disk** ([0004](docs/adr/0004-projects-are-self-contained-folders.md)):
-  media, its `.edith` file (`project.edith`; `projects.project_file_in` accepts the one `*.edith` in a folder), `renders/`, hidden `.edith/` cache. There is **no library root and nothing is
-  scanned**: a project's id (slug) is its absolute folder path (base64url); `services/recents.py`
-  keeps the recent list in `STATE_DIR` (absolute paths); projects are created or opened by folder.
+- **A project is a `.edith` file in a self-contained folder anywhere on disk** ([0004](docs/adr/0004-projects-are-self-contained-folders.md)):
+  media, its `.edith` file(s), `renders/`, hidden `.edith/` cache (shared by several projects in one folder). There is **no library root and nothing is
+  scanned**: a project's id (slug) is its `.edith` file's absolute path (base64url; its folder is the parent); `services/recents.py`
+  keeps the recent list in `STATE_DIR` (absolute paths); projects are created in a folder or opened by file (or a folder with exactly one).
   **Media paths in documents are relative to the project folder** and validated (no `..`, no
   absolute), so the folder can be moved or copied whole. Media is never modified or copied; the app
   writes only `project.edith`, `.edith/`, and `renders/`. There is no add/remove media action: the
@@ -124,6 +124,10 @@ Root `justfile` delegates to both; Compose runs `api` (:8000) and `web` (:8080).
   so `SoundOff` composes `Sound` + `Stop`. Status uses icons, not text pills (`SyncStatus`); keep the
   words as `sr-only` text. Stills are described by their real image format, not ffprobe's container
   (an AVIF's container reads "QuickTime"), and a wrong extension is flagged.
+- **Proxies are automatic** (`services/autoproxy.py`): `GET /media` (polled) starts one background builder
+  per media folder for anything without a proxy, the project's own media first; `proxy_building`
+  drives the card spinner. A still's proxy is also built on first request. Tests set
+  `AUTO_PROXIES=false` and call `build_pending` instead of racing a thread.
 - **Clicking a tile or pressing a number while a range is selected is a cutaway** (`showOver` in
   `lib/editOps.ts`, via `cutTo` in `useEditor`): the channel is shown over the range, then the edit
   returns to what was showing at its end, and the selection clears. No selection: switch at the playhead.

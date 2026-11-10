@@ -55,6 +55,7 @@ const item = (id: string, kind: MediaItem["kind"], duration = 100): MediaItem =>
   fps: null,
   has_audio: kind !== "image",
   proxy_ready: true,
+  proxy_building: false,
   included: true,
   missing: false,
   folder: "",

@@ -3,13 +3,14 @@ import { useEffect, useState } from "preact/hooks";
 import {
   fetchPlaces,
   listFolders,
+  type FileEntry,
   type FolderEntry,
   type FolderListing,
   type Place,
 } from "../lib/api";
 import { Button } from "./ui";
 import { Icon } from "./Icon";
-import { ArrowUp, CaretRight, Check, Close, Folder } from "./icons";
+import { ArrowUp, CaretRight, Check, Close, File, Folder } from "./icons";
 
 const basename = (path: string) => path.replace(/\/+$/, "").split("/").pop() || path;
 
@@ -37,7 +38,8 @@ export function FolderBrowser({
   const [dir, setDir] = useState("");
   const [listing, setListing] = useState<FolderListing | null>(null);
   const [places, setPlaces] = useState<Place[]>([]);
-  const [selected, setSelected] = useState<FolderEntry | null>(null);
+  // What is selected: a folder, or (when opening) a project file. Nothing selected = this folder.
+  const [selected, setSelected] = useState<FolderEntry | FileEntry | null>(null);
   const [newName, setNewName] = useState("");
   const [error, setError] = useState<string | null>(null);
 
@@ -59,19 +61,40 @@ export function FolderBrowser({
     setDir(path);
   };
 
-  // The folder the button acts on: the one you selected, else the one you are looking inside.
-  const target = selected
-    ? { path: selected.path, name: selected.name, isProject: selected.is_project }
+  const selectedFolder = selected && "edith_files" in selected ? selected : null;
+  const selectedFile = selected && !("edith_files" in selected) ? selected : null;
+  const folderTarget: { path: string; name: string; projects: number } = selectedFolder
+    ? { path: selectedFolder.path, name: selectedFolder.name, projects: selectedFolder.edith_files }
     : {
         path: listing?.dir ?? "",
         name: basename(listing?.dir ?? ""),
-        isProject: !!listing?.is_project,
+        projects: listing?.files.length ?? 0,
       };
+  // Open: a selected project file, else a folder that has exactly one. New: any folder (a second
+  // project in a folder with one is fine; it is saved beside it).
+  const openPath = selectedFile
+    ? selectedFile.path
+    : folderTarget.projects === 1
+      ? folderTarget.path
+      : null;
   const chosen = newName.trim()
-    ? `${target.path.replace(/\/+$/, "")}/${newName.trim()}`
-    : target.path;
-  // Open needs a folder holding a project; a new project can't go in (or inside) one.
-  const usable = !!listing && (mode === "open" ? target.isProject : !target.isProject);
+    ? `${folderTarget.path.replace(/\/+$/, "")}/${newName.trim()}`
+    : folderTarget.path;
+  const usable = !!listing && (mode === "open" ? openPath !== null : true);
+  const hint =
+    mode === "open"
+      ? selectedFile
+        ? `Open “${selectedFile.name}”.`
+        : folderTarget.projects === 1
+          ? `Open the project in “${folderTarget.name}”.`
+          : folderTarget.projects > 1
+            ? `“${folderTarget.name}” has ${folderTarget.projects} projects: go inside and select one.`
+            : `There is no .edith project file in “${folderTarget.name}”: select the folder that contains one.`
+      : folderTarget.projects > 0
+        ? `“${folderTarget.name}” already has ${folderTarget.projects === 1 ? "a project" : `${folderTarget.projects} projects`}: the new one is saved beside ${folderTarget.projects === 1 ? "it" : "them"}.`
+        : newName.trim()
+          ? `A new folder “${newName.trim()}” will be made in “${folderTarget.name}”.`
+          : `The project will live in “${folderTarget.name}” (put the media there).`;
 
   return (
     <div
@@ -149,9 +172,31 @@ export function FolderBrowser({
               </li>
             );
           })}
-          {listing && listing.entries.length === 0 && (
-            <li class="px-1 text-neutral-500">No folders here.</li>
-          )}
+          {mode === "open" &&
+            listing?.files.map((f) => {
+              const on = selected?.path === f.path;
+              return (
+                <li
+                  key={f.path}
+                  class={`flex items-center gap-1 rounded px-1 ${on ? "bg-sky-900/60" : "hover:bg-neutral-800"}`}
+                >
+                  <button
+                    class="inline-flex min-w-0 flex-1 items-center gap-1.5 py-0.5 text-left text-emerald-300"
+                    aria-pressed={on}
+                    title="A project: select it, then Open"
+                    onClick={() => setSelected(f)}
+                  >
+                    <Icon icon={File} />
+                    <span class="truncate">{f.name}</span>
+                  </button>
+                </li>
+              );
+            })}
+          {listing &&
+            listing.entries.length === 0 &&
+            (!listing.files.length || mode !== "open") && (
+              <li class="px-1 text-neutral-500">No folders here.</li>
+            )}
         </ul>
         {mode === "choose" && (
           <label class="mt-2 flex items-center gap-2 text-sm text-neutral-300">
@@ -170,15 +215,7 @@ export function FolderBrowser({
             class={`mt-2 text-xs ${usable ? "text-neutral-400" : "text-amber-300"}`}
             data-testid="folder-hint"
           >
-            {mode === "open"
-              ? target.isProject
-                ? `Open the project in “${target.name}”.`
-                : `There is no .edith project file in “${target.name}”: select the folder that contains one.`
-              : target.isProject
-                ? `“${target.name}” already has a project in it: choose another folder.`
-                : newName.trim()
-                  ? `A new folder “${newName.trim()}” will be made in “${target.name}”.`
-                  : `The project will live in “${target.name}” (put the media there).`}
+            {hint}
           </p>
         )}
         <div class="mt-3 flex justify-end gap-2">
@@ -189,7 +226,7 @@ export function FolderBrowser({
             variant="primary"
             icon={Check}
             disabled={!usable}
-            onClick={() => onChoose(chosen)}
+            onClick={() => onChoose(mode === "open" ? (openPath ?? chosen) : chosen)}
           >
             {confirmLabel}
           </Button>
