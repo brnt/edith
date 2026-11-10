@@ -1104,4 +1104,16 @@ describe("the media cards", () => {
     expect(within(tab).getByText("synced")).toHaveClass("sr-only");
     expect(tab.querySelector('[data-icon="check-circle"]')).not.toBeNull();
   });
+
+  test("the sync state on a card is an icon chip the size of the other overlays", async () => {
+    render(<Workspace slug="show" />);
+    fireEvent.click(await screen.findByRole("tab", { name: /Media/ }));
+    const card = (await screen.findAllByTestId("media-card")).find((c) =>
+      within(c).queryByText("Cam A"),
+    )!;
+    const chip = within(card).getByRole("img", { name: "Sync: synced" });
+    expect(chip.querySelector('[data-icon="check-circle"]')).not.toBeNull();
+    expect(chip.className).toContain("h-5 w-5"); // the same square as the info and checkbox chips
+    expect(chip.className).toContain("text-emerald");
+  });
 });

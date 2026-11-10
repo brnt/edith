@@ -85,14 +85,21 @@ def _record(library: Path, slug: str, item: MediaItem, *, included: bool) -> Med
     )
 
 
+def _watched_dirs(library: Path, slug: str, items: list[MediaItem]) -> set[str]:
+    """Directories outside the project folder that the project's media comes from."""
+    prefix = project_folder(library, slug).relative_to(library).as_posix() + "/"
+    return {i.path.rpartition("/")[0] for i in items if not i.path.startswith(prefix)}
+
+
 def list_media(library: Path, slug: str, *, with_available: bool = False) -> list[MediaRecord]:
     """The project's media; with `with_available`, also the files lying in its folder unused."""
     with open_project(library, slug) as project:
         items = [loaded.document for loaded in project.documents_of(MEDIA)]
-    records = [_record(library, slug, i, included=True) for i in items if isinstance(i, MediaItem)]
+    items = [i for i in items if isinstance(i, MediaItem)]
+    records = [_record(library, slug, i, included=True) for i in items]
     if with_available:
         have = {r.item.id for r in records}
-        for found in discovery.scan(library, slug):
+        for found in discovery.scan(library, slug, _watched_dirs(library, slug, items)):
             if media_id(found.rel) in have or not found.settled:
                 continue  # in the project already, or maybe still copying
             item = discovery.probe_cached(library, slug, found, build_item)
@@ -105,10 +112,12 @@ def resolve_item(library: Path, slug: str, media_id_: str) -> MediaItem:
     """A project's media item, or a found-but-not-included one (for its thumbnail and details)."""
     with open_project(library, slug) as project:
         loaded = project.get(MEDIA, media_id_)
+        items = [d.document for d in project.documents_of(MEDIA)]
     if loaded is not None:
         assert isinstance(loaded.document, MediaItem)
         return loaded.document
-    for found in discovery.scan(library, slug):
+    watched = _watched_dirs(library, slug, [i for i in items if isinstance(i, MediaItem)])
+    for found in discovery.scan(library, slug, watched):
         if media_id(found.rel) == media_id_:
             item = discovery.probe_cached(library, slug, found, build_item)
             if item is not None:
