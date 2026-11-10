@@ -117,15 +117,15 @@ export function Timeline(props: Props) {
     const d = drag.current;
     drag.current = null;
     if (d && !d.moved) {
-      // A click on a segment or a cut selects it; anywhere else it moves the playhead.
+      // A click moves the playhead to that moment; on a segment or a cut it also selects it.
       const hit = (d.target as HTMLElement | null)?.closest?.("[data-pick]") as HTMLElement | null;
+      props.onSeek(timeAt(e.clientX));
       if (hit) {
         props.onPick({
           kind: hit.dataset.pick as Picked["kind"],
           index: Number(hit.dataset.index),
         });
       } else {
-        props.onSeek(timeAt(e.clientX));
         props.onPick(null);
       }
       props.onSelect(null);
