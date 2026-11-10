@@ -10,7 +10,9 @@ import { Timeline } from "./Timeline";
 import { Button } from "./ui";
 
 // The active view's height; its width (16:9) and the column around it follow from this one value.
-const PLAYER_H = "clamp(140px, 27vh, 360px)";
+// It is 27vh at least, and grows with the window's height (what is left after the header, ribbon,
+// transport and a usable timeline) until the view is two thirds of the window's width (37.5vw * 16/9).
+const PLAYER_H = "clamp(140px, min(37.5vw, max(27vh, calc(100vh - 36rem))), 900px)";
 // Room under the view for the time, the buttons, and one line of warning.
 const BELOW_PLAYER = "5.5rem";
 
