@@ -4,7 +4,7 @@ export { default as ArrowLeft } from "@ant-design/icons-svg/es/asn/ArrowLeftOutl
 export { default as ArrowUp } from "@ant-design/icons-svg/es/asn/ArrowUpOutlined";
 export { default as AudioMuted } from "@ant-design/icons-svg/es/asn/AudioMutedOutlined";
 export { default as CaretDown } from "@ant-design/icons-svg/es/asn/CaretDownOutlined";
-export { default as CaretLeft } from "@ant-design/icons-svg/es/asn/CaretLeftOutlined";
+export { default as Holder } from "@ant-design/icons-svg/es/asn/HolderOutlined";
 export { default as CaretRight } from "@ant-design/icons-svg/es/asn/CaretRightOutlined";
 export { default as Check } from "@ant-design/icons-svg/es/asn/CheckOutlined";
 export { default as CheckCircle } from "@ant-design/icons-svg/es/asn/CheckCircleOutlined";
