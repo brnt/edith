@@ -70,12 +70,12 @@ def post_upgrade(slug: str):
     return project_service.upgrade_project(slug)
 
 
-@router.get("/fs/folders", response_model=FolderListingRead)
+@router.get("/fs/folders", response_model=FolderListingRead, dependencies=[Depends(require_token)])
 def get_folders(dir: str = ""):
     """Sub-folders of a folder (empty = home): how a project's folder is chosen."""
     return filesystem.list_folders(dir)
 
 
-@router.get("/fs/places", response_model=list[PlaceRead])
+@router.get("/fs/places", response_model=list[PlaceRead], dependencies=[Depends(require_token)])
 def get_places():
     return filesystem.places()

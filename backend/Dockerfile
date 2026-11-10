@@ -22,7 +22,9 @@ FROM python:3.12-slim AS runtime
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ffmpeg \
     && rm -rf /var/lib/apt/lists/*
-RUN useradd -m -u 1000 edith
+RUN useradd -m -u 1000 edith \
+    # The recent-projects list's volume (docker-compose.yml) takes its ownership from this folder.
+    && mkdir /state && chown edith:edith /state
 WORKDIR /app
 
 COPY --from=build --chown=edith:edith /app /app

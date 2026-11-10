@@ -133,6 +133,8 @@ def test_the_folder_browser_lists_folders_and_marks_projects(client: TestClient,
     assert client.get("/fs/folders", params={"dir": "relative"}).status_code == 422
     assert client.get("/fs/folders", params={"dir": str(workspace / "nope")}).status_code == 422
     assert client.get("/fs/folders").json()["dir"] == str(Path.home())  # starts at home
+    nope = client.get("/fs/folders", headers={"Authorization": "Bearer wrong"})
+    assert nope.status_code == 401  # browsing the disk needs the token too
     assert any(p["name"] == "Home" for p in client.get("/fs/places").json())
 
 
