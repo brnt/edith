@@ -24,3 +24,15 @@ class UnsupportedVersion(EdithError):
 
 class ReadOnlyProject(EdithError):
     """A write was attempted on a project opened read-only."""
+
+
+class MediaNotFound(EdithError):
+    pass
+
+
+class InvalidMediaPath(EdithError):
+    """A path outside the library, absolute, or otherwise not a usable media file."""
+
+
+class MediaError(EdithError):
+    """ffprobe/ffmpeg could not read or process a file."""

@@ -8,6 +8,7 @@ Opening a project never writes to it; only an explicit `put` on a writable handl
 import json
 import os
 import sqlite3
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 from types import TracebackType
@@ -39,6 +40,7 @@ CREATE TABLE documents (
 
 @dataclass(frozen=True)
 class LoadedDocument:
+    doc_id: str
     document: Document
     stored_version: int
     # True when the file holds an older version than the app writes today. The UI
@@ -96,9 +98,42 @@ class ProjectFile:
             return None
         version, body = row
         return LoadedDocument(
+            doc_id=doc_id,
             document=kind.upcast(version, json.loads(body)),
             stored_version=version,
             needs_upgrade=version < kind.current_version,
+        )
+
+    def list(self, kind: DocumentKind) -> list[LoadedDocument]:
+        rows = self._conn.execute(
+            "SELECT id, schema_version, body FROM documents WHERE kind = ? ORDER BY id",
+            (kind.name,),
+        ).fetchall()
+        return [
+            LoadedDocument(
+                doc_id=doc_id,
+                document=kind.upcast(version, json.loads(body)),
+                stored_version=version,
+                needs_upgrade=version < kind.current_version,
+            )
+            for doc_id, version, body in rows
+        ]
+
+    def delete(self, kind: DocumentKind, doc_id: str) -> None:
+        if not self._writable:
+            raise ReadOnlyProject("project opened read-only")
+        with self._conn:
+            self._conn.execute(
+                "DELETE FROM documents WHERE kind = ? AND id = ?", (kind.name, doc_id)
+            )
+
+    def any_older_than_current(self, kinds: Iterable[DocumentKind]) -> bool:
+        return any(
+            self._conn.execute(
+                "SELECT 1 FROM documents WHERE kind = ? AND schema_version < ? LIMIT 1",
+                (k.name, k.current_version),
+            ).fetchone()
+            for k in kinds
         )
 
     def put(self, kind: DocumentKind, doc_id: str, document: Document) -> None:

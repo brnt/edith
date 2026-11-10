@@ -4,6 +4,7 @@ import structlog
 from fastapi import FastAPI
 
 from edith.api.errors import register_error_handlers
+from edith.api.media import router as media_router
 from edith.api.routes import router
 from edith.core.config import get_settings
 from edith.core.logging import configure_logging
@@ -26,6 +27,7 @@ def create_app() -> FastAPI:
     app = FastAPI(title=settings.app_name, lifespan=lifespan)
     app.add_middleware(RequestIDMiddleware)
     app.include_router(router)
+    app.include_router(media_router)
     register_error_handlers(app)
     return app
 

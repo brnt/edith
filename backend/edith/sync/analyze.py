@@ -32,7 +32,10 @@ def tone_candidates(
     path: Path, template: np.ndarray, window_s: float = DEFAULT_WINDOW_S
 ) -> list[Candidate]:
     """Candidate times (in the file's own time) from its head and tail windows."""
-    duration = media.probe(path).duration_s
+    info = media.probe(path)
+    if not info.has_audio or info.duration_s is None:
+        return []
+    duration = info.duration_s
     if duration <= 2 * window_s:
         windows = [(0.0, duration)]
     else:
