@@ -79,12 +79,42 @@ test("a variable frame rate, or one that differs from the project's, is flagged"
   expect(warned({ fps: 25 }, 29.97)).toBe(true);
 });
 
-test("a still has a picture section, and audio-only files have no video section", () => {
-  const still = { kind: "image", width: 640, height: 360 } as MediaItem;
-  expect(detailSections(details({ video: null, audio: null }), still, null)[1]).toEqual({
-    title: "Picture",
-    rows: [{ label: "Resolution", value: "640×360" }],
+test("a still is described by its real image format, with a wrong extension called out", () => {
+  const still = { kind: "image", label: "car.jpg", width: 3000, height: 1688 } as MediaItem;
+  const avif = details({
+    container: "QuickTime / MOV",
+    image_format: "AVIF",
+    image_extension_matches: false,
+    video: {
+      ...details().video!,
+      codec: "av1",
+      pix_fmt: "yuv422p",
+      bit_depth: 8,
+      width: 3000,
+      height: 1688,
+    },
+    audio: null,
   });
+  const sections = detailSections(avif, still, null);
+  expect(sections.map((s) => s.title)).toEqual(["File", "Picture"]);
+  const file = sections[0].rows;
+  expect(file[0]).toEqual({ label: "Format", value: "AVIF", warn: true });
+  expect(file.find((r) => r.label === "Name")?.value).toBe(
+    ".jpg in the name, but the file is AVIF",
+  );
+  expect(file.some((r) => /QuickTime/.test(r.value))).toBe(false); // the container is not shown
+  expect(sections[1].rows[0]).toEqual({ label: "Resolution", value: "3000×1688" });
+  // An honest extension isn't flagged.
+  const png = detailSections(
+    details({ image_format: "PNG", image_extension_matches: true, video: null, audio: null }),
+    { kind: "image", label: "car.png", width: 640, height: 360 } as MediaItem,
+    null,
+  );
+  expect(png[0].rows.find((r) => r.label === "Name")).toBeUndefined();
+  expect(png[0].rows[0].warn).toBe(false);
+});
+
+test("audio-only files have no video section", () => {
   const wav = detailSections(details({ video: null }), { kind: "audio" } as MediaItem, null);
   expect(wav.map((s) => s.title)).toEqual(["File", "Audio"]);
 });

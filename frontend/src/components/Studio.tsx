@@ -11,6 +11,7 @@ import {
 import { useEditor } from "../lib/useEditor";
 import { EditTools } from "./EditTools";
 import { MediaPanel } from "./MediaPanel";
+import { SyncStatus } from "./SyncStatus";
 import { RenderPanel } from "./RenderPanel";
 import { Ribbon } from "./Ribbon";
 import { Stage } from "./Stage";
@@ -95,9 +96,7 @@ export function Studio(props: Props) {
             id: "sync",
             label: "Sync",
             icon: Sync,
-            badge: synced ? (
-              <Badge tone={unsynced ? "warn" : "good"}>{unsynced ? "incomplete" : "synced"}</Badge>
-            ) : undefined,
+            badge: synced ? <SyncStatus complete={!unsynced} /> : undefined,
           },
           { id: "edit", label: "Edit", icon: Scissor },
           { id: "export", label: "Export", icon: Export },

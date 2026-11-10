@@ -37,15 +37,16 @@ import {
   CaretDown,
   CaretRight,
   Close,
-  Eye,
-  EyeInvisible,
   InfoCircle,
+  Picture,
   Plus,
   Sound,
   Sync,
   Thunderbolt,
+  VideoCamera,
   Warning,
 } from "./icons";
+import { SoundOff } from "./SoundOff";
 
 interface Props {
   slug: string;
@@ -62,6 +63,13 @@ interface Props {
   onChange: () => void;
   onError: (message: string) => void;
 }
+
+/** What kind a card is, at a glance: an icon and a tint on the name chip (and the number chip's colour). */
+const KIND = {
+  video: { icon: VideoCamera, tint: "bg-sky-950/85", name: "Camera" },
+  image: { icon: Picture, tint: "bg-teal-950/85", name: "Still" },
+  audio: { icon: Sound, tint: "bg-neutral-900/85", name: "Audio" },
+} as const;
 
 const CARD = "w-[7.25rem]"; // slightly bigger than the grid's tiles' smallest, still small-ish
 
@@ -416,8 +424,10 @@ function MediaCard({
   const notes = formatNotes(m, projectFps);
   const syncable = included && !m.missing && m.kind !== "image";
   const colour = channelStyle(m.kind === "image" ? "image" : "video").chip.split(" ")[0];
+  // Icon chips: a fixed square with no line height, so the icon sits centred with no spare space.
   const iconButton =
-    "rounded bg-black/60 p-0.5 text-sm text-neutral-200 hover:bg-black/80 hover:text-white";
+    "inline-flex h-5 w-5 items-center justify-center rounded bg-black/60 text-sm leading-none text-neutral-200 hover:bg-black/80 hover:text-white";
+  const kind = KIND[m.kind];
 
   return (
     <li
@@ -471,22 +481,20 @@ function MediaCard({
         >
           <Icon icon={InfoCircle} />
         </button>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={on}
-          aria-label={label}
-          title={title}
-          class={`${iconButton} ${on ? "text-sky-300" : ""}`}
-          onClick={toggle}
-        >
-          <Icon icon={on ? Eye : EyeInvisible} />
-        </button>
+        <label class={`${iconButton} cursor-pointer`} title={title}>
+          <input
+            type="checkbox"
+            class="h-3.5 w-3.5 cursor-pointer accent-sky-400"
+            aria-label={label}
+            checked={on}
+            onChange={toggle}
+          />
+        </label>
       </div>
-      <div class="absolute bottom-0.5 right-1 flex items-center gap-1">
+      <div class="absolute bottom-[1.2rem] right-1 flex items-center gap-1">
         {showsAudioToggle && (
           <label
-            class={`${iconButton} cursor-pointer ${trackIncluded(edit, media, m.id) ? "text-sky-300" : "text-neutral-400"}`}
+            class={`${iconButton} cursor-pointer ${trackIncluded(edit, media, m.id) ? "text-sky-300" : "text-neutral-300"}`}
             title="Use this camera's own audio in the output (normally discarded)"
           >
             <input
@@ -496,7 +504,7 @@ function MediaCard({
               checked={trackIncluded(edit, media, m.id)}
               onChange={(e) => onEdit(setAudioIncluded(edit, media, m.id, e.currentTarget.checked))}
             />
-            <Icon icon={Sound} />
+            {trackIncluded(edit, media, m.id) ? <Icon icon={Sound} /> : <SoundOff />}
           </label>
         )}
         {syncable && (
@@ -508,19 +516,29 @@ function MediaCard({
           />
         )}
         {notes.length > 0 && (
-          <span title={notes.join("\n")} aria-label={notes.join(". ")} role="img">
-            <Icon icon={Warning} class="text-xs text-amber-300" />
-          </span>
+          <button
+            type="button"
+            class={`${iconButton} text-amber-300`}
+            aria-label={notes.join(". ")}
+            title={`${notes.join("\n")}\nClick for the details`}
+            onClick={(e) => onDetails((e.currentTarget as HTMLElement).getBoundingClientRect())}
+          >
+            <Icon icon={Warning} />
+          </button>
         )}
         {included && !m.proxy_ready && !m.missing && m.kind !== "image" && (
-          <Icon icon={Thunderbolt} class="text-xs text-amber-400" />
+          <span class={`${iconButton} text-amber-400`} title="No proxy yet: Build proxies">
+            <Icon icon={Thunderbolt} />
+          </span>
         )}
       </div>
       <span
-        class={`absolute bottom-0 left-0 truncate rounded-tr bg-neutral-950/65 px-1.5 text-[11px] leading-4 text-neutral-100 ${showsAudioToggle ? "max-w-[55%]" : "max-w-[75%]"}`}
-        title={m.path}
+        class={`absolute bottom-0 left-0 inline-flex items-center gap-1 rounded-tr px-1.5 text-[11px] leading-4 text-neutral-100 ${kind.tint} max-w-[calc(100%-0.25rem)]`}
+        title={`${kind.name}: ${m.path}`}
+        data-testid="name-chip"
       >
-        {m.label}
+        <Icon icon={kind.icon} class="text-[11px] opacity-80" />
+        <span class="truncate">{m.label}</span>
       </span>
     </li>
   );

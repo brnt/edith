@@ -39,6 +39,35 @@ export function detailSections(
   project: { fps: number } | null,
 ): DetailSection[] {
   const sections: DetailSection[] = [];
+  const v = d.video;
+
+  if (item.kind === "image") {
+    // A still is described by its image format, not by the container ffprobe happens to name.
+    const mismatch = d.image_extension_matches === false;
+    const ext = item.label.includes(".") ? item.label.slice(item.label.lastIndexOf(".")) : "";
+    const file: DetailRow[] = [
+      { label: "Format", value: d.image_format ?? "–", warn: mismatch },
+      { label: "Size", value: formatBytes(d.size_bytes) },
+    ];
+    if (mismatch)
+      file.push({
+        label: "Name",
+        value: `${ext} in the name, but the file is ${d.image_format}`,
+        warn: true,
+      });
+    if (d.created) file.push({ label: "Created", value: d.created.replace("T", " ").slice(0, 19) });
+    sections.push({ title: "File", rows: file });
+    const w = v?.width ?? item.width;
+    const h = v?.height ?? item.height;
+    const picture: DetailRow[] = [{ label: "Resolution", value: w ? `${w}×${h}` : "–" }];
+    const colour = [v?.bit_depth ? `${v.bit_depth}-bit` : null, v?.pix_fmt, v?.color_space].filter(
+      Boolean,
+    );
+    if (colour.length) picture.push({ label: "Colour", value: colour.join(" · ") });
+    sections.push({ title: "Picture", rows: picture });
+    return sections;
+  }
+
   const file: DetailRow[] = [
     { label: "Container", value: d.container ?? "–" },
     { label: "Size", value: formatBytes(d.size_bytes) },
@@ -49,7 +78,6 @@ export function detailSections(
   if (d.created) file.push({ label: "Created", value: d.created.replace("T", " ").slice(0, 19) });
   sections.push({ title: "File", rows: file });
 
-  const v = d.video;
   if (v) {
     const rows: DetailRow[] = [
       { label: "Codec", value: [v.codec, v.profile].filter(Boolean).join(" · ") || "–" },
@@ -73,11 +101,6 @@ export function detailSections(
     if (colour.length) rows.push({ label: "Colour", value: colour.join(" · ") });
     if (v.bit_rate !== null) rows.push({ label: "Bit rate", value: formatBitrate(v.bit_rate) });
     sections.push({ title: "Video", rows });
-  } else if (item.kind === "image" && item.width) {
-    sections.push({
-      title: "Picture",
-      rows: [{ label: "Resolution", value: `${item.width}×${item.height}` }],
-    });
   }
 
   const a = d.audio;

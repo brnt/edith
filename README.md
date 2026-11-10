@@ -46,11 +46,14 @@ comes next.
    - **Include:** a file found in the folder is marked *new* and is **not part of the project**
      until you include it (click its eye). Looking never writes to the project; including is the
      edit that does. The tab shows how many are waiting.
-   - **The eye:** for a camera or still it shows or hides it in the grid and the timeline (a
-     hidden one stays on the timeline only while a segment still shows it). For an audio file it
-     is the single control for whether its sound is in the output.
-   - **The speaker (cameras):** whether the camera's own audio is used, independent of the eye
-     (a camera's own audio is off until you turn it on).
+   - **The checkbox:** ticked by default. For a camera or still it shows or hides it in the grid
+     and the timeline (a hidden one stays on the timeline only while a segment still shows it). For
+     an audio file it is the single control for whether its sound is in the output. Ticking a
+     *new* file includes it in the project.
+   - **Cameras, stills and audio** are told apart by an icon and a tint on the name chip, and
+     by the colour of the number chip (blue cameras, teal stills).
+   - **The speaker (cameras):** whether the camera's own audio is used, independent of the
+     checkbox (off until you turn it on, shown as a crossed-out speaker).
    - **Details (i):** codec, resolution, frame rate (flagged when variable or different from the
      project's), colour depth, bit rate, audio format, size; also *Remove from project* (the
      file itself is never touched).
@@ -58,7 +61,7 @@ comes next.
      **Include all** its new files, or **Hide all / Show all** its files at once. A **Show**
      filter narrows the cards to cameras, audio, stills, new files, or files the sync hasn't
      placed.
-   - **Heads-up marks:** an amber warning on a card means a frame rate that differs from the
+   - **Heads-up marks:** an amber warning button on a card (click it for the details) means a frame rate that differs from the
      project's, or a portrait (vertical) picture; the details say which. They also say how many
      segments of the edit show a camera or still.
    - **Missing files:** if a file goes missing (moved, or its drive unplugged) its card says so

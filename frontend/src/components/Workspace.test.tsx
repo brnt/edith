@@ -823,10 +823,10 @@ describe("enabling and disabling assets in the Media tab", () => {
     await screen.findByText("synced"); // loading finished
 
     fireEvent.click(screen.getByRole("tab", { name: /Media/ }));
-    const toggle = await screen.findByRole("switch", { name: "Show Cam B in the grid" });
+    const toggle = await screen.findByRole("checkbox", { name: "Show Cam B in the grid" });
     expect(toggle).toBeChecked();
     // An audio file has a single control: whether its sound is in the output.
-    expect(screen.getByRole("switch", { name: "Use audio from mic.wav" })).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "Use audio from mic.wav" })).toBeInTheDocument();
 
     fireEvent.click(toggle);
     expect(toggle).not.toBeChecked();
@@ -857,7 +857,7 @@ describe("enabling and disabling assets in the Media tab", () => {
     render(<Workspace slug="show" />);
     await screen.findByText("synced");
     fireEvent.click(screen.getByRole("tab", { name: /Media/ }));
-    fireEvent.click(await screen.findByRole("switch", { name: "Show Cam B in the grid" }));
+    fireEvent.click(await screen.findByRole("checkbox", { name: "Show Cam B in the grid" }));
     fireEvent.click(screen.getByRole("tab", { name: "Edit" }));
 
     fireEvent.keyDown(window, { key: "2" }); // now the still, since Cam B is off
@@ -906,7 +906,7 @@ describe("the media cards", () => {
     expect(mediaPosts).toEqual([]); // looking wrote nothing
 
     fireEvent.click(screen.getByRole("tab", { name: /Media/ }));
-    fireEvent.click(await screen.findByRole("switch", { name: "Include c.mp4 in the project" }));
+    fireEvent.click(await screen.findByRole("checkbox", { name: "Include c.mp4 in the project" }));
     await waitFor(() => expect(mediaPosts).toEqual([{ path: "show/day 1/cam C/c.mp4" }]));
     // Included now: it takes part (the grid has a tile for it).
     expect(
@@ -1027,16 +1027,20 @@ describe("the media cards", () => {
     );
   });
 
-  test("a frame rate that differs from the project's is flagged on the card and in the details", async () => {
+  test("a frame rate that differs from the project's is flagged on the card, and clicking the flag opens the details", async () => {
     render(<Workspace slug="show" />);
     fireEvent.click(await screen.findByRole("tab", { name: /Media/ }));
     // The project is 29.97 fps: Cam A (59.94) is flagged, Cam B (29.97) is not.
     const cardOf = (name: string) =>
       screen.getAllByTestId("media-card").find((c) => within(c).queryByText(name))!;
-    expect(
-      within(cardOf("Cam A")).getByRole("img", { name: /59.94 fps, but the project is 29.97/ }),
-    ).toBeInTheDocument();
-    expect(within(cardOf("Cam B")).queryByRole("img", { name: /fps, but/ })).toBeNull();
+    const flag = within(cardOf("Cam A")).getByRole("button", {
+      name: /59.94 fps, but the project is 29.97/,
+    });
+    expect(within(cardOf("Cam B")).queryByRole("button", { name: /fps, but/ })).toBeNull();
+    // Clicking it opens the details, where the same frame rate is marked.
+    fireEvent.click(flag);
+    const dialog = await screen.findByRole("dialog", { name: "Details for Cam A" });
+    expect(await within(dialog).findByText(/59.94 fps/)).toBeInTheDocument();
   });
 
   test("the details say how many segments of the edit show a camera", async () => {
@@ -1062,5 +1066,42 @@ describe("the media cards", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Details for Cam A" }));
     await screen.findByRole("dialog", { name: "Details for Cam A" });
     expect(screen.queryByRole("button", { name: "Use as the registration sound" })).toBeNull();
+  });
+
+  test("cameras, stills and audio are told apart by an icon and a tint on the name chip", async () => {
+    render(<Workspace slug="show" />);
+    fireEvent.click(await screen.findByRole("tab", { name: /Media/ }));
+    const chip = (name: string) =>
+      within(
+        screen.getAllByTestId("media-card").find((c) => within(c).queryByText(name))!,
+      ).getByTestId("name-chip");
+    for (const [name, kind, icon, tint] of [
+      ["Cam A", "Camera", "video-camera", "bg-sky-950"],
+      ["car.png", "Still", "picture", "bg-teal-950"],
+      ["mic.wav", "Audio", "sound", "bg-neutral-900"],
+    ]) {
+      expect(chip(name).title).toMatch(new RegExp(`^${kind}: `));
+      expect(chip(name).querySelector(`[data-icon="${icon}"]`)).not.toBeNull();
+      expect(chip(name).className).toContain(tint);
+    }
+  });
+
+  test("a camera whose own audio is out of the output shows a crossed-out speaker", async () => {
+    render(<Workspace slug="show" />);
+    fireEvent.click(await screen.findByRole("tab", { name: /Media/ }));
+    const camA = () =>
+      screen.getAllByTestId("media-card").find((c) => within(c).queryByText("Cam A"))!;
+    expect(camA().querySelector('[data-icon="stop"]')).not.toBeNull(); // off by default
+    fireEvent.click(within(camA()).getByLabelText("Use audio from Cam A"));
+    expect(camA().querySelector('[data-icon="stop"]')).toBeNull();
+    expect(camA().querySelector('[data-icon="sound"]')).not.toBeNull();
+  });
+
+  test("the Sync tab shows its state as an icon, with the words for screen readers", async () => {
+    render(<Workspace slug="show" />);
+    const tab = await screen.findByRole("tab", { name: /Sync/ });
+    await within(tab).findByTitle("Every file is synced");
+    expect(within(tab).getByText("synced")).toHaveClass("sr-only");
+    expect(tab.querySelector('[data-icon="check-circle"]')).not.toBeNull();
   });
 });
