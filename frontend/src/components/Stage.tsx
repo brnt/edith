@@ -5,9 +5,9 @@ import { setTrack } from "../lib/editOps";
 import {
   formatTime,
   frameState,
+  PLAYER_MIN_PX,
+  stageLayout,
   TIMELINE_MIN_PX,
-  timelineBoxHeight,
-  timelineRoom,
   timelineToOutput,
 } from "../lib/timeline";
 import type { EditorApi } from "../lib/useEditor";
@@ -18,17 +18,11 @@ import { Player } from "./Player";
 import { Timeline } from "./Timeline";
 import { Button } from "./ui";
 
-// Vertical space is shared like this: the timeline takes what its rows need, up to a share of the
-// height (past that it scrolls inside itself, so a long list of rows never squeezes the view), but
-// never less than about four rows. The active view gets everything else, up to two thirds of the window's width (37.5 * 16/9).
+// The stage's height is divided in script (`stageLayout`): the view first, the timeline the rest.
 const BELOW_PLAYER_REM = 3; // under the view: the gap and the time and buttons (about 47px), nothing spare
-const BELOW_PLAYER = `${BELOW_PLAYER_REM}rem`;
-const PLAYER_MIN = "max(140px, 27vh)"; // the smallest the view is squeezed to
-const STAGE_PADDING_PX = 24; // p-3 top and bottom
+const STAGE_PAD_X_PX = 24; // p-3 left and right
+const STAGE_PAD_Y_PX = 24; // p-3 top and bottom
 const STAGE_GAP_PX = 8; // gap-2 between the view's row and the timeline
-// The view's height, measured against its own row (container query units): it fills the row, so it
-// grows when the timeline is short.
-const PLAYER_H = `clamp(140px, min(calc(100cqh - ${BELOW_PLAYER}), 37.5cqw), 900px)`;
 
 /** The part that is always on screen: the active view, the other cameras, transport, timeline. */
 export function Stage({
@@ -46,9 +40,8 @@ export function Stage({
   const shown = ed.preview?.edit ?? ed.edit;
   const compare = ed.preview?.compare ?? null;
   const stage = useRef<HTMLDivElement>(null);
-  // The timeline box's height, measured: all its rows if the view can spare the room, else what is
-  // left. (Done in script, not CSS percentages, which browsers resolve differently in flex layouts.)
-  const [boxH, setBoxH] = useState<number | null>(null);
+  // The view's and the timeline's heights, measured and computed together (see `stageLayout`).
+  const [layout, setLayout] = useState<{ boxH: number; playerH: number } | null>(null);
   const measureRef = useRef<() => void>(() => {});
   useEffect(() => {
     const root = stage.current;
@@ -58,13 +51,21 @@ export function Stage({
     if (!root || !scroller || !rows || typeof ResizeObserver === "undefined") return;
     const measure = () => {
       const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
-      const viewMin = Math.max(140, 0.27 * window.innerHeight) + BELOW_PLAYER_REM * rem;
-      const room = timelineRoom(root.clientHeight - STAGE_PADDING_PX - STAGE_GAP_PX, viewMin);
       // All of the rows, plus the scroller's own border (and a horizontal scrollbar when shown).
       const chrome = scroller.offsetHeight - scroller.clientHeight;
       const content = Math.max(rows.getBoundingClientRect().height, scroller.scrollHeight);
-      const natural = Math.ceil(content + chrome);
-      setBoxH(timelineBoxHeight(natural, room));
+      const next = stageLayout({
+        stageW: root.clientWidth,
+        stageH: root.clientHeight,
+        padX: STAGE_PAD_X_PX,
+        padY: STAGE_PAD_Y_PX,
+        gap: STAGE_GAP_PX,
+        below: BELOW_PLAYER_REM * rem,
+        naturalTimeline: Math.ceil(content + chrome),
+      });
+      setLayout((prev) =>
+        prev && prev.boxH === next.boxH && prev.playerH === next.playerH ? prev : next,
+      );
     };
     measureRef.current = measure;
     const observer = new ResizeObserver(measure);
@@ -113,8 +114,12 @@ export function Stage({
   return (
     <div ref={stage} class="flex min-h-0 flex-1 flex-col gap-2 p-3">
       <div
-        class="flex min-h-0 flex-1 gap-3 [container-type:size]"
-        style={{ minHeight: `calc(${PLAYER_MIN} + ${BELOW_PLAYER})`, "--player-h": PLAYER_H }}
+        class="flex min-h-0 flex-1 gap-3"
+        style={{
+          minHeight: `calc(${PLAYER_MIN_PX}px + ${BELOW_PLAYER_REM}rem)`,
+          // Until the first measurement, a share of the window's height.
+          "--player-h": layout ? `${layout.playerH}px` : "max(140px, 27vh)",
+        }}
       >
         <div
           class="flex h-full shrink-0 flex-col gap-1.5"
@@ -182,7 +187,7 @@ export function Stage({
       <div
         ref={ed.timelineBox}
         class="shrink-0 overflow-hidden"
-        style={{ height: boxH ?? undefined, minHeight: `${TIMELINE_MIN_PX}px` }}
+        style={{ height: layout?.boxH, minHeight: `${TIMELINE_MIN_PX}px` }}
       >
         <Timeline
           media={ed.media}

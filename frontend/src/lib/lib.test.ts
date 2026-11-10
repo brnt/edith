@@ -19,8 +19,7 @@ import {
   activeChannel,
   advancePlayhead,
   boundaryPreview,
-  timelineBoxHeight,
-  timelineRoom,
+  stageLayout,
   movedSwitches,
   segments,
   channelsOf,
@@ -429,25 +428,38 @@ describe("boundaryPreview", () => {
   });
 });
 
-describe("timelineRoom", () => {
-  test("a long list of rows is capped at a share of the height, so the view keeps its size", () => {
-    expect(timelineRoom(800, 200)).toBeCloseTo(320); // 40% of 800, though 600 would be free
+describe("stageLayout", () => {
+  // A 1400 x 1000 stage: padding 24, gap 8, 48px under the view; two thirds of the width in 16:9
+  // is a 1376 * 2/3 * 9/16 = 516px-tall view.
+  const base = { stageW: 1400, padX: 24, padY: 24, gap: 8, below: 48 };
+
+  test("the view takes what it can use first; the timeline gets the rest", () => {
+    // usable 968; the full view row is 516 + 48 = 564, leaving 404 for a 308px timeline.
+    const l = stageLayout({ ...base, stageH: 1000, naturalTimeline: 308 });
+    expect(l).toEqual({ boxH: 308, playerH: 516 });
   });
 
-  test("in a short window the view's minimum wins over the share", () => {
-    expect(timelineRoom(400, 300)).toBe(100);
-  });
-});
-
-describe("timelineBoxHeight", () => {
-  test("it takes all its content when there is room, and shrinks to the room otherwise", () => {
-    expect(timelineBoxHeight(300, 500)).toBe(300); // few rows: as tall as they need
-    expect(timelineBoxHeight(500, 300)).toBe(300); // many rows: scrolls inside
+  test("more rows never shrink a view that is at full size: the timeline scrolls instead", () => {
+    const few = stageLayout({ ...base, stageH: 800, naturalTimeline: 150 });
+    const many = stageLayout({ ...base, stageH: 800, naturalTimeline: 400 });
+    expect(few.playerH).toBe(516); // 768 usable - (516 + 48) = 204 room: all 150 fit
+    expect(many.playerH).toBe(516); // the same view...
+    expect(many.boxH).toBe(204); // ...and the timeline stops at its leftover and scrolls
   });
 
-  test("it never goes below about four rows, even with no room", () => {
-    expect(timelineBoxHeight(500, 100)).toBe(168);
-    expect(timelineBoxHeight(100, 500)).toBe(168); // and a short one still has a usable height
+  test("fewer rows let the view grow back, up to its limit", () => {
+    const tall = stageLayout({ ...base, stageH: 600, naturalTimeline: 400 });
+    const short = stageLayout({ ...base, stageH: 600, naturalTimeline: 168 });
+    expect(tall.boxH).toBe(168);
+    expect(short.playerH).toBeGreaterThanOrEqual(tall.playerH);
+    // 568 usable: with the 168 minimum timeline the view is 568 - 168 - 48 = 352.
+    expect(tall.playerH).toBe(352);
+  });
+
+  test("the timeline is never shorter than about four rows, and the view never below its minimum", () => {
+    const l = stageLayout({ ...base, stageH: 300, naturalTimeline: 500 });
+    expect(l.boxH).toBe(168);
+    expect(l.playerH).toBe(140);
   });
 });
 
