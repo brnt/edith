@@ -149,6 +149,12 @@ export function useEditor({ slug, media, sync, edit, onEdit, onError, ready }: A
     if (next) setSelection(null);
   };
 
+  /** Put the playhead on `at` (stopping playback), e.g. while an edge is being dragged. */
+  const scrub = (at: number) => {
+    setPlaying(false);
+    setT(at);
+  };
+
   const changeSegmentEdge = (switchIndex: number, at_s: number) =>
     onEdit(moveSegmentEdge(state.current.edit, switchIndex, at_s, end));
 
@@ -212,6 +218,7 @@ export function useEditor({ slug, media, sync, edit, onEdit, onError, ready }: A
     picked,
     pick,
     changeSegmentEdge,
+    scrub,
     changeCut,
     zoom,
     setZoom,

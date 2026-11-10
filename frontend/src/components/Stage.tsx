@@ -141,6 +141,7 @@ export function Stage({
           picked={ed.picked}
           onPick={ed.pick}
           onSegmentEdge={ed.changeSegmentEdge}
+          onScrub={ed.scrub}
           onCutChange={ed.changeCut}
         />
       </div>

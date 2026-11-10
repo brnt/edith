@@ -79,7 +79,8 @@ comes next.
    - **Selecting on the timeline:** click a channel's **segment** (a blue or teal block: one
      stretch where that channel is on screen) or a **cut** to select it (white outline).
      Clicking anywhere else still moves the playhead; `Esc` deselects. A selected item can be
-     **dragged by its edges** (a readout shows the time; one drag is one undo step) or removed
+     **dragged by its edges** (the playhead follows the edge, so you can check the exact frame; a
+     readout shows the time; one drag is one undo step) or removed
      with `Delete`. Moving a segment's edge moves the neighbouring segment's edge with it, and
      it can't pass the next one. Deleting a segment lets the one before it carry on. A cut's
      edges set where it starts and ends (the first and last cuts set the start and end of the
