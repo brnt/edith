@@ -47,11 +47,21 @@ Root `justfile` delegates to both; Compose runs `api` (:8000) and `web` (:8080).
   use a throwaway SQLite file under `tmp_path`).
 
 **Rules specific to this project:**
-- **Media is never modified or copied.** Project files reference media by path relative to the
-  project folder; the app writes only `project.edith` and the proxy/cache dir.
+- **Media is never modified or copied.** Paths in documents are relative to the library root and
+  validated (no `..`, no absolute); the app writes only `project.edith`, `cache/`, and `renders/`.
 - Routes are sync `def` (stdlib `sqlite3` is blocking; FastAPI runs them in a threadpool).
-- The edit is a non-destructive decision list on one synced timeline (camera switches, cuts
-  applied to all feeds, stills); preview and render both derive from it.
+- **The render plan (`edit/plan.py`) is the single source of truth** for what the output is.
+  Exporters and the ffmpeg render serialise it; the frontend's `lib/timeline.ts` mirrors its
+  rules for the preview. Change the semantics in the plan first, then both.
+- All edit times are **shared-timeline seconds before cuts** (earliest file = 0). Source time =
+  timeline time minus the file's offset (sync start + nudge). Cuts ripple; stills override video
+  while audio continues; camera audio is never used.
+- Document kinds live in `db/documents.py`; every shape change is a version bump + upcaster +
+  fixture project + test (see below). Saving writes the *current* version; reading never writes.
+- Long work (proxies, sync, render) runs as a job (`services/jobs.py`); the UI polls `/jobs/{id}`.
+- **ffmpeg gotchas learned on real footage:** never loop a still with `-loop 1` as an input inside
+  a concat (it stalls); `-ss` before `-i` for every clip; hold stills with the `loop` filter.
+  Exports and renders use the *saved* edit, not unsaved UI state.
 - **Sync** (`backend/edith/sync/`, try it: `cd backend && uv run python -m edith.sync --template FILE:START:END FILES...`):
   the registration sound is a pluggable *template* (seed, WAV, or an excerpt cut from a
   recording), because what was actually played is not always the generated burst
@@ -61,6 +71,9 @@ Root `justfile` delegates to both; Compose runs `api` (:8000) and `web` (:8080).
   (its bit-verifying detector fails on recorded audio; don't port it).
 - Sample session for real-data checks: `EDITH_SAMPLE_MEDIA=/Volumes/BRENTexp/media uv run pytest
   tests/sync/test_real_media.py` (skipped when unset; the media is ~1.9 GB, never commit it).
+- Not built yet: applying measured drift to clip placement, vertical/9:16 reframing, segment-level
+  audio gain, a room-audio sync fallback, and a fixture project per document version (there is
+  only v1 so far; add `tests/fixtures/projects/` with the first bump).
 
 **Local use:** `LIBRARY_DIR` (root `.env`) is the host folder bind-mounted as the library; point
 it at a folder on the external SSD.

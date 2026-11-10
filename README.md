@@ -1,46 +1,67 @@
 # Edith
 
 A local, browser-based editor for multicam long-form video. Point it at a recording session
-(several cameras, three or four audio feeds), and it syncs everything onto one timeline where you
-choose the active camera, collapse dead time, and drop in stills while the audio keeps running.
-Exports an Edith project file, then (planned) Resolve/Premiere project files and an in-app render.
+(several cameras, separate audio recorders), tell it what the registration beep sounds like, and
+it syncs everything onto one timeline where you pick the active camera, cut dead time, and drop
+in stills while the audio keeps running. Output: an Edith project file, FCPXML / Premiere XML /
+EDL for finishing elsewhere, or a 1080p H.264 render straight from the app.
 
-> **Status:** early. Project create/list/open works end to end (including the versioned
-> project-file format), and the sync engine places multi-device recordings on one timeline from
-> their registration sounds (command line only). Ingest into projects, the timeline UI, and
-> exports are not built yet.
-
-Try the sync engine on a session (needs `ffmpeg`); the registration sound can be a seed, a WAV, or
-an excerpt cut from one of the recordings:
-
-```bash
-cd backend
-uv run python -m edith.sync --template take.wav:13.38:13.62 cam1.mp4 cam2.mp4 take.wav
-```
+> **Status:** working prototype, verified on a real Canon + GoPro + Zoom session. See
+> [Known limits](#known-limits).
 
 ## Stack
 
-Python 3.12+ · FastAPI · Pydantic v2 · SQLite (one file per project) · structlog · `uv` · `ruff` ·
-`pytest` · numpy · scipy — Preact · Vite · TypeScript · Tailwind v4 · Vitest · `pnpm` — Docker Compose. `ffmpeg`
-for media work. See [docs/adr/](docs/adr/) for why SQLite and why ffmpeg server-side.
+Python 3.12+ · FastAPI · Pydantic v2 · SQLite (one file per project) · numpy/scipy · structlog ·
+`uv` · `ruff` · `pytest` — Preact · Vite · TypeScript · Tailwind v4 · Vitest · `pnpm` — Docker
+Compose. `ffmpeg`/`ffprobe` do all media work server-side
+([ADR 0002](docs/adr/0002-ffmpeg-on-the-backend.md)).
 
-## Quick start (Docker)
+## Quick start
 
 Requires Docker.
 
 ```bash
-cp .env.example .env     # optional: set LIBRARY_DIR to a folder on your SSD
+cp .env.example .env     # set LIBRARY_DIR to the folder holding your media (e.g. on the SSD)
 just up
 ```
 
-Web UI: http://localhost:8080 · API docs: http://localhost:8000/docs. Projects are created under
-`LIBRARY_DIR` (default `./.library`, gitignored) as `<slug>/project.edith`.
+Open http://localhost:8080 (API docs: http://localhost:8000/docs).
+
+`LIBRARY_DIR` is the folder Edith can see: your media can live anywhere inside it, and each
+project is created as a sub-folder (`<slug>/project.edith` plus a `cache/` and `renders/`).
+Media is referenced in place and never modified or copied.
+
+## How to use it
+
+1. **Create a project**, then **Media → Add media…** and pick the camera, audio, and still-image
+   files. **Build preview proxies** (low-res copies the browser can scrub; originals are untouched).
+2. **Sync.** Every device should have recorded a registration sound once shortly after it started
+   and once shortly before it stopped. Pick any recording that contains it and drag across the
+   sound on the waveform (a quiet beep is visible as a small bump), then **Find the sound in every
+   file**. Each file gets a start offset, drift, and a result: *synced*, *check* (weak or
+   inconsistent: review it), or *not found*. Nudge any file by hand in milliseconds.
+3. **Edit.** The preview plays the synced proxies; the timeline shows each camera, the stills, and
+   each audio track's waveform.
+   - **Camera:** put the playhead where you want the switch and press the camera's number
+     (or click its button). It stays active until the next switch.
+   - **Dead time:** *Find dead time* outlines silent stretches (all output tracks quiet);
+     *Cut all*, or drag-select and press `x` to cut by hand. Cuts ripple.
+   - **Stills:** drag-select a range, pick an image, *Show still*. The photo takes over the
+     video; audio continues.
+   - **Audio:** per-track gain and mute. By default every audio-only file is used; camera audio
+     is discarded.
+   - **Range:** `i` / `o` set the in and out points.
+   - **Save** (⌘/Ctrl+S) writes the edit into the project file. Undo/redo with ⌘/Ctrl+Z.
+4. **Export or render.** FCPXML (DaVinci Resolve, Final Cut), Premiere XML, EDL (video only), the
+   Edith JSON, or **Render MP4 (1080p)**. Exports and renders use the *saved* edit.
+
+Keys: `space` play · `1`–`9` camera · `x` cut selection · `i`/`o` range · `←`/`→` step (shift = 10 s).
 
 ## Development
 
 Requires [uv](https://docs.astral.sh/uv/), [pnpm](https://pnpm.io), [just](https://just.systems),
-and [direnv](https://direnv.net). Run `direnv allow` once in `backend/` and `frontend/`; never
-activate a virtualenv by hand.
+[direnv](https://direnv.net) and `ffmpeg` on the host. Run `direnv allow` once in `backend/` and
+`frontend/`; never activate a virtualenv by hand.
 
 ```bash
 just init       # install deps + pre-commit hooks
@@ -51,25 +72,61 @@ just test-live  # HTTP tests against `just up` (skips if the stack is down; not 
 just ci         # lint + test + frontend build
 ```
 
+For local development, point `LIBRARY_DIR` in `backend/.env` at a folder of media. Backend tests
+that need real media generate tiny synthetic files with ffmpeg. To also check the real sample
+session: `EDITH_SAMPLE_MEDIA=/path/to/session uv run pytest tests/sync/test_real_media.py`.
+
+The sync engine alone, from the command line:
+
+```bash
+cd backend
+uv run python -m edith.sync --template take.wav:13.38:13.62 cam1.mp4 cam2.mp4 take.wav
+```
+
 ## Configuration
 
 Backend variables are in `backend/.env.example`, frontend in `frontend/.env.example`, Compose in
-`.env.example`. `API_TOKEN` must match between the API and the web build.
+`.env.example`. `API_TOKEN` must match between the API and the web build. `HOST_LIBRARY_DIR` is
+set for you by `just up`; exports use it so file paths point at the real files.
 
 ## Architecture
 
 ```
-backend/edith/   api/ (thin routers, one error map) · core/ (config, logging) ·
-                 db/ (project file + versioned documents) · services/ (logic)
-frontend/src/    Preact SPA; all HTTP in lib/api.ts
-<library>/<slug>/project.edith   SQLite: meta + documents(kind, id, schema_version, body)
+backend/edith/
+  api/        thin routers; one place maps domain errors to HTTP statuses
+  core/       config, logging, auth, errors
+  db/         project file (SQLite) + versioned documents with upcasters
+  sync/       registration-sound search, cross-file solver, ffmpeg access
+  edit/       render plan builder (the single source of truth), silence detection
+  export/     FCPXML, xmeml, EDL, JSON bundle, ffmpeg render command
+  services/   project/media/proxy/peaks/sync/edit/export/render logic, background jobs
+frontend/src/ Preact SPA; all HTTP in lib/api.ts; timeline math in lib/timeline.ts (mirrors the plan)
 ```
 
-Opening a project never modifies it. Older document versions are upcast in memory; editing one
-prompts a save in the current format ([ADR 0001](docs/adr/0001-sqlite-per-project-versioned-documents.md)).
-Media is referenced in place and never modified.
+- **Project file.** `project.edith` is SQLite with a frozen two-table schema holding versioned
+  JSON documents (project info, media, sync state, the edit). Older documents are upcast in memory
+  when read; **opening never modifies a project**, and saving rewrites at the current version
+  ([ADR 0001](docs/adr/0001-sqlite-per-project-versioned-documents.md)).
+- **Sync.** Energy-normalised correlation against a template of the registration sound, then a
+  cross-file solver that rejects loud lookalikes
+  ([ADR 0003](docs/adr/0003-sync-by-normalized-correlation-and-cross-file-consensus.md)).
+- **The edit** is a non-destructive list on the shared timeline (camera switches, cuts, stills,
+  track settings, range). `edit/plan.py` turns it into concrete clips; preview mirrors it, every
+  export serialises it, and the render compiles it to one ffmpeg command.
 
-## Deployment
+## Known limits
 
-Local only for now: `docker compose build`, then `just up`. There is no database service and no
-migration step.
+- **Resolve / Premiere exports are untested in those apps.** They are structurally validated
+  (well-formed, references resolve, frame-exact times) but have not been opened in Resolve,
+  Premiere, or Final Cut. Expect to report and fix quirks on first import.
+- **Drift is measured but not applied.** Each file's clock drift (ppm) is shown; clips are placed
+  from the start offset only. Over a very long take, a drifting device would slowly slide.
+- **One camera showed a 22 ms inconsistency** between its start and end tone on the sample
+  session; sync flags weak or inconsistent files as *check*. Long real takes will tell whether it
+  is a mis-located peak or real clock drift.
+- **Preview is proxy quality** and plays with a wall clock, so scrubbing and cut jumps can
+  briefly stutter; the render is the source of truth.
+- **Single user, single machine.** Background jobs live in memory; a restart forgets running jobs
+  (their results are on disk).
+- Stills must be JPEG/PNG/WebP. No vertical (9:16) output yet: the plan carries width and height
+  but there is no per-camera reframing.
