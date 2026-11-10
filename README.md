@@ -65,7 +65,8 @@ comes next.
    **Vertical space is shared** so the timeline gets what its rows need (it only scrolls inside
    itself when that would squeeze the view too small, and never shrinks below about four rows); the
    large view gets the rest, growing up to two thirds of the window's width. A project with few
-   files has a short timeline and a bigger view.
+   files has a short timeline and a bigger view. When the timeline does scroll, the time ruler and
+   the row labels stay pinned.
    - **Channels:** the output shows one *channel* at a time: a camera or a still. Cameras are
      numbered first, then stills (each by name), and only the first nine get a number. Put the
      playhead where you want the change and press the channel's number (or click its button);
