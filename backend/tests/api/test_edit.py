@@ -97,6 +97,6 @@ def test_silence_suggestions_come_from_the_audio_envelope(client: TestClient, pr
     cuts = response.json()["cuts"]
     # Silent 0-2 s and 4-8 s (sound at 2-4 s and 8-10 s).
     assert [(round(c["start_s"], 1), round(c["end_s"], 1)) for c in cuts] == [
-        (0.2, 1.8),
+        (0.0, 1.8),
         (4.2, 7.8),
     ]

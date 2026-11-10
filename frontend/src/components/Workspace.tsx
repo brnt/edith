@@ -1,0 +1,279 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
+
+import {
+  exportUrl,
+  fetchEdit,
+  fetchMedia,
+  fetchPeaks,
+  fetchPlan,
+  fetchProject,
+  fetchSync,
+  putEdit,
+  upgradeProject,
+  type EditList,
+  type ExportFormat,
+  type MediaItem,
+  type Peaks,
+  type Plan,
+  type Project,
+  type SyncState,
+} from "../lib/api";
+import * as history from "../lib/history";
+import { sortMedia } from "../lib/timeline";
+import { Editor } from "./Editor";
+import { MediaPanel } from "./MediaPanel";
+import { SyncPanel } from "./SyncPanel";
+import { Badge, Button, Section } from "./ui";
+
+const FORMATS: { format: ExportFormat; label: string; hint: string }[] = [
+  { format: "fcpxml", label: "DaVinci Resolve / Final Cut (FCPXML)", hint: "video + audio tracks" },
+  { format: "xmeml", label: "Premiere Pro (XML)", hint: "video + audio tracks" },
+  { format: "edl", label: "EDL", hint: "video cuts only" },
+  { format: "json", label: "Edith project (JSON)", hint: "all project data" },
+];
+
+export function Workspace({ slug }: { slug: string }) {
+  const [project, setProject] = useState<Project | null>(null);
+  const [media, setMedia] = useState<MediaItem[]>([]);
+  const [sync, setSync] = useState<SyncState | null>(null);
+  const [hist, setHist] = useState<history.History<EditList> | null>(null);
+  const [saved, setSaved] = useState<EditList | null>(null);
+  const [peaks, setPeaks] = useState<Record<string, Peaks>>({});
+  const [plan, setPlan] = useState<Plan | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const requested = useRef(new Set<string>());
+
+  const fail = useCallback(
+    (e: unknown) => setError(e instanceof Error ? e.message : String(e)),
+    [],
+  );
+  const edit = hist?.present ?? null;
+  const dirty = hist !== null && saved !== hist.present;
+
+  const refreshMedia = useCallback(
+    () =>
+      fetchMedia(slug)
+        .then((list) => setMedia(sortMedia(list)))
+        .catch(fail),
+    [slug, fail],
+  );
+  const refreshSync = useCallback(() => fetchSync(slug).then(setSync).catch(fail), [slug, fail]);
+  const refreshPlan = useCallback(() => fetchPlan(slug).then(setPlan).catch(fail), [slug, fail]);
+  const refreshProject = useCallback(
+    () => fetchProject(slug).then(setProject).catch(fail),
+    [slug, fail],
+  );
+
+  useEffect(() => {
+    void refreshProject();
+    void refreshMedia();
+    void refreshSync();
+    void refreshPlan();
+    fetchEdit(slug)
+      .then(({ edit: loaded }) => {
+        setHist(history.start(loaded));
+        setSaved(loaded);
+      })
+      .catch(fail);
+  }, [slug]);
+
+  // Waveforms for everything that has audio, loaded once per file.
+  useEffect(() => {
+    for (const m of media) {
+      if (!m.has_audio || m.kind === "image" || requested.current.has(m.id)) continue;
+      requested.current.add(m.id);
+      fetchPeaks(slug, m.id)
+        .then((data) => setPeaks((current) => ({ ...current, [m.id]: data })))
+        .catch(fail);
+    }
+  }, [media, slug]);
+
+  const onEdit = useCallback(
+    (next: EditList) => setHist((h) => (h ? history.push(h, next) : h)),
+    [],
+  );
+
+  const save = useCallback(async () => {
+    if (!hist) return;
+    setSaving(true);
+    try {
+      await putEdit(slug, hist.present);
+      setSaved(hist.present);
+      await Promise.all([refreshProject(), refreshPlan()]);
+      setError(null);
+    } catch (e) {
+      fail(e);
+    }
+    setSaving(false);
+  }, [hist, slug]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const typing =
+        e.target instanceof HTMLElement &&
+        ["INPUT", "SELECT", "TEXTAREA"].includes(e.target.tagName);
+      if (!(e.metaKey || e.ctrlKey)) return;
+      if (e.key === "s") {
+        e.preventDefault();
+        void save();
+      } else if (e.key === "z" && !typing) {
+        e.preventDefault();
+        setHist((h) => (h ? (e.shiftKey ? history.redo(h) : history.undo(h)) : h));
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [save]);
+
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (e: BeforeUnloadEvent) => e.preventDefault();
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty]);
+
+  const upgrade = async () => {
+    try {
+      setProject(await upgradeProject(slug));
+    } catch (e) {
+      fail(e);
+    }
+  };
+
+  const unsynced = useMemo(
+    () => media.filter((m) => m.kind !== "image" && m.has_audio && !sync?.results[m.id]).length,
+    [media, sync],
+  );
+  const synced = sync !== null && Object.keys(sync.results).length > 0;
+
+  return (
+    <div class="mx-auto max-w-[1400px] space-y-3 p-4">
+      <header class="flex flex-wrap items-center gap-3">
+        <a href="#/" class="text-sky-300">
+          ← Projects
+        </a>
+        <h1 class="text-xl font-bold">{project?.name ?? slug}</h1>
+        {dirty && <Badge tone="warn">unsaved changes</Badge>}
+        <div class="ml-auto flex items-center gap-2">
+          <Button
+            disabled={!hist || hist.past.length === 0}
+            onClick={() => setHist((h) => (h ? history.undo(h) : h))}
+          >
+            Undo
+          </Button>
+          <Button
+            disabled={!hist || hist.future.length === 0}
+            onClick={() => setHist((h) => (h ? history.redo(h) : h))}
+          >
+            Redo
+          </Button>
+          <Button variant="primary" disabled={!dirty || saving} onClick={save}>
+            {saving ? "Saving…" : "Save"}
+          </Button>
+        </div>
+      </header>
+
+      {project?.needs_upgrade && (
+        <div class="flex items-center gap-3 rounded border border-amber-700 bg-amber-950 p-3 text-sm text-amber-200">
+          This project was saved by an older version of Edith. It opened as it was; saving your edit
+          or upgrading rewrites it in the current format.
+          <Button onClick={upgrade}>Upgrade now</Button>
+        </div>
+      )}
+      {error && (
+        <div class="flex items-center justify-between rounded border border-red-800 bg-red-950 p-3 text-sm text-red-200">
+          {error}
+          <Button variant="ghost" onClick={() => setError(null)}>
+            Dismiss
+          </Button>
+        </div>
+      )}
+
+      <Section
+        title={`1 · Media (${media.length})`}
+        open={media.length === 0 || media.some((m) => !m.proxy_ready)}
+      >
+        <MediaPanel
+          slug={slug}
+          media={media}
+          onChange={() => {
+            void refreshMedia();
+            void refreshSync();
+            void refreshPlan();
+          }}
+          onError={setError}
+        />
+      </Section>
+
+      <Section
+        title="2 · Sync"
+        open={!synced}
+        right={
+          synced ? (
+            <Badge tone={unsynced ? "warn" : "good"}>
+              {unsynced ? "some files missing" : "synced"}
+            </Badge>
+          ) : null
+        }
+      >
+        <SyncPanel
+          slug={slug}
+          media={media}
+          sync={sync}
+          peaks={peaks}
+          onChange={() => {
+            void refreshSync();
+            void refreshPlan();
+          }}
+          onError={setError}
+        />
+      </Section>
+
+      <Section title="3 · Edit">
+        {edit ? (
+          <Editor
+            slug={slug}
+            media={media}
+            sync={sync}
+            edit={edit}
+            peaks={peaks}
+            onEdit={onEdit}
+            onError={setError}
+          />
+        ) : (
+          <p class="text-neutral-500">Loading…</p>
+        )}
+        {plan && plan.warnings.length > 0 && (
+          <ul class="mt-3 space-y-1 text-sm text-amber-300">
+            {plan.warnings.map((w) => (
+              <li key={w}>⚠ {w}</li>
+            ))}
+          </ul>
+        )}
+      </Section>
+
+      <Section title="4 · Export" open={false}>
+        <p class="mb-2 text-sm text-neutral-400">
+          Exports use the saved edit
+          {dirty ? " — save your changes first." : "."}
+          {plan ? ` Output length ${Math.round(plan.duration_s)} s.` : ""}
+        </p>
+        <ul class="space-y-1 text-sm">
+          {FORMATS.map((f) => (
+            <li key={f.format}>
+              <a
+                class={dirty ? "pointer-events-none text-neutral-600" : "text-sky-300 underline"}
+                href={exportUrl(slug, f.format)}
+                download
+              >
+                {f.label}
+              </a>{" "}
+              <span class="text-neutral-500">{f.hint}</span>
+            </li>
+          ))}
+        </ul>
+      </Section>
+    </div>
+  );
+}
