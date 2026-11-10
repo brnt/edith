@@ -33,10 +33,14 @@ export interface SyncResult {
   interval_residual_s: number | null;
 }
 
+/** Where the registration sound comes from: a stretch of a recording, a text seed, or a file. */
 export interface SyncTemplate {
-  media_id: string;
-  start_s: number;
-  end_s: number;
+  kind: "excerpt" | "seed" | "file";
+  media_id?: string | null;
+  start_s?: number | null;
+  end_s?: number | null;
+  seed?: string | null;
+  path?: string | null;
 }
 
 export interface SyncState {
@@ -162,6 +166,8 @@ export const proxyUrl = (slug: string, id: string) => `${BASE_URL}${p(slug)}/med
 export const fetchSync = (slug: string) => request<SyncState>(`${p(slug)}/sync`);
 export const startSync = (slug: string, template: SyncTemplate) =>
   request<Job>(`${p(slug)}/sync`, json("POST", { template }));
+export const registrationSoundUrl = (seed: string) =>
+  `${BASE_URL}/registration/sound?seed=${encodeURIComponent(seed)}`;
 export const putNudges = (slug: string, nudges: Record<string, number>) =>
   request<SyncState>(`${p(slug)}/sync/nudges`, json("PUT", { nudges }));
 

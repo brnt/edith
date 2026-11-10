@@ -41,10 +41,21 @@ comes next.
    files (each shows a tiny thumbnail). **Build proxies** (low-res copies the browser can scrub;
    originals are untouched).
 2. **Sync.** Every device should have recorded a registration sound once shortly after it started
-   and once shortly before it stopped. Pick any recording that contains it and drag across the
-   sound on the waveform (a quiet beep is visible as a small bump), then **Find the sound in every
-   file**. Each file gets a start offset, drift, and a result: *synced*, *check* (weak or
-   inconsistent: review it), or *not found*. Nudge any file by hand in milliseconds.
+   and once shortly before it stopped. Tell Edith what it sounds like, then **Find the sound in
+   every file**. Three ways:
+   - **Marked in a recording:** pick any recording that contains it and drag across the sound on
+     the waveform (a quiet beep shows as a small bump). Works for any sound, including ones Edith
+     didn't generate.
+   - **Generated from text:** type the seed string (e.g. `stickshift`); **Download .wav** gives
+     you the sound to play on set. Edith searches every file for that same sound.
+   - **An audio file:** choose a file from the library (silence around the sound is trimmed). It
+     is searched for, not added to the project.
+
+   Each file gets a start offset, a **Match** score (1.0 = identical; real rooms score lower, e.g.
+   0.4-0.6), drift, and a result: *synced*, *check* (weak or inconsistent: review it), or *not
+   found*. Compare the Match across files: a different seed or the wrong sound can partly match
+   and may land up to ~30 ms off, but scores clearly lower. Nudge any file by hand in
+   milliseconds.
 3. **Edit** (the preview plays the synced proxies; the timeline shows each camera, the stills, and
    each audio track's waveform).
    - **Channels:** the output shows one *channel* at a time: a camera or a still. Cameras are

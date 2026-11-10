@@ -2,14 +2,17 @@ import { useEffect, useRef, useState } from "preact/hooks";
 
 import {
   putNudges,
+  registrationSoundUrl,
   startSync,
   type MediaItem,
   type Peaks,
   type SyncResult,
   type SyncState,
+  type SyncTemplate,
 } from "../lib/api";
 import { waitForJob } from "../lib/jobs";
 import { formatTime } from "../lib/timeline";
+import { LibraryBrowser } from "./LibraryBrowser";
 import { MAX_CANVAS_PX, Waveform } from "./Waveform";
 import { Badge, Button, Progress } from "./ui";
 
@@ -22,10 +25,17 @@ interface Props {
   onError: (message: string) => void;
 }
 
+type Mode = SyncTemplate["kind"];
+
 const MAX_TEMPLATE_S = 5;
-const WAVE_HEIGHT = 64;
+const WAVE_HEIGHT = 56;
 const TONES = { synced: "good", low_confidence: "warn", unsynced: "bad" } as const;
 const LABELS = { synced: "synced", low_confidence: "check", unsynced: "not found" } as const;
+const MODES: { id: Mode; label: string }[] = [
+  { id: "excerpt", label: "Marked in a recording" },
+  { id: "seed", label: "Generated from text" },
+  { id: "file", label: "An audio file" },
+];
 
 function describe(result: SyncResult | undefined) {
   if (!result) return null;
@@ -34,10 +44,17 @@ function describe(result: SyncResult | undefined) {
 
 export function SyncPanel({ slug, media, sync, peaks, onChange, onError }: Props) {
   const withAudio = media.filter((m) => m.has_audio && m.kind !== "image");
-  const [sourceId, setSourceId] = useState<string>(sync?.template?.media_id ?? "");
+  const saved = sync?.template ?? null;
+  const [mode, setMode] = useState<Mode>(saved?.kind ?? "excerpt");
+  const [sourceId, setSourceId] = useState<string>(saved?.media_id ?? "");
   const [range, setRange] = useState<[number, number] | null>(
-    sync?.template ? [sync.template.start_s, sync.template.end_s] : null,
+    saved?.kind === "excerpt" && saved.start_s != null && saved.end_s != null
+      ? [saved.start_s, saved.end_s]
+      : null,
   );
+  const [seed, setSeed] = useState(saved?.seed ?? "");
+  const [filePath, setFilePath] = useState(saved?.path ?? "");
+  const [choosing, setChoosing] = useState(false);
   const [pxPerSec, setPxPerSec] = useState(20);
   const [progress, setProgress] = useState<{ value: number; label: string } | null>(null);
   const drag = useRef<{ x0: number; t0: number } | null>(null);
@@ -45,35 +62,42 @@ export function SyncPanel({ slug, media, sync, peaks, onChange, onError }: Props
   const data = source ? peaks[source.id] : undefined;
   const duration = source?.duration_s ?? 0;
   const px = Math.min(pxPerSec, MAX_CANVAS_PX / Math.max(duration, 1));
+  const tooLong = range !== null && range[1] - range[0] > MAX_TEMPLATE_S;
 
-  // Show the saved template once it loads; otherwise default to the first recording.
+  // Show the saved sound once it loads (the sync state arrives after the first render).
   useEffect(() => {
-    if (sync?.template) {
-      setSourceId(sync.template.media_id);
-      setRange([sync.template.start_s, sync.template.end_s]);
+    if (!saved) return;
+    setMode(saved.kind);
+    if (saved.kind === "excerpt" && saved.media_id) {
+      setSourceId(saved.media_id);
+      if (saved.start_s != null && saved.end_s != null) setRange([saved.start_s, saved.end_s]);
     }
-  }, [sync?.template?.media_id, sync?.template?.start_s, sync?.template?.end_s]);
+    if (saved.kind === "seed") setSeed(saved.seed ?? "");
+    if (saved.kind === "file") setFilePath(saved.path ?? "");
+  }, [saved?.kind, saved?.media_id, saved?.start_s, saved?.end_s, saved?.seed, saved?.path]);
 
   useEffect(() => {
     if (!sourceId && withAudio.length) setSourceId(withAudio[0].id);
   }, [withAudio.length]);
-
-  const tooLong = range !== null && range[1] - range[0] > MAX_TEMPLATE_S;
 
   const timeAt = (event: PointerEvent) => {
     const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
     return Math.max(0, (event.clientX - rect.left) / px);
   };
 
+  const template = (): SyncTemplate | null => {
+    if (mode === "seed") return seed.trim() ? { kind: "seed", seed: seed.trim() } : null;
+    if (mode === "file") return filePath ? { kind: "file", path: filePath } : null;
+    if (!source || !range || tooLong) return null;
+    return { kind: "excerpt", media_id: source.id, start_s: range[0], end_s: range[1] };
+  };
+
   const run = async () => {
-    if (!source || !range) return;
+    const chosen = template();
+    if (!chosen) return;
     setProgress({ value: 0, label: "starting" });
     try {
-      const job = await startSync(slug, {
-        media_id: source.id,
-        start_s: range[0],
-        end_s: range[1],
-      });
+      const job = await startSync(slug, chosen);
       const done = await waitForJob(job.id, (j) =>
         setProgress({ value: j.progress, label: j.message }),
       );
@@ -91,77 +115,147 @@ export function SyncPanel({ slug, media, sync, peaks, onChange, onError }: Props
     );
 
   return (
-    <div class="grid h-full grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-4">
+    <div class="grid h-full grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)] gap-4">
       <div class="flex min-h-0 min-w-0 flex-col gap-2">
         <div class="flex flex-wrap items-center gap-2 text-sm">
           <label>
-            Registration sound in{" "}
+            Registration sound{" "}
             <select
               class="rounded bg-neutral-900 px-2 py-1"
-              value={sourceId}
-              onChange={(e) => {
-                setSourceId(e.currentTarget.value);
-                setRange(null);
-              }}
+              aria-label="Registration sound source"
+              value={mode}
+              onChange={(e) => setMode(e.currentTarget.value as Mode)}
             >
-              {withAudio.map((m) => (
+              {MODES.map((m) => (
                 <option key={m.id} value={m.id}>
                   {m.label}
                 </option>
               ))}
             </select>
           </label>
-          <Button onClick={() => setPxPerSec((v) => Math.min(v * 2, 2000))}>Zoom in</Button>
-          <Button onClick={() => setPxPerSec((v) => Math.max(v / 2, 2))}>Zoom out</Button>
-          <Button variant="primary" disabled={!range || tooLong || progress !== null} onClick={run}>
+
+          {mode === "excerpt" && (
+            <>
+              <select
+                class="rounded bg-neutral-900 px-2 py-1"
+                aria-label="Recording"
+                value={sourceId}
+                onChange={(e) => {
+                  setSourceId(e.currentTarget.value);
+                  setRange(null);
+                }}
+              >
+                {withAudio.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.label}
+                  </option>
+                ))}
+              </select>
+              <Button onClick={() => setPxPerSec((v) => Math.min(v * 2, 2000))}>Zoom in</Button>
+              <Button onClick={() => setPxPerSec((v) => Math.max(v / 2, 2))}>Zoom out</Button>
+            </>
+          )}
+
+          {mode === "seed" && (
+            <>
+              <input
+                class="w-36 rounded bg-neutral-900 px-2 py-1"
+                aria-label="Registration text"
+                placeholder="e.g. stickshift"
+                maxLength={64}
+                value={seed}
+                onInput={(e) => setSeed(e.currentTarget.value)}
+              />
+              <a
+                class={`rounded px-3 py-1 ${
+                  seed.trim()
+                    ? "bg-neutral-700 text-neutral-100 hover:bg-neutral-600"
+                    : "pointer-events-none bg-neutral-800 text-neutral-600"
+                }`}
+                href={seed.trim() ? registrationSoundUrl(seed.trim()) : undefined}
+                download="registration.wav"
+                title="Download the sound to play on set"
+              >
+                Download .wav
+              </a>
+            </>
+          )}
+
+          {mode === "file" && (
+            <>
+              <Button onClick={() => setChoosing(true)}>Choose file…</Button>
+              <span class="min-w-0 max-w-56 truncate text-neutral-300" title={filePath}>
+                {filePath || "none chosen"}
+              </span>
+            </>
+          )}
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2 text-sm">
+          <Button
+            variant="primary"
+            disabled={template() === null || progress !== null}
+            onClick={run}
+          >
             Find the sound in every file
           </Button>
           {progress && <Progress value={progress.value} label={progress.label} />}
-          <span class="text-xs text-neutral-400">
-            {range
-              ? `Selected ${formatTime(range[0], 2)} – ${formatTime(range[1], 2)} (${(range[1] - range[0]).toFixed(2)} s)`
-              : "Drag across the beep (a quiet one shows as a small bump) to select it."}
-          </span>
+          {mode === "excerpt" && (
+            <span class="text-xs text-neutral-400">
+              {range
+                ? `Selected ${formatTime(range[0], 2)} – ${formatTime(range[1], 2)} (${(range[1] - range[0]).toFixed(2)} s)`
+                : "Drag across the beep (a quiet one shows as a small bump) to select it."}
+            </span>
+          )}
           {tooLong && (
             <span class="text-xs text-amber-300">Select just the sound (at most 5 s).</span>
           )}
         </div>
-        <div class="min-h-0 overflow-x-auto overflow-y-hidden rounded border border-neutral-700 bg-neutral-950">
-          <div
-            class="relative cursor-crosshair"
-            style={{ width: Math.max(1, duration * px), height: WAVE_HEIGHT }}
-            onPointerDown={(e) => {
-              (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-              drag.current = { x0: e.clientX, t0: timeAt(e) };
-            }}
-            onPointerMove={(e) => {
-              if (!drag.current) return;
-              const t = timeAt(e);
-              setRange([Math.min(drag.current.t0, t), Math.max(drag.current.t0, t)]);
-            }}
-            onPointerUp={() => (drag.current = null)}
-          >
-            <Waveform peaks={data} pxPerSec={px} width={duration * px} height={WAVE_HEIGHT} />
-            {range && (
-              <div
-                class="absolute inset-y-0 bg-amber-400/30 ring-1 ring-amber-400"
-                style={{ left: range[0] * px, width: Math.max(1, (range[1] - range[0]) * px) }}
-              />
-            )}
+
+        {mode === "excerpt" ? (
+          <div class="min-h-0 overflow-x-auto overflow-y-hidden rounded border border-neutral-700 bg-neutral-950">
+            <div
+              class="relative cursor-crosshair"
+              style={{ width: Math.max(1, duration * px), height: WAVE_HEIGHT }}
+              onPointerDown={(e) => {
+                (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+                drag.current = { x0: e.clientX, t0: timeAt(e) };
+              }}
+              onPointerMove={(e) => {
+                if (!drag.current) return;
+                const t = timeAt(e);
+                setRange([Math.min(drag.current.t0, t), Math.max(drag.current.t0, t)]);
+              }}
+              onPointerUp={() => (drag.current = null)}
+            >
+              <Waveform peaks={data} pxPerSec={px} width={duration * px} height={WAVE_HEIGHT} />
+              {range && (
+                <div
+                  class="absolute inset-y-0 bg-amber-400/30 ring-1 ring-amber-400"
+                  style={{ left: range[0] * px, width: Math.max(1, (range[1] - range[0]) * px) }}
+                />
+              )}
+            </div>
           </div>
-        </div>
+        ) : (
+          <p class="text-xs text-neutral-400">
+            {mode === "seed"
+              ? "Download the sound and play it after starting and before stopping each device. A different text can still partly match, so check each Match."
+              : "An audio file of the sound (silence around it is trimmed), searched for in every recording and not added to the project."}
+          </p>
+        )}
       </div>
 
       <div class="min-h-0 min-w-0 overflow-hidden text-sm">
         {sync && Object.keys(sync.results).length > 0 ? (
-          <ul class="grid auto-cols-[21rem] grid-flow-col grid-rows-5 content-start gap-x-4 gap-y-0.5">
+          <ul class="grid auto-cols-[21.5rem] grid-flow-col grid-rows-5 content-start gap-x-4 gap-y-0.5">
             {media
               .filter((m) => sync.results[m.id])
               .map((m) => {
                 const r = sync.results[m.id];
                 return (
                   <li key={m.id} class="flex items-center gap-2">
-                    <span class="w-28 truncate" title={m.label}>
+                    <span class="w-24 truncate" title={m.label}>
                       {m.label}
                     </span>
                     {describe(r)}
@@ -172,6 +266,12 @@ export function SyncPanel({ slug, media, sync, peaks, onChange, onError }: Props
                       {r.start_s === null ? "—" : formatTime(r.start_s, 3)}
                     </span>
                     <span
+                      class="w-9 text-xs text-neutral-400"
+                      title="Match: 1.0 is identical; lower in noisy rooms or for a different sound"
+                    >
+                      {r.score === null ? "" : r.score.toFixed(2)}
+                    </span>
+                    <span
                       class="w-16 whitespace-nowrap text-xs text-neutral-500"
                       title="Clock drift relative to the group"
                     >
@@ -180,7 +280,7 @@ export function SyncPanel({ slug, media, sync, peaks, onChange, onError }: Props
                     <input
                       aria-label={`Nudge ${m.label}`}
                       title="Nudge (ms)"
-                      class="w-14 rounded bg-neutral-900 px-1 py-0.5"
+                      class="w-12 rounded bg-neutral-900 px-1 py-0.5"
                       type="number"
                       step="10"
                       value={Math.round((sync.nudges[m.id] ?? 0) * 1000)}
@@ -192,11 +292,25 @@ export function SyncPanel({ slug, media, sync, peaks, onChange, onError }: Props
           </ul>
         ) : (
           <p class="text-neutral-500">
-            Results appear here: each file's start on the timeline, its clock drift, and whether the
-            sound was found.
+            Results appear here: each file's start on the timeline, how well the sound matched, its
+            clock drift, and whether it was found.
           </p>
         )}
       </div>
+
+      {choosing && (
+        <LibraryBrowser
+          kinds={["audio"]}
+          single
+          title="Choose the registration sound from"
+          confirmLabel="Use this file"
+          onClose={() => setChoosing(false)}
+          onAdd={([path]) => {
+            setChoosing(false);
+            if (path) setFilePath(path);
+          }}
+        />
+      )}
     </div>
   );
 }

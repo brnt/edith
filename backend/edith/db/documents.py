@@ -79,11 +79,18 @@ class MediaItem(Document):
 
 
 class SyncTemplate(Part):
-    """The registration sound: an excerpt of a registered recording."""
+    """The registration sound, and where it comes from.
 
-    media_id: str
-    start_s: float
-    end_s: float
+    `excerpt` (the default, and all that v1 files hold): a stretch of a registered recording.
+    `seed`: generated from a text string. `file`: an audio file in the library.
+    """
+
+    kind: Literal["excerpt", "seed", "file"] = "excerpt"
+    media_id: str | None = None
+    start_s: float | None = None
+    end_s: float | None = None
+    seed: str | None = None
+    path: str | None = None  # library-relative
 
 
 class SyncResult(Part):

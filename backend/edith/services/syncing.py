@@ -11,6 +11,7 @@ from edith.db.documents import (
     MEDIA,
     SYNC,
     SYNC_ID,
+    Document,
     MediaItem,
     SyncResult,
     SyncState,
@@ -21,6 +22,7 @@ from edith.services import media_items
 from edith.services.jobs import Job
 from edith.services.projects import open_project
 from edith.sync import analyze
+from edith.sync.registration import trim_silence
 
 log = structlog.get_logger()
 
@@ -37,25 +39,46 @@ def get_sync(library: Path, slug: str) -> tuple[SyncState, bool]:
     return loaded.document, loaded.needs_upgrade
 
 
-def _template_audio(library: Path, item: MediaItem, template: SyncTemplate) -> np.ndarray:
+def _checked(audio: np.ndarray) -> np.ndarray:
+    length = len(audio) / analyze.SAMPLE_RATE
+    if audio.size == 0 or float(np.abs(audio).max()) < 1e-4:
+        raise InvalidTemplate("the sound is silent or empty")
+    if not MIN_TEMPLATE_S <= length <= MAX_TEMPLATE_S:
+        raise InvalidTemplate(f"the sound must be {MIN_TEMPLATE_S}-{MAX_TEMPLATE_S}s long")
+    return audio
+
+
+def _template_audio(
+    library: Path, items: dict[str, Document], template: SyncTemplate
+) -> np.ndarray:
+    if template.kind == "seed":
+        if not template.seed:
+            raise InvalidTemplate("a seed needs some text")
+        return analyze.template_from_seed(template.seed)
+
+    if template.kind == "file":
+        if not template.path or lib.kind_for(template.path) != "audio":
+            raise InvalidTemplate("pick an audio file from the library")
+        audio = analyze.template_from_audio(lib.media_file(library, template.path))
+        return _checked(trim_silence(audio))  # generated sounds come padded with silence
+
+    source = items.get(template.media_id or "")
+    if not isinstance(source, MediaItem) or template.start_s is None or template.end_s is None:
+        raise media_items.MediaNotFound(template.media_id or "")
     length = template.end_s - template.start_s
     if not MIN_TEMPLATE_S <= length <= MAX_TEMPLATE_S or template.start_s < 0:
         raise InvalidTemplate(f"excerpt must be {MIN_TEMPLATE_S}-{MAX_TEMPLATE_S}s long")
-    audio = analyze.template_from_audio(
-        lib.media_file(library, item.path), start_s=template.start_s, duration_s=length
+    return _checked(
+        analyze.template_from_audio(
+            lib.media_file(library, source.path), start_s=template.start_s, duration_s=length
+        )
     )
-    if audio.size == 0 or float(np.abs(audio).max()) < 1e-4:
-        raise InvalidTemplate("excerpt is silent or outside the recording")
-    return audio
 
 
 def run_sync(library: Path, slug: str, template: SyncTemplate, job: Job) -> dict:
     with open_project(library, slug) as project:
         items = {m.doc_id: m.document for m in project.documents_of(MEDIA)}
-    source = items.get(template.media_id)
-    if not isinstance(source, MediaItem):
-        raise media_items.MediaNotFound(template.media_id)
-    audio = _template_audio(library, source, template)
+    audio = _template_audio(library, items, template)
 
     paths = {
         i.id: lib.media_file(library, i.path)
