@@ -7,6 +7,7 @@ import {
   removeCut,
   setAudioIncluded,
   setCamera,
+  showOver,
   setCut,
   setEnabled,
   setTrack,
@@ -335,6 +336,38 @@ describe("channels: cameras and stills", () => {
     ];
     expect(activeChannel(switches, 15, "camA")).toBe("car");
     expect(activeChannel(switches, 25, "camA")).toBe("camA");
+  });
+});
+
+describe("showOver", () => {
+  test("shows a channel over a range and returns to what was showing at its end", () => {
+    const base = edit({ switches: [{ at_s: 5, media_id: "camB" }] });
+    expect(showOver(base, "camA", "car", 10, 14).switches).toEqual([
+      { at_s: 5, media_id: "camB" },
+      { at_s: 10, media_id: "car" },
+      { at_s: 14, media_id: "camB" },
+    ]);
+  });
+
+  test("drops switches hidden under the range but returns to the one in force at its end", () => {
+    const base = edit({
+      switches: [
+        { at_s: 5, media_id: "camB" },
+        { at_s: 12, media_id: "camA" },
+      ],
+    });
+    expect(showOver(base, "camB", "car", 10, 14).switches).toEqual([
+      { at_s: 5, media_id: "camB" },
+      { at_s: 10, media_id: "car" },
+      { at_s: 14, media_id: "camA" },
+    ]);
+  });
+
+  test("with no earlier switch returns to the default camera", () => {
+    expect(showOver(edit(), "camA", "camB", 10, 14).switches).toEqual([
+      { at_s: 10, media_id: "camB" },
+      { at_s: 14, media_id: "camA" },
+    ]);
   });
 });
 

@@ -144,8 +144,7 @@ test("clicking a still's tile activates it, like a camera's", () => {
 
 test("stills are teal and cameras blue, on the tiles and on the active tile", () => {
   const { rerender } = render(grid("a"));
-  const chip = (name: string) =>
-    screen.getByRole("button", { name }).querySelector("span.bottom-1");
+  const chip = (name: string) => screen.getByRole("button", { name }).querySelector("span.top-1");
   expect(chip("Preview of camera 2: switch to it")?.className).toContain("bg-sky");
   expect(chip("Preview of still 4: switch to it")?.className).toContain("bg-teal");
   rerender(grid("car"));

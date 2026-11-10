@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 
 import { fetchSilence, type EditList, type MediaItem, type SyncState } from "./api";
-import { addCuts, setCamera, setRange } from "./editOps";
+import { addCuts, setCamera, setRange, showOver } from "./editOps";
 import {
   advancePlayhead,
   channelsOf,
@@ -59,8 +59,8 @@ export function useEditor({ slug, media, sync, edit, onEdit, onError, ready }: A
   const fitPx = fitPxPerSec(width, end);
   const pxPerSec = zoom ?? fitPx;
 
-  const state = useRef({ t, playing, keeps, selection, edit, lo });
-  state.current = { t, playing, keeps, selection, edit, lo };
+  const state = useRef({ t, playing, keeps, selection, edit, lo, fallback });
+  state.current = { t, playing, keeps, selection, edit, lo, fallback };
 
   useEffect(() => {
     const el = timelineBox.current;
@@ -107,8 +107,14 @@ export function useEditor({ slug, media, sync, edit, onEdit, onError, ready }: A
     setPlaying(true);
   };
 
-  const cutTo = (mediaId: string | null) =>
-    onEdit(setCamera(state.current.edit, state.current.t, mediaId));
+  /** Show a channel from the playhead on, or, with a range selected, over just that range. */
+  const cutTo = (mediaId: string | null) => {
+    const { edit: current, t: at, selection: sel, fallback: fb } = state.current;
+    if (sel && mediaId !== null) {
+      onEdit(showOver(current, fb, mediaId, sel[0], sel[1]));
+      setSelection(null);
+    } else onEdit(setCamera(current, at, mediaId));
+  };
 
   const cutSelection = () => {
     const sel = state.current.selection;
@@ -121,7 +127,10 @@ export function useEditor({ slug, media, sync, edit, onEdit, onError, ready }: A
     const onKey = (e: KeyboardEvent) => {
       if (isTyping(e.target) || e.metaKey || e.ctrlKey || e.altKey) return;
       const cur = state.current;
-      if (e.key === " ") togglePlay();
+      if (e.key === "Escape") {
+        if (!cur.selection) return;
+        setSelection(null);
+      } else if (e.key === " ") togglePlay();
       else if (e.key === "ArrowLeft") setT(Math.max(0, cur.t - (e.shiftKey ? 10 : 1)));
       else if (e.key === "ArrowRight") setT(Math.min(end, cur.t + (e.shiftKey ? 10 : 1)));
       else if (e.key === "x") cutSelection();

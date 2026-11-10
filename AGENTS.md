@@ -75,6 +75,9 @@ Root `justfile` delegates to both; Compose runs `api` (:8000) and `web` (:8080).
   plain `<img>` tiles. Every channel keeps a fixed slot (cameras by number, then stills); the
   active one is the same tile, dimmed with an "on screen" overlay and inert (`TileShell`), so the grid never reorders.
   Painting a live copy costs ~0.01 ms/frame, measured.
+- **Clicking a tile or pressing a number while a range is selected is a cutaway** (`showOver` in
+  `lib/editOps.ts`, via `cutTo` in `useEditor`): the channel is shown over the range, then the edit
+  returns to what was showing at its end, and the selection clears. No selection: switch at the playhead.
 - **Channels are numbered cameras-first, then stills, by name, only 1-9** (`channelsOf` in
   `lib/timeline.ts`): this numbering drives the number keys, the ribbon buttons, the timeline row
   badges and the switch list, so change it in one place. Channels in `EditList.disabled` (the Media
