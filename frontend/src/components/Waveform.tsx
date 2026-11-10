@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "preact/hooks";
 
 import type { Peaks } from "../lib/api";
+import { AUDIO_WAVEFORM } from "../lib/channelStyle";
 
 interface Props {
   peaks: Peaks | undefined;
@@ -16,7 +17,14 @@ interface Props {
 export const MAX_CANVAS_PX = 30000;
 
 /** Loudness envelope drawn as vertical bars, one per pixel column. */
-export function Waveform({ peaks, offset = 0, pxPerSec, width, height, color = "#38bdf8" }: Props) {
+export function Waveform({
+  peaks,
+  offset = 0,
+  pxPerSec,
+  width,
+  height,
+  color = AUDIO_WAVEFORM,
+}: Props) {
   const ref = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {

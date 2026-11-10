@@ -11,7 +11,7 @@ import {
   type Channel,
   type Range,
 } from "../lib/timeline";
-import { channelStyle } from "../lib/channelStyle";
+import { AUDIO_WAVEFORM, channelStyle } from "../lib/channelStyle";
 import { ChannelChip } from "./ChannelChip";
 import { MAX_CANVAS_PX, Waveform } from "./Waveform";
 
@@ -256,7 +256,7 @@ export function Timeline(props: Props) {
                 pxPerSec={px}
                 width={total}
                 height={ROW.audio}
-                color="#34d399"
+                color={AUDIO_WAVEFORM}
               />
               {edit.mix
                 .filter((r) => r.media_id === m.id)

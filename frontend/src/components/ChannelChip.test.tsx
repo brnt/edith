@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/preact";
 import { expect, test, vi } from "vitest";
 
-import { CHANNEL_STYLE } from "../lib/channelStyle";
+import { AUDIO_WAVEFORM, CHANNEL_STYLE } from "../lib/channelStyle";
 import { ChannelChip } from "./ChannelChip";
 
 // Colors that read as a warning, or are already taken (red = cuts, amber = playhead).
@@ -45,4 +45,10 @@ test("a chip shows its number, takes its color from what it is, and switches on 
   const still = screen.getByRole("button", { name: "Switch to car" });
   expect(still).toHaveTextContent("•"); // unnumbered channels (beyond nine) get a dot
   expect(still.className).toContain("bg-teal");
+});
+
+test("the audio waveform is neutral, so it cannot be mistaken for the teal stills or blue cameras", () => {
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(AUDIO_WAVEFORM.slice(i, i + 2), 16));
+  expect(Math.max(r, g, b) - Math.min(r, g, b)).toBeLessThan(40); // barely any hue
+  expect(Math.min(r, g, b)).toBeGreaterThan(150); // and light enough to read on the dark timeline
 });
