@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from edith.api.errors import register_error_handlers
 from edith.api.media import router as media_router
 from edith.api.routes import router
+from edith.api.sync import router as sync_router
 from edith.core.config import get_settings
 from edith.core.logging import configure_logging
 from edith.core.middleware import RequestIDMiddleware
@@ -28,6 +29,7 @@ def create_app() -> FastAPI:
     app.add_middleware(RequestIDMiddleware)
     app.include_router(router)
     app.include_router(media_router)
+    app.include_router(sync_router)
     register_error_handlers(app)
     return app
 

@@ -36,3 +36,7 @@ class InvalidMediaPath(EdithError):
 
 class MediaError(EdithError):
     """ffprobe/ffmpeg could not read or process a file."""
+
+
+class InvalidTemplate(EdithError):
+    """The registration-sound excerpt is empty, too long, or silent."""

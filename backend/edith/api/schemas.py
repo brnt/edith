@@ -69,3 +69,34 @@ class PeaksRead(BaseModel):
     rate: int
     floor_db: float
     values: list[int]
+
+
+class SyncTemplateIn(BaseModel):
+    media_id: str
+    start_s: float
+    end_s: float
+
+
+class SyncRun(BaseModel):
+    template: SyncTemplateIn
+
+
+class SyncResultRead(BaseModel):
+    status: str
+    start_s: float | None = None
+    drift_ppm: float | None = None
+    tone_start_s: float | None = None
+    tone_end_s: float | None = None
+    score: float | None = None
+    interval_residual_s: float | None = None
+
+
+class SyncRead(BaseModel):
+    template: SyncTemplateIn | None
+    results: dict[str, SyncResultRead]
+    nudges: dict[str, float]
+    needs_upgrade: bool
+
+
+class NudgesIn(BaseModel):
+    nudges: dict[str, float]
