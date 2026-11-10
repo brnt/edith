@@ -185,3 +185,12 @@ export const listLibrary = (dir = "") =>
   request<LibraryListing>(`/library/files?dir=${encodeURIComponent(dir)}`);
 export const exportUrl = (slug: string, format: ExportFormat) =>
   `${BASE_URL}${p(slug)}/export/${format}`;
+
+export interface RenderFile {
+  name: string;
+  size: number;
+}
+export const startRender = (slug: string) => request<Job>(`${p(slug)}/render`, json("POST"));
+export const fetchRenders = (slug: string) => request<RenderFile[]>(`${p(slug)}/renders`);
+export const renderUrl = (slug: string, name: string) =>
+  `${BASE_URL}${p(slug)}/renders/${encodeURIComponent(name)}`;

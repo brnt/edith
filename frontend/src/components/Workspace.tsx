@@ -22,6 +22,7 @@ import * as history from "../lib/history";
 import { sortMedia } from "../lib/timeline";
 import { Editor } from "./Editor";
 import { MediaPanel } from "./MediaPanel";
+import { RenderPanel } from "./RenderPanel";
 import { SyncPanel } from "./SyncPanel";
 import { Badge, Button, Section } from "./ui";
 
@@ -253,7 +254,7 @@ export function Workspace({ slug }: { slug: string }) {
         )}
       </Section>
 
-      <Section title="4 · Export" open={false}>
+      <Section title="4 · Export and render" open={false}>
         <p class="mb-2 text-sm text-neutral-400">
           Exports use the saved edit
           {dirty ? " — save your changes first." : "."}
@@ -273,6 +274,13 @@ export function Workspace({ slug }: { slug: string }) {
             </li>
           ))}
         </ul>
+        <div class="mt-4 border-t border-neutral-800 pt-3">
+          <RenderPanel
+            slug={slug}
+            disabled={dirty || !plan || plan.duration_s <= 0}
+            onError={setError}
+          />
+        </div>
       </Section>
     </div>
   );

@@ -98,6 +98,28 @@ beforeEach(() => {
         puts.push(JSON.parse(init.body as string));
         return respond({ edit: puts[puts.length - 1], needs_upgrade: false });
       }
+      if (path.endsWith("/renders"))
+        return respond([{ name: "show-20260101-000000.mp4", size: 18200000 }]);
+      if (init?.method === "POST" && path.endsWith("/render"))
+        return respond({
+          id: "r1",
+          label: "render",
+          state: "running",
+          progress: 0,
+          message: "",
+          error: null,
+          result: null,
+        });
+      if (path === "/jobs/r1")
+        return respond({
+          id: "r1",
+          label: "render",
+          state: "done",
+          progress: 1,
+          message: "",
+          error: null,
+          result: { name: "show-20260101-000001.mp4" },
+        });
       if (path.endsWith("/media")) return respond(media);
       if (path.endsWith("/sync"))
         return respond({
@@ -172,4 +194,20 @@ test("muting a track and the number keys edit the timeline", async () => {
 
   fireEvent.keyDown(window, { key: "2" });
   await waitFor(() => expect(screen.getByText(/→ Cam B/)).toBeInTheDocument());
+});
+
+test("renders from the export section and lists finished renders", async () => {
+  render(<Workspace slug="show" />);
+  await screen.findByTestId("timeline");
+  expect(await screen.findByText("show-20260101-000000.mp4")).toBeInTheDocument();
+  fireEvent.click(await screen.findByRole("button", { name: "Render MP4 (1080p)" }));
+  const calls = () => (fetch as unknown as { mock: { calls: unknown[][] } }).mock.calls;
+  await waitFor(() =>
+    expect(
+      calls().some(
+        ([url, init]) =>
+          String(url).endsWith("/render") && (init as RequestInit | undefined)?.method === "POST",
+      ),
+    ).toBe(true),
+  );
 });
