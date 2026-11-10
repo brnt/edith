@@ -3,7 +3,6 @@ from fastapi.responses import FileResponse
 
 from edith.api.schemas import (
     JobRead,
-    LibraryListingRead,
     MediaAdd,
     MediaDetailsRead,
     MediaRead,
@@ -12,8 +11,8 @@ from edith.api.schemas import (
 )
 from edith.core.auth import require_token
 from edith.core.config import Settings, get_settings
-from edith.services import library as lib
 from edith.services import media_items, peaks, proxies, thumbnails
+from edith.services import mediafiles as lib
 from edith.services.jobs import Job, jobs
 from edith.services.projects import open_project, project_folder
 from edith.sync import media as probing
@@ -28,22 +27,13 @@ def _media_read(record: media_items.MediaRecord) -> MediaRead:
         included=record.included,
         missing=record.missing,
         folder=record.folder,
-        external=record.external,
         size_bytes=record.size_bytes,
     )
 
 
-@router.get("/library/files", response_model=LibraryListingRead)
-def library_files(dir: str = "", settings: Settings = Depends(get_settings)):
-    return lib.list_dir(settings.library_dir, dir)
-
-
 @router.get("/projects/{slug}/media", response_model=list[MediaRead])
 def get_media(slug: str, settings: Settings = Depends(get_settings)):
-    return [
-        _media_read(r)
-        for r in media_items.list_media(settings.library_dir, slug, with_available=True)
-    ]
+    return [_media_read(r) for r in media_items.list_media(slug, with_available=True)]
 
 
 @router.post(
@@ -53,7 +43,7 @@ def get_media(slug: str, settings: Settings = Depends(get_settings)):
     dependencies=[Depends(require_token)],
 )
 def post_media(slug: str, payload: MediaAdd, settings: Settings = Depends(get_settings)):
-    return _media_read(media_items.add_media(settings.library_dir, slug, payload.path))
+    return _media_read(media_items.include_media(slug, payload.path))
 
 
 @router.post(
@@ -64,22 +54,13 @@ def post_media(slug: str, payload: MediaAdd, settings: Settings = Depends(get_se
 def post_relink(
     slug: str, media_id: str, payload: MediaRelink, settings: Settings = Depends(get_settings)
 ):
-    return _media_read(media_items.relink_media(settings.library_dir, slug, media_id, payload.path))
-
-
-@router.delete(
-    "/projects/{slug}/media/{media_id}",
-    status_code=status.HTTP_204_NO_CONTENT,
-    dependencies=[Depends(require_token)],
-)
-def delete_media(slug: str, media_id: str, settings: Settings = Depends(get_settings)):
-    media_items.remove_media(settings.library_dir, slug, media_id)
+    return _media_read(media_items.relink_media(slug, media_id, payload.path))
 
 
 @router.get("/projects/{slug}/media/{media_id}/proxy")
 def get_proxy(slug: str, media_id: str, settings: Settings = Depends(get_settings)):
-    folder = project_folder(settings.library_dir, slug)
-    with open_project(settings.library_dir, slug) as project:
+    folder = project_folder(slug)
+    with open_project(slug) as project:
         item = media_items.get_item(project, media_id)
     path = proxies.proxy_path(folder, item)
     if not path.is_file():
@@ -89,9 +70,9 @@ def get_proxy(slug: str, media_id: str, settings: Settings = Depends(get_setting
 
 @router.get("/projects/{slug}/media/{media_id}/thumb")
 def get_thumbnail(slug: str, media_id: str, settings: Settings = Depends(get_settings)):
-    folder = project_folder(settings.library_dir, slug)
-    item = media_items.resolve_item(settings.library_dir, slug, media_id)
-    path = thumbnails.build_thumbnail(lib.media_file(settings.library_dir, item.path), item, folder)
+    folder = project_folder(slug)
+    item = media_items.resolve_item(slug, media_id)
+    path = thumbnails.build_thumbnail(lib.media_file(folder, item.path), item, folder)
     if path is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "audio has no picture")
     return FileResponse(path, media_type="image/jpeg", headers={"Cache-Control": "max-age=3600"})
@@ -99,15 +80,16 @@ def get_thumbnail(slug: str, media_id: str, settings: Settings = Depends(get_set
 
 @router.get("/projects/{slug}/media/{media_id}/details", response_model=MediaDetailsRead)
 def get_details(slug: str, media_id: str, settings: Settings = Depends(get_settings)):
-    item = media_items.resolve_item(settings.library_dir, slug, media_id)
-    return probing.details(lib.media_file(settings.library_dir, item.path))
+    folder = project_folder(slug)
+    item = media_items.resolve_item(slug, media_id)
+    return probing.details(lib.media_file(folder, item.path))
 
 
 @router.get("/projects/{slug}/media/{media_id}/peaks", response_model=PeaksRead)
 def get_peaks(slug: str, media_id: str, settings: Settings = Depends(get_settings)):
-    folder = project_folder(settings.library_dir, slug)
-    item = media_items.resolve_item(settings.library_dir, slug, media_id)
-    source = lib.media_file(settings.library_dir, item.path)
+    folder = project_folder(slug)
+    item = media_items.resolve_item(slug, media_id)
+    source = lib.media_file(folder, item.path)
     return peaks.get_peaks(folder, item, source)
 
 
@@ -118,14 +100,13 @@ def get_peaks(slug: str, media_id: str, settings: Settings = Depends(get_setting
     dependencies=[Depends(require_token)],
 )
 def post_proxies(slug: str, settings: Settings = Depends(get_settings)):
-    library = settings.library_dir
-    folder = project_folder(library, slug)
-    pending = [r.item for r in media_items.list_media(library, slug) if not r.proxy_ready]
+    folder = project_folder(slug)
+    pending = [r.item for r in media_items.list_media(slug) if not r.proxy_ready]
 
     def build(job: Job) -> dict:
         for i, item in enumerate(pending):
             job.message = item.label
-            proxies.build_proxy(lib.media_file(library, item.path), item, folder)
+            proxies.build_proxy(lib.media_file(folder, item.path), item, folder)
             job.progress = (i + 1) / len(pending)
         return {"built": len(pending)}
 

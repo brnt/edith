@@ -17,21 +17,20 @@ router = APIRouter()
     dependencies=[Depends(require_token)],
 )
 def post_render(slug: str, settings: Settings = Depends(get_settings)):
-    library = settings.library_dir
-    rendering.renders_dir(library, slug)  # validates the slug before queueing
+    rendering.renders_dir(slug)  # validates the slug before queueing
 
     def work(job: Job) -> dict:
-        return rendering.render_project(library, slug, job)
+        return rendering.render_project(slug, job)
 
     return jobs.submit(f"render:{slug}", work)
 
 
 @router.get("/projects/{slug}/renders", response_model=list[RenderRead])
 def get_renders(slug: str, settings: Settings = Depends(get_settings)):
-    return rendering.list_renders(settings.library_dir, slug)
+    return rendering.list_renders(slug)
 
 
 @router.get("/projects/{slug}/renders/{name}")
 def get_render(slug: str, name: str, settings: Settings = Depends(get_settings)):
-    path = rendering.render_file(settings.library_dir, slug, name)
+    path = rendering.render_file(slug, name)
     return FileResponse(path, media_type="video/mp4", filename=name)

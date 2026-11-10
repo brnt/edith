@@ -4,15 +4,18 @@ services:
     environment:
       ENVIRONMENT: production
       API_TOKEN: ${API_TOKEN:-dev-token}
-      LIBRARY_DIR: /library
-      # Where the library lives on the host, so exported XML/EDL point at the real files.
-      HOST_LIBRARY_DIR: ${HOST_LIBRARY_DIR:-}
+      STATE_DIR: /state
+      # Only needed once, to bring projects from before they became self-contained folders (a folder
+      # holding one sub-folder per project) in; it must be inside EDITH_MOUNT. Leave empty otherwise.
+      LEGACY_LIBRARY_DIR: ${LEGACY_LIBRARY_DIR:-}
     ports:
       - "8000:8000"
-    # Host-owned bind mount: the app user (uid 1000) can write project files. Point
-    # LIBRARY_DIR in .env at a folder on the SSD to work on real media.
+    # Projects are folders anywhere on your machine. Everything under EDITH_MOUNT is visible to Edith,
+    # mounted at the SAME path as on the host so that file paths in exports are your real ones.
+    # (Point it at your home folder, or at /Volumes for external drives.)
     volumes:
-      - ${LIBRARY_DIR:-./.library}:/library
+      - ${EDITH_MOUNT:-${HOME}}:${EDITH_MOUNT:-${HOME}}
+      - state:/state
 
   web:
     build:
@@ -23,3 +26,6 @@ services:
       - "8080:80"
     depends_on:
       - api
+
+volumes:
+  state: # the recent-projects list

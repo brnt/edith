@@ -1,22 +1,35 @@
 from functools import lru_cache
 from pathlib import Path
 
+from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+_OLD_DEFAULT = Path("../.library")  # where the library lived when no LIBRARY_DIR was set
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore", populate_by_name=True)
 
     app_name: str = "edith"
     environment: str = "development"
     log_level: str = "INFO"
     log_format: str = "json"  # "json" (default) | "console" (local eyeballing)
     api_token: str = "dev-token"
-    # Root folder holding one sub-folder per project (project file + its media).
-    library_dir: Path = Path("../.library")
-    # Where the library lives on the user's machine, for file paths written into exports
-    # (inside Docker the library is mounted at a different path). Empty = library_dir.
-    host_library_dir: str = ""
+    # Edith's own small bits of state (the recent-projects list). Projects are self-contained
+    # folders anywhere on disk and keep everything else in the folder, so this holds nothing else.
+    state_dir: Path = Field(default_factory=lambda: Path.home() / ".edith")
+    # A folder of projects from before projects were self-contained (one sub-folder per project).
+    # Its projects are converted and added to the recent list at startup, once. Unset = nothing to
+    # import (the old default, ../.library, is used if it exists). The old name was LIBRARY_DIR.
+    legacy_library_dir: Path | None = Field(
+        default_factory=lambda: _OLD_DEFAULT if _OLD_DEFAULT.is_dir() else None,
+        validation_alias=AliasChoices("LEGACY_LIBRARY_DIR", "LIBRARY_DIR"),
+    )
+
+    @field_validator("legacy_library_dir", mode="before")
+    @classmethod
+    def _empty_means_unset(cls, value: object) -> object:
+        return None if value in ("", None) else value
 
 
 @lru_cache

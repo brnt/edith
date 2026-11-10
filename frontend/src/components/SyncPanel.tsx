@@ -12,24 +12,16 @@ import {
 } from "../lib/api";
 import { waitForJob } from "../lib/jobs";
 import { formatTime } from "../lib/timeline";
-import { LibraryBrowser } from "./LibraryBrowser";
 import { MAX_CANVAS_PX, Waveform } from "./Waveform";
 import { Badge, Button, Progress } from "./ui";
 import { Icon } from "./Icon";
-import {
-  CheckCircle,
-  CloseCircle,
-  Download,
-  FolderOpen,
-  Search,
-  Warning,
-  ZoomIn,
-  ZoomOut,
-} from "./icons";
+import { CheckCircle, CloseCircle, Download, Search, Warning, ZoomIn, ZoomOut } from "./icons";
 
 interface Props {
   slug: string;
   media: MediaItem[];
+  /** Everything in the project folder, for choosing an audio file that isn't in the project. */
+  available: MediaItem[];
   sync: SyncState | null;
   peaks: Record<string, Peaks>;
   onChange: () => void;
@@ -63,7 +55,8 @@ function describe(result: SyncResult | undefined) {
   );
 }
 
-export function SyncPanel({ slug, media, sync, peaks, onChange, onError }: Props) {
+export function SyncPanel(props: Props) {
+  const { slug, media, sync, peaks, onChange, onError } = props;
   const withAudio = media.filter((m) => m.has_audio && m.kind !== "image");
   const saved = sync?.template ?? null;
   const [mode, setMode] = useState<Mode>(saved?.kind ?? "excerpt");
@@ -75,7 +68,8 @@ export function SyncPanel({ slug, media, sync, peaks, onChange, onError }: Props
   );
   const [seed, setSeed] = useState(saved?.seed ?? "");
   const [filePath, setFilePath] = useState(saved?.path ?? "");
-  const [choosing, setChoosing] = useState(false);
+  // Any audio file in the project folder will do as the sound: it is searched for, not added.
+  const audioFiles = props.available.filter((m) => m.kind === "audio" && !m.missing);
   const [pxPerSec, setPxPerSec] = useState(20);
   const [progress, setProgress] = useState<{ value: number; label: string } | null>(null);
   const drag = useRef<{ x0: number; t0: number } | null>(null);
@@ -208,14 +202,23 @@ export function SyncPanel({ slug, media, sync, peaks, onChange, onError }: Props
           )}
 
           {mode === "file" && (
-            <>
-              <Button icon={FolderOpen} onClick={() => setChoosing(true)}>
-                Choose file…
-              </Button>
-              <span class="min-w-0 max-w-56 truncate text-neutral-300" title={filePath}>
-                {filePath || "none chosen"}
-              </span>
-            </>
+            <select
+              class="max-w-64 rounded bg-neutral-900 px-1 py-1"
+              aria-label="Audio file"
+              value={filePath}
+              onChange={(e) => setFilePath(e.currentTarget.value)}
+            >
+              <option value="">
+                {audioFiles.length
+                  ? "Choose an audio file…"
+                  : "No audio files in the project folder"}
+              </option>
+              {audioFiles.map((m) => (
+                <option key={m.path} value={m.path}>
+                  {m.path}
+                </option>
+              ))}
+            </select>
           )}
         </div>
 
@@ -326,20 +329,6 @@ export function SyncPanel({ slug, media, sync, peaks, onChange, onError }: Props
           </p>
         )}
       </div>
-
-      {choosing && (
-        <LibraryBrowser
-          kinds={["audio"]}
-          single
-          title="Choose the registration sound from"
-          confirmLabel="Use this file"
-          onClose={() => setChoosing(false)}
-          onAdd={([path]) => {
-            setChoosing(false);
-            if (path) setFilePath(path);
-          }}
-        />
-      )}
     </div>
   );
 }

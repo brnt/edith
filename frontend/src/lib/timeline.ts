@@ -391,39 +391,37 @@ export function usedChannelIds(
   return used;
 }
 
-/** Media of one folder (a directory of the project folder, or somewhere else in the library). */
+/** Media of one folder of the project (the project folder itself has `key` ""). */
 export interface MediaGroup {
   key: string;
   /** The folder as a breadcrumb, e.g. "day 1 / camera A"; empty for the project folder itself. */
   title: string;
-  external: boolean;
   items: MediaItem[];
 }
 
 const naturalOrder = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
 
 /**
- * The media view's folder hierarchy: the project folder first, then its subfolders by name, then
- * media referenced from elsewhere in the library. Within a folder: cameras, audio, then stills.
+ * The media view's folder hierarchy: the project folder first, then its subfolders in natural
+ * order. Within a folder: cameras, audio, then stills.
  */
 export function groupMedia(media: MediaItem[]): MediaGroup[] {
   const groups = new Map<string, MediaGroup>();
   for (const m of media) {
-    const key = `${m.external ? "~" : ""}${m.folder}`;
-    let group = groups.get(key);
+    let group = groups.get(m.folder);
     if (!group) {
-      group = {
-        key,
-        title: m.folder.split("/").filter(Boolean).join(" / "),
-        external: m.external,
-        items: [],
-      };
-      groups.set(key, group);
+      group = { key: m.folder, title: m.folder.split("/").filter(Boolean).join(" / "), items: [] };
+      groups.set(m.folder, group);
     }
     group.items.push(m);
   }
-  const rank = (g: MediaGroup) => (g.external ? 2 : g.key === "" ? 0 : 1);
   return [...groups.values()]
     .map((g) => ({ ...g, items: sortMedia(g.items) }))
-    .sort((a, b) => rank(a) - rank(b) || naturalOrder.compare(a.key, b.key));
+    .sort((a, b) =>
+      (a.key === "") === (b.key === "")
+        ? naturalOrder.compare(a.key, b.key)
+        : a.key === ""
+          ? -1
+          : 1,
+    );
 }

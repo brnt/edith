@@ -18,7 +18,6 @@ const cam = (id: string, has_audio = false): MediaItem => ({
   included: true,
   missing: false,
   folder: "",
-  external: false,
   size_bytes: null,
 });
 const mic: MediaItem = { ...cam("mic", true), kind: "audio" };

@@ -17,10 +17,10 @@ from edith.db.documents import (
     SyncState,
     SyncTemplate,
 )
-from edith.services import library as lib
 from edith.services import media_items
+from edith.services import mediafiles as lib
 from edith.services.jobs import Job
-from edith.services.projects import open_project
+from edith.services.projects import open_project, project_folder
 from edith.sync import analyze
 from edith.sync.registration import trim_silence
 
@@ -30,8 +30,8 @@ MAX_TEMPLATE_S = 5.0
 MIN_TEMPLATE_S = 0.05
 
 
-def get_sync(library: Path, slug: str) -> tuple[SyncState, bool]:
-    with open_project(library, slug) as project:
+def get_sync(slug: str) -> tuple[SyncState, bool]:
+    with open_project(slug) as project:
         loaded = project.get(SYNC, SYNC_ID)
     if loaded is None:
         return SyncState(), False
@@ -48,9 +48,7 @@ def _checked(audio: np.ndarray) -> np.ndarray:
     return audio
 
 
-def _template_audio(
-    library: Path, items: dict[str, Document], template: SyncTemplate
-) -> np.ndarray:
+def _template_audio(folder: Path, items: dict[str, Document], template: SyncTemplate) -> np.ndarray:
     if template.kind == "seed":
         if not template.seed:
             raise InvalidTemplate("a seed needs some text")
@@ -58,8 +56,8 @@ def _template_audio(
 
     if template.kind == "file":
         if not template.path or lib.kind_for(template.path) != "audio":
-            raise InvalidTemplate("pick an audio file from the library")
-        audio = analyze.template_from_audio(lib.media_file(library, template.path))
+            raise InvalidTemplate("pick an audio file from the project folder")
+        audio = analyze.template_from_audio(lib.media_file(folder, template.path))
         return _checked(trim_silence(audio))  # generated sounds come padded with silence
 
     source = items.get(template.media_id or "")
@@ -70,19 +68,20 @@ def _template_audio(
         raise InvalidTemplate(f"excerpt must be {MIN_TEMPLATE_S}-{MAX_TEMPLATE_S}s long")
     return _checked(
         analyze.template_from_audio(
-            lib.media_file(library, source.path), start_s=template.start_s, duration_s=length
+            lib.media_file(folder, source.path), start_s=template.start_s, duration_s=length
         )
     )
 
 
-def run_sync(library: Path, slug: str, template: SyncTemplate, job: Job) -> dict:
-    with open_project(library, slug) as project:
+def run_sync(slug: str, template: SyncTemplate, job: Job) -> dict:
+    with open_project(slug) as project:
         items = {m.doc_id: m.document for m in project.documents_of(MEDIA)}
-    audio = _template_audio(library, items, template)
+    folder = project_folder(slug)
+    audio = _template_audio(folder, items, template)
     template = template.model_copy(update={"duration_s": len(audio) / analyze.SAMPLE_RATE})
 
     paths = {
-        i.id: lib.media_file(library, i.path)
+        i.id: lib.media_file(folder, i.path)
         for i in items.values()
         if isinstance(i, MediaItem) and i.kind != "image" and i.has_audio
     }
@@ -99,7 +98,7 @@ def run_sync(library: Path, slug: str, template: SyncTemplate, job: Job) -> dict
         key: SyncResult(**{k: v for k, v in asdict(sync).items() if k != "name"})
         for key, sync in found.items()
     }
-    with open_project(library, slug, writable=True) as project:
+    with open_project(slug, writable=True) as project:
         previous = project.get(SYNC, SYNC_ID)
         nudges = (
             previous.document.nudges
@@ -111,8 +110,8 @@ def run_sync(library: Path, slug: str, template: SyncTemplate, job: Job) -> dict
     return {"synced": sum(r.status != "unsynced" for r in results.values()), "files": len(results)}
 
 
-def set_nudges(library: Path, slug: str, nudges: dict[str, float]) -> SyncState:
-    with open_project(library, slug, writable=True) as project:
+def set_nudges(slug: str, nudges: dict[str, float]) -> SyncState:
+    with open_project(slug, writable=True) as project:
         loaded = project.get(SYNC, SYNC_ID)
         state = (
             loaded.document if loaded and isinstance(loaded.document, SyncState) else SyncState()

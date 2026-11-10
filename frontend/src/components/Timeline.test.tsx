@@ -20,7 +20,6 @@ const media: MediaItem[] = [
     included: true,
     missing: false,
     folder: "",
-    external: false,
     size_bytes: null,
   },
   {
@@ -37,7 +36,6 @@ const media: MediaItem[] = [
     included: true,
     missing: false,
     folder: "",
-    external: false,
     size_bytes: null,
   },
   {
@@ -54,7 +52,6 @@ const media: MediaItem[] = [
     included: true,
     missing: false,
     folder: "",
-    external: false,
     size_bytes: null,
   },
 ];

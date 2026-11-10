@@ -40,8 +40,7 @@ fmt:
 # Web UI on :8080, API on :8000. There is no schema to migrate: project files
 # upcast old document versions on read (docs/adr/0001).
 up:
-    mkdir -p "${LIBRARY_DIR:-.library}"
-    HOST_LIBRARY_DIR="$(cd "${LIBRARY_DIR:-.library}" && pwd -P)" docker compose up --build
+    docker compose up --build
 
 # Exactly what CI runs.
 ci: lint test

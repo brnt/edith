@@ -18,7 +18,6 @@ const baseMedia = [
     included: true,
     missing: false,
     folder: "",
-    external: false,
     size_bytes: null,
   },
   {
@@ -35,7 +34,6 @@ const baseMedia = [
     included: true,
     missing: false,
     folder: "",
-    external: false,
     size_bytes: null,
   },
   {
@@ -52,7 +50,6 @@ const baseMedia = [
     included: true,
     missing: false,
     folder: "",
-    external: false,
     size_bytes: null,
   },
   {
@@ -69,7 +66,6 @@ const baseMedia = [
     included: true,
     missing: false,
     folder: "",
-    external: false,
     size_bytes: null,
   },
 ];
@@ -251,8 +247,11 @@ beforeEach(() => {
         return respond({
           slug: "show",
           name: "Show",
+          folder: "/Volumes/SSD/show",
           created_at: "2026-01-01T00:00:00Z",
           needs_upgrade: true,
+          available: true,
+          last_opened: null,
         });
       return respond({}, 404);
     }),
@@ -376,7 +375,7 @@ test("the ribbon opens on the next step, switches tabs, and never changes height
   expect(screen.getByRole("button", { name: /Cut \(x\)/ })).toBeInTheDocument(); // the Edit tools
 
   const tabs: [string, RegExp][] = [
-    ["Media (4)", /Add media/],
+    ["Media (4)", /Build proxies/],
     ["Sync", /Find the sound in every file/],
     ["Export", /Render MP4/],
     ["Edit", /Cut \(x\)/],
@@ -394,7 +393,7 @@ test("the media tab shows tiny thumbnails for video and images, not audio", asyn
   render(<Workspace slug="show" />);
   await screen.findByTestId("timeline");
   fireEvent.click(screen.getByRole("tab", { name: /Media/ }));
-  await screen.findByRole("button", { name: "Add media…" });
+  await screen.findByRole("button", { name: /Build proxies/ });
   // Only the ribbon's pictures: the stage has one of its own for the still's tile.
   const sources = [...screen.getByRole("tabpanel").querySelectorAll("img")].map((img) =>
     img.getAttribute("src"),
@@ -418,7 +417,6 @@ const still = (id: string) => ({
   included: true,
   missing: false,
   folder: "",
-  external: false,
   size_bytes: null,
 });
 
@@ -503,22 +501,24 @@ describe("choosing the registration sound", () => {
     expect(syncPosts[0].template).toEqual({ kind: "seed", seed: "stickshift" });
   });
 
-  test("an audio file: only audio is offered, and its path is sent", async () => {
+  test("an audio file of the project folder: only audio is offered, and its path is sent", async () => {
     const source = await openSync();
     fireEvent.change(source, { target: { value: "file" } });
     const find = screen.getByRole("button", { name: "Find the sound in every file" });
     expect(find).toBeDisabled();
 
-    fireEvent.click(screen.getByRole("button", { name: "Choose file…" }));
-    expect(await screen.findByText("reference.wav")).toBeInTheDocument();
-    expect(screen.queryByText("cam.mp4")).toBeNull(); // video is filtered out
-    fireEvent.click(screen.getByRole("radio"));
-    fireEvent.click(screen.getByRole("button", { name: "Use this file" }));
+    const choose = await screen.findByRole("combobox", { name: "Audio file" });
+    const offered = within(choose)
+      .getAllByRole("option")
+      .map((o) => o.textContent);
+    expect(offered).toContain("m/mic.wav");
+    expect(offered.some((o) => /\.mp4$/.test(o ?? ""))).toBe(false); // video is not offered
+    fireEvent.change(choose, { target: { value: "m/mic.wav" } });
 
     await waitFor(() => expect(find).toBeEnabled());
     fireEvent.click(find);
     await waitFor(() => expect(syncPosts).toHaveLength(1));
-    expect(syncPosts[0].template).toEqual({ kind: "file", path: "reference.wav" });
+    expect(syncPosts[0].template).toEqual({ kind: "file", path: "m/mic.wav" });
   });
 
   test("marking it in a recording is still there and sends the excerpt", async () => {
@@ -1055,6 +1055,38 @@ describe("the media cards", () => {
     expect(await screen.findByRole("dialog", { name: "Details for mic.wav" })).toBeInTheDocument();
   });
 
+  test("there is no Add media and no Remove from project: the folder is the way in and out", async () => {
+    render(<Workspace slug="show" />);
+    fireEvent.click(await screen.findByRole("tab", { name: /Media/ }));
+    await screen.findAllByTestId("media-card");
+    expect(screen.queryByRole("button", { name: /Add media/ })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Details for Cam A" }));
+    await screen.findByRole("dialog", { name: "Details for Cam A" });
+    expect(screen.queryByRole("button", { name: /Remove/ })).toBeNull();
+    // It says which folder to put media in.
+    expect(screen.getByTitle(/Put media in this folder.*\/Volumes\/SSD\/show/)).toBeInTheDocument();
+  });
+
+  test("a missing file with no obvious match can be relinked to another file of the folder", async () => {
+    media = [
+      { ...baseMedia[0], missing: true },
+      ...baseMedia.slice(1),
+      found({
+        id: "other",
+        path: "renamed/clip.mp4",
+        label: "clip.mp4",
+        duration_s: 5,
+        folder: "renamed",
+      }),
+    ];
+    render(<Workspace slug="show" />);
+    fireEvent.click(await screen.findByRole("tab", { name: /Media/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "Relink…" }));
+    const dialog = await screen.findByRole("dialog", { name: "Relink Cam A" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "renamed/clip.mp4" }));
+    await waitFor(() => expect(relinks).toEqual([{ from: "camA", path: "renamed/clip.mp4" }]));
+  });
+
   test("an audio file can be made the registration sound from its details", async () => {
     render(<Workspace slug="show" />);
     fireEvent.click(await screen.findByRole("tab", { name: /Media/ }));
@@ -1116,4 +1148,19 @@ describe("the media cards", () => {
     expect(chip.className).toContain("h-5 w-5"); // the same square as the info and checkbox chips
     expect(chip.className).toContain("text-emerald");
   });
+});
+
+test("the header shows where the project lives, and opening it notes it as recent", async () => {
+  const touched: string[] = [];
+  const before = globalThis.fetch;
+  vi.stubGlobal(
+    "fetch",
+    vi.fn((url: string, init?: RequestInit) => {
+      if (init?.method === "POST" && url.endsWith("/opened")) touched.push(url);
+      return (before as typeof fetch)(url, init);
+    }),
+  );
+  render(<Workspace slug="show" />);
+  expect(await screen.findByTitle("/Volumes/SSD/show")).toHaveTextContent("/Volumes/SSD/show");
+  expect(touched).toEqual(["/api/projects/show/opened"]);
 });

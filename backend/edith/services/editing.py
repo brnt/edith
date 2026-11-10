@@ -1,7 +1,5 @@
 """Load and save the edit, and derive the plan and silence suggestions from project documents."""
 
-from pathlib import Path
-
 from edith.core.errors import InvalidEdit
 from edith.db.documents import (
     EDIT,
@@ -17,7 +15,7 @@ from edith.db.documents import (
 from edith.db.project_file import ProjectFile
 from edith.edit import plan as planning
 from edith.edit import silence
-from edith.services import library as lib
+from edith.services import mediafiles as lib
 from edith.services import peaks
 from edith.services.projects import open_project, project_folder
 
@@ -35,8 +33,8 @@ def _sync(project: ProjectFile) -> SyncState:
     return loaded.document if loaded and isinstance(loaded.document, SyncState) else SyncState()
 
 
-def get_edit(library: Path, slug: str) -> tuple[EditList, bool]:
-    with open_project(library, slug) as project:
+def get_edit(slug: str) -> tuple[EditList, bool]:
+    with open_project(slug) as project:
         loaded = project.get(EDIT, EDIT_ID)
     if loaded is None:
         return EditList(), False
@@ -74,16 +72,16 @@ def validate(edit: EditList, media: dict[str, MediaItem]) -> None:
         raise InvalidEdit("frame rate and size must be positive")
 
 
-def put_edit(library: Path, slug: str, edit: EditList) -> EditList:
+def put_edit(slug: str, edit: EditList) -> EditList:
     """Saving writes the edit at the current version; that is what upgrades an old one."""
-    with open_project(library, slug, writable=True) as project:
+    with open_project(slug, writable=True) as project:
         validate(edit, _media_by_id(project))
         project.put(EDIT, EDIT_ID, edit)
     return edit
 
 
-def build_project_plan(library: Path, slug: str) -> planning.RenderPlan:
-    with open_project(library, slug) as project:
+def build_project_plan(slug: str) -> planning.RenderPlan:
+    with open_project(slug) as project:
         media, sync = _media_by_id(project), _sync(project)
         loaded = project.get(EDIT, EDIT_ID)
     edit = loaded.document if loaded and isinstance(loaded.document, EditList) else EditList()
@@ -126,10 +124,10 @@ def registration_windows(
 
 
 def suggest_silence(
-    library: Path, slug: str, *, threshold_db: float, min_s: float, pad_s: float
+    slug: str, *, threshold_db: float, min_s: float, pad_s: float
 ) -> list[tuple[float, float]]:
-    folder = project_folder(library, slug)
-    with open_project(library, slug) as project:
+    folder = project_folder(slug)
+    with open_project(slug) as project:
         media, sync = _media_by_id(project), _sync(project)
         loaded = project.get(EDIT, EDIT_ID)
     edit = loaded.document if loaded and isinstance(loaded.document, EditList) else EditList()
@@ -137,7 +135,7 @@ def suggest_silence(
     envelopes = []
     for media_id, _gain in planning.output_tracks(edit, media):
         item = media[media_id]
-        data = peaks.get_peaks(folder, item, lib.media_file(library, item.path))
+        data = peaks.get_peaks(folder, item, lib.media_file(folder, item.path))
         envelopes.append((offsets.get(media_id, 0.0), data.db()))
     lo = max(0.0, edit.range_in_s or 0.0)
     hi = edit.range_out_s if edit.range_out_s is not None else planning.timeline_end(media, offsets)

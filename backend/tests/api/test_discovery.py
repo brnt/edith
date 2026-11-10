@@ -28,9 +28,9 @@ def _digest(path: Path) -> str:
 
 
 def test_files_in_the_project_folder_are_available_but_not_part_of_the_project(
-    client: TestClient, library: Path, project: str
+    client: TestClient, project_dir: Path, project: str
 ):
-    folder = library / project
+    folder = project_dir
     _age(write_wav(folder / "mic.wav", np.zeros(44_100)))
     _age(write_video(folder / "cam.mp4"))
     _age(write_image(folder / "car.png"))
@@ -39,13 +39,13 @@ def test_files_in_the_project_folder_are_available_but_not_part_of_the_project(
     assert set(media) == {"mic.wav", "cam.mp4", "car.png"}
     assert {m["included"] for m in media.values()} == {False}
     assert media["cam.mp4"]["kind"] == "video" and media["cam.mp4"]["width"] == 320
-    assert media["cam.mp4"]["folder"] == "" and media["cam.mp4"]["external"] is False
+    assert media["cam.mp4"]["folder"] == ""
     assert media["mic.wav"]["size_bytes"] > 0
 
 
-def test_looking_never_writes_the_project_file(client: TestClient, library: Path, project: str):
-    _age(write_video(library / project / "cam.mp4"))
-    project_file = library / project / "project.edith"
+def test_looking_never_writes_the_project_file(client: TestClient, project_dir: Path, project: str):
+    _age(write_video(project_dir / "cam.mp4"))
+    project_file = project_dir / "project.edith"
     before = _digest(project_file)
     for _ in range(3):
         client.get(f"/projects/{project}/media")
@@ -54,9 +54,9 @@ def test_looking_never_writes_the_project_file(client: TestClient, library: Path
 
 
 def test_including_a_found_file_is_the_edit_that_writes_it(
-    client: TestClient, library: Path, project: str
+    client: TestClient, project_dir: Path, project: str
 ):
-    _age(write_video(library / project / "cam.mp4"))
+    _age(write_video(project_dir / "cam.mp4"))
     found = _media(client, project)["cam.mp4"]
     added = client.post(f"/projects/{project}/media", json={"path": found["path"]})
     assert added.status_code == 201
@@ -66,28 +66,30 @@ def test_including_a_found_file_is_the_edit_that_writes_it(
 
 
 def test_subfolders_are_found_and_report_their_folder(
-    client: TestClient, library: Path, project: str
+    client: TestClient, project_dir: Path, project: str
 ):
-    _age(write_video(library / project / "day1" / "camA" / "a.mp4"))
-    _age(write_video(library / project / "b.mp4"))
+    _age(write_video(project_dir / "day1" / "camA" / "a.mp4"))
+    _age(write_video(project_dir / "b.mp4"))
     media = _media(client, project)
     assert media["a.mp4"]["folder"] == "day1/camA"
     assert media["b.mp4"]["folder"] == ""
 
 
 def test_a_file_still_being_copied_waits_until_it_settles(
-    client: TestClient, library: Path, project: str
+    client: TestClient, project_dir: Path, project: str
 ):
-    write_video(library / project / "new.mp4")  # modified just now
+    write_video(project_dir / "new.mp4")  # modified just now
     assert _media(client, project) == {}
-    _age(library / project / "new.mp4")
+    _age(project_dir / "new.mp4")
     assert set(_media(client, project)) == {"new.mp4"}
 
 
-def test_derived_and_hidden_files_are_not_media(client: TestClient, library: Path, project: str):
-    folder = library / project
+def test_derived_and_hidden_files_are_not_media(
+    client: TestClient, project_dir: Path, project: str
+):
+    folder = project_dir
     _age(write_video(folder / "renders" / "show.mp4"))  # a render of this project
-    _age(write_video(folder / "cache" / "proxy" / "x.mp4"))
+    _age(write_video(folder / ".edith" / "proxy" / "x.mp4"))  # our own cache
     _age(write_video(folder / ".hidden.mp4"))
     _age(write_video(folder / "keep.mp4"))
     (folder / "download.mp4.part").write_bytes(b"partial")
@@ -95,36 +97,38 @@ def test_derived_and_hidden_files_are_not_media(client: TestClient, library: Pat
     assert set(_media(client, project)) == {"keep.mp4"}
 
 
-def test_linked_footage_is_followed(client: TestClient, library: Path, project: str, tmp_path):
-    outside = library / "ssd"
+def test_linked_footage_is_followed(client: TestClient, project_dir: Path, project: str, tmp_path):
+    outside = project_dir / "ssd"
     _age(write_video(outside / "gopro.mp4"))
-    (library / project / "footage").symlink_to(outside)
+    (project_dir / "footage").symlink_to(outside)
     media = _media(client, project)
     assert "gopro.mp4" in media and media["gopro.mp4"]["folder"] == "footage"
 
 
-def test_a_project_media_file_that_vanishes_is_marked_missing_not_dropped(
-    client: TestClient, library: Path, project: str
+def test_a_used_file_that_vanishes_is_marked_missing_and_an_unused_one_just_disappears(
+    client: TestClient, project_dir: Path, project: str
 ):
-    _age(write_wav(library / project / "mic.wav", np.zeros(44_100)))
-    found = _media(client, project)["mic.wav"]
-    client.post(f"/projects/{project}/media", json={"path": found["path"]})
-    (library / project / "mic.wav").unlink()
+    _age(write_wav(project_dir / "mic.wav", np.zeros(44_100)))
+    _age(write_video(project_dir / "cam.mp4"))
     media = _media(client, project)
-    assert media["mic.wav"]["included"] is True and media["mic.wav"]["missing"] is True
+    for name in ("mic.wav", "cam.mp4"):
+        client.post(f"/projects/{project}/media", json={"path": media[name]["path"]})
+    client.put(  # the edit shows the camera
+        f"/projects/{project}/edit",
+        json={"switches": [{"at_s": 1, "media_id": media["cam.mp4"]["id"]}]},
+    )
+    (project_dir / "mic.wav").unlink()
+    (project_dir / "cam.mp4").unlink()
+    after = _media(client, project)
+    assert "mic.wav" not in after  # nothing uses it: there is nothing to dismiss
+    assert after["cam.mp4"]["included"] is True and after["cam.mp4"]["missing"] is True
+    # It comes back by itself if the file does.
+    _age(write_wav(project_dir / "mic.wav", np.zeros(44_100)))
+    assert _media(client, project)["mic.wav"]["missing"] is False
 
 
-def test_media_outside_the_project_folder_is_external(
-    client: TestClient, library: Path, project: str
-):
-    write_video(library / "shared" / "cam.mp4")
-    client.post(f"/projects/{project}/media", json={"path": "shared/cam.mp4"})
-    item = _media(client, project)["cam.mp4"]
-    assert item["external"] is True and item["folder"] == "shared"
-
-
-def test_details_describe_the_streams(client: TestClient, library: Path, project: str):
-    _age(write_video(library / project / "cam.mp4"))
+def test_details_describe_the_streams(client: TestClient, project_dir: Path, project: str):
+    _age(write_video(project_dir / "cam.mp4"))
     found = _media(client, project)["cam.mp4"]
     d = client.get(f"/projects/{project}/media/{found['id']}/details").json()
     assert d["video"]["width"] == 320 and d["video"]["codec"] == "h264"
@@ -133,20 +137,20 @@ def test_details_describe_the_streams(client: TestClient, library: Path, project
     assert d["size_bytes"] > 0 and d["container"]
 
 
-def test_proxies_are_only_built_for_included_media(client: TestClient, library: Path, project: str):
-    _age(write_video(library / project / "cam.mp4"))
+def test_proxies_are_only_built_for_included_media(
+    client: TestClient, project_dir: Path, project: str
+):
+    _age(write_video(project_dir / "cam.mp4"))
     started = client.post(f"/projects/{project}/proxies")
     assert started.status_code == 202  # nothing included: nothing to build, and no error
 
 
 def test_relinking_a_missing_file_carries_every_reference_to_the_new_one(
-    client: TestClient, library: Path, project: str
+    client: TestClient, project_dir: Path, project: str
 ):
-    _age(write_video(library / "old" / "cam.mp4"))
-    _age(write_video(library / "new" / "cam.mp4"))
+    _age(write_video(project_dir / "old" / "cam.mp4"))
+    _age(write_video(project_dir / "new" / "cam.mp4"))
     old = client.post(f"/projects/{project}/media", json={"path": "old/cam.mp4"}).json()
-    other = client.post(f"/projects/{project}/media", json={"path": "new/cam.mp4"}).json()
-    client.delete(f"/projects/{project}/media/{other['id']}")  # only the old one is in the project
     client.put(
         f"/projects/{project}/edit",
         json={
@@ -156,8 +160,9 @@ def test_relinking_a_missing_file_carries_every_reference_to_the_new_one(
             "disabled": [old["id"]],
         },
     )
-    (library / "old" / "cam.mp4").unlink()  # the drive went away
-    assert _media(client, project)["cam.mp4"]["missing"] is True
+    (project_dir / "old" / "cam.mp4").unlink()  # the drive went away
+    by_path = {m["path"]: m for m in client.get(f"/projects/{project}/media").json()}
+    assert by_path["old/cam.mp4"]["missing"] is True
 
     moved = client.post(
         f"/projects/{project}/media/{old['id']}/relink", json={"path": "new/cam.mp4"}
@@ -174,10 +179,10 @@ def test_relinking_a_missing_file_carries_every_reference_to_the_new_one(
 
 
 def test_relinking_to_a_different_kind_of_file_is_refused(
-    client: TestClient, library: Path, project: str
+    client: TestClient, project_dir: Path, project: str
 ):
-    write_video(library / "m" / "cam.mp4")
-    write_wav(library / "m" / "mic.wav", np.zeros(44_100))
+    write_video(project_dir / "m" / "cam.mp4")
+    write_wav(project_dir / "m" / "mic.wav", np.zeros(44_100))
     cam = client.post(f"/projects/{project}/media", json={"path": "m/cam.mp4"}).json()
     refused = client.post(
         f"/projects/{project}/media/{cam['id']}/relink", json={"path": "m/mic.wav"}
@@ -186,10 +191,10 @@ def test_relinking_to_a_different_kind_of_file_is_refused(
 
 
 def test_a_still_is_described_by_its_image_format_and_a_wrong_extension_is_noticed(
-    client: TestClient, library: Path, project: str
+    client: TestClient, project_dir: Path, project: str
 ):
-    honest = _age(write_image(library / project / "honest.png"))
-    liar = library / project / "liar.jpg"  # a PNG with a JPEG's name
+    honest = _age(write_image(project_dir / "honest.png"))
+    liar = project_dir / "liar.jpg"  # a PNG with a JPEG's name
     liar.write_bytes(honest.read_bytes())
     _age(liar)
     media = _media(client, project)
@@ -197,34 +202,9 @@ def test_a_still_is_described_by_its_image_format_and_a_wrong_extension_is_notic
     d_bad = client.get(f"/projects/{project}/media/{media['liar.jpg']['id']}/details").json()
     assert d_ok["image_format"] == "PNG" and d_ok["image_extension_matches"] is True
     assert d_bad["image_format"] == "PNG" and d_bad["image_extension_matches"] is False
-    video = _age(write_video(library / project / "cam.mp4"))
+    video = _age(write_video(project_dir / "cam.mp4"))
     cam = _media(client, project)["cam.mp4"]
     assert (
         client.get(f"/projects/{project}/media/{cam['id']}/details").json()["image_format"] is None
     )
     assert video.exists()
-
-
-def test_folders_the_projects_media_comes_from_are_watched_too(
-    client: TestClient, library: Path, project: str
-):
-    """The shared media/ folder: add one file from it, and what lands there next shows up."""
-    _age(write_video(library / "shared" / "first.mp4"))
-    client.post(f"/projects/{project}/media", json={"path": "shared/first.mp4"})
-    assert set(_media(client, project)) == {"first.mp4"}
-
-    _age(write_image(library / "shared" / "new.png"))  # dropped into the folder afterwards
-    _age(write_image(library / "shared" / "deeper" / "other.png"))  # one level only
-    _age(write_image(library / "elsewhere" / "unrelated.png"))  # not a folder the project uses
-    media = _media(client, project)
-    assert set(media) == {"first.mp4", "new.png"}
-    assert media["new.png"]["included"] is False and media["new.png"]["external"] is True
-    assert media["new.png"]["folder"] == "shared"
-
-    # Looking still never writes the project file.
-    before = _digest(library / project / "project.edith")
-    client.get(f"/projects/{project}/media")
-    assert _digest(library / project / "project.edith") == before
-    # And it can be included like any other found file.
-    added = client.post(f"/projects/{project}/media", json={"path": media["new.png"]["path"]})
-    assert added.status_code == 201

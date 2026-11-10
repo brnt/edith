@@ -31,6 +31,8 @@ type TabId = "media" | "sync" | "edit" | "export";
 
 interface Props {
   slug: string;
+  /** The project's folder (absolute), where its media goes. */
+  folder: string;
   /** The project's media. */
   media: MediaItem[];
   /** Everything in the project folder, included or not (the media tab lists all of it). */
@@ -105,6 +107,7 @@ export function Studio(props: Props) {
         {active === "media" && (
           <MediaPanel
             slug={slug}
+            folder={props.folder}
             media={media}
             available={props.available}
             sync={sync}
@@ -120,6 +123,7 @@ export function Studio(props: Props) {
           <SyncPanel
             slug={slug}
             media={media}
+            available={props.available}
             sync={sync}
             peaks={props.peaks}
             onChange={props.onSyncChange}

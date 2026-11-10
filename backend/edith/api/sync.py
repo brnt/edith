@@ -22,7 +22,7 @@ def _read(state, needs_upgrade: bool) -> SyncRead:
 
 @router.get("/projects/{slug}/sync", response_model=SyncRead)
 def get_sync(slug: str, settings: Settings = Depends(get_settings)):
-    return _read(*syncing.get_sync(settings.library_dir, slug))
+    return _read(*syncing.get_sync(slug))
 
 
 @router.post(
@@ -32,11 +32,10 @@ def get_sync(slug: str, settings: Settings = Depends(get_settings)):
     dependencies=[Depends(require_token)],
 )
 def post_sync(slug: str, payload: SyncRun, settings: Settings = Depends(get_settings)):
-    library = settings.library_dir
     template = SyncTemplate(**payload.template.model_dump())
 
     def work(job: Job) -> dict:
-        return syncing.run_sync(library, slug, template, job)
+        return syncing.run_sync(slug, template, job)
 
     return jobs.submit(f"sync:{slug}", work)
 
@@ -47,7 +46,7 @@ def post_sync(slug: str, payload: SyncRun, settings: Settings = Depends(get_sett
     dependencies=[Depends(require_token)],
 )
 def put_nudges(slug: str, payload: NudgesIn, settings: Settings = Depends(get_settings)):
-    return _read(syncing.set_nudges(settings.library_dir, slug, payload.nudges), False)
+    return _read(syncing.set_nudges(slug, payload.nudges), False)
 
 
 @router.get("/registration/sound")

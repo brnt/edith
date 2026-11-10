@@ -49,8 +49,11 @@ Root `justfile` delegates to both; Compose runs `api` (:8000) and `web` (:8080).
 - Sync reference: the registration-tone detector in `~/projects/stickshift/audio/registration.py`
   (seeded 32-bit FSK burst, cross-correlation + bit verification). Port it; don't rewrite it.
 
-**Local use:** `LIBRARY_DIR` (root `.env`) is the host folder bind-mounted as the library; point
-it at a folder on the external SSD.
+**Local use:** `EDITH_MOUNT` (root `.env`) is the part of your machine Docker Edith can see, mounted at
+the same path as on the host (default: your home folder; `/Volumes` for external drives). Projects
+from before the folder layout are converted once at startup from `LEGACY_LIBRARY_DIR`
+(`services/migration.py`: footage is *linked* into the project folder, ids unchanged, a
+`project.edith.before-folder-layout` backup is kept).
 
 ## Commands
 
