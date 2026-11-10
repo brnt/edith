@@ -78,7 +78,8 @@ comes next.
      Cuts ripple.
    - **Selecting on the timeline:** click a channel's **segment** (a blue or teal block: one
      stretch where that channel is on screen) or a **cut** to select it (white outline).
-     Clicking anywhere else still moves the playhead; `Esc` deselects.
+     Every click on the timeline moves the playhead to the clicked moment; on a segment or a cut it
+     also selects it, and on anything else it deselects. `Esc` deselects.
      - **Resize:** drag a selected item's edges. Grip marks inside a segment's ends show which
        edges can move. Moving a segment's edge moves the neighbouring segment's edge with it, and
        it can't pass the next one. A cut's edges set where it starts and ends (the first and last

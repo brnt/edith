@@ -150,14 +150,14 @@ const click = (target: HTMLElement, x: number) => {
   fireEvent.pointerUp(lanes, { clientX: x, pointerId: 1 }); // the lanes hold pointer capture
 };
 
-test("clicking a segment selects it without moving the playhead; clicking empty timeline seeks", () => {
+test("clicking a segment selects it and moves the playhead to the clicked moment; empty timeline just seeks", () => {
   const h = setup({ edit: { switches: SWITCHES } });
   // Rows: cam 0-30 and 60-100 (switch -1 and 1), cam2 30-60 (switch 0).
   const segs = screen.getAllByTestId("segment");
   expect(segs).toHaveLength(3);
   click(segs[1], 400); // cam2's segment is the second in the rows below cam's
   expect(h.onPick).toHaveBeenCalledWith({ kind: "segment", index: expect.any(Number) });
-  expect(h.onSeek).not.toHaveBeenCalled();
+  expect(h.onSeek).toHaveBeenLastCalledWith(40);
 
   const lanes = screen.getByTestId("timeline").querySelector(".cursor-crosshair") as HTMLElement;
   click(lanes, 500); // not on a segment or a cut
@@ -169,7 +169,7 @@ test("clicking a cut selects it", () => {
   const h = setup();
   click(screen.getByTestId("cut"), 150);
   expect(h.onPick).toHaveBeenCalledWith({ kind: "cut", index: 0 });
-  expect(h.onSeek).not.toHaveBeenCalled();
+  expect(h.onSeek).toHaveBeenLastCalledWith(15);
 });
 
 test("a selected segment can be dragged at both edges; the change is committed on release", () => {
