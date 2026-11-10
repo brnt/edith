@@ -57,7 +57,7 @@ comes next.
    found*. Compare the Match across files: a different seed or the wrong sound can partly match
    and may land up to ~30 ms off, but scores clearly lower. Nudge any file by hand in
    milliseconds.
-3. **Edit.** The large view plays the synced proxies, with the time and play controls under it. Beside
+3. **Edit.** The large view (it grows with the window, up to two thirds of its width on a big screen) plays the synced proxies, with the time and play controls under it. Beside
    it is a grid of every camera (live thumbnails, in step with the playhead) and every still (a
    small picture): **click one to cut to it at the current position**. Each channel keeps its own
    slot in the grid (cameras in number order, then stills); the one on screen is a dimmed live copy with an "on screen" overlay
