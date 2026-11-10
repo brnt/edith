@@ -37,7 +37,7 @@ function TileLabel({ channel }: { channel: Channel }) {
           {channel.number}
         </span>
       )}
-      <span class="absolute bottom-1 left-1 max-w-[calc(100%-0.5rem)] truncate rounded bg-neutral-950/85 px-1.5 text-[11px] text-neutral-100">
+      <span class="absolute bottom-0 left-0 max-w-full truncate rounded-tr bg-neutral-950/65 px-1.5 text-[11px] text-neutral-100">
         {channel.item.label}
       </span>
     </>
