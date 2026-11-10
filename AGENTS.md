@@ -94,6 +94,9 @@ Root `justfile` delegates to both; Compose runs `api` (:8000) and `web` (:8080).
   script** (`timelineBoxHeight`, a ResizeObserver on the stage and the timeline content), not set
   with CSS percentages: a `max-height: calc(100% - …)` version resolved differently in the user's
   browser and left the timeline at its minimum with room to spare.
+  The `Timeline` root is the one scroller (both axes): the ruler and label column are `sticky`. Keep
+  every row's content inside its fixed height (1px of overflow is enough to make it scroll), and
+  re-measure after every render too: a hidden page delivers no ResizeObserver callbacks.
 - **Clicking a tile or pressing a number while a range is selected is a cutaway** (`showOver` in
   `lib/editOps.ts`, via `cutTo` in `useEditor`): the channel is shown over the range, then the edit
   returns to what was showing at its end, and the selection clears. No selection: switch at the playhead.

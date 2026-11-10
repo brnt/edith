@@ -47,23 +47,34 @@ export function Stage({
   // The timeline box's height, measured: all its rows if the view can spare the room, else what is
   // left. (Done in script, not CSS percentages, which browsers resolve differently in flex layouts.)
   const [boxH, setBoxH] = useState<number | null>(null);
+  const measureRef = useRef<() => void>(() => {});
   useEffect(() => {
     const root = stage.current;
     const box = ed.timelineBox.current;
-    const content = box?.firstElementChild as HTMLElement | null | undefined;
-    if (!root || !content || typeof ResizeObserver === "undefined") return;
+    const scroller = box?.firstElementChild as HTMLElement | null | undefined; // the timeline
+    const rows = scroller?.firstElementChild as HTMLElement | null | undefined; // its content
+    if (!root || !scroller || !rows || typeof ResizeObserver === "undefined") return;
     const measure = () => {
       const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
       const viewMin = Math.max(140, 0.27 * window.innerHeight) + 5.5 * rem;
       const room = root.clientHeight - STAGE_PADDING_PX - STAGE_GAP_PX - viewMin;
-      setBoxH(timelineBoxHeight(content.offsetHeight, room));
+      // All of the rows, plus the scroller's own border (and a horizontal scrollbar when shown).
+      const chrome = scroller.offsetHeight - scroller.clientHeight;
+      const content = Math.max(rows.getBoundingClientRect().height, scroller.scrollHeight);
+      const natural = Math.ceil(content + chrome);
+      setBoxH(timelineBoxHeight(natural, room));
     };
+    measureRef.current = measure;
     const observer = new ResizeObserver(measure);
     observer.observe(root);
-    observer.observe(content);
+    observer.observe(rows);
     measure();
     return () => observer.disconnect();
   }, []);
+
+  // Also after every render (a no-op when nothing changed): the observer alone can miss the moment
+  // the rows first appear.
+  useEffect(() => measureRef.current());
 
   const frame = frameState(ed.t, shown, ed.media, ed.offsets);
 
@@ -168,7 +179,7 @@ export function Stage({
 
       <div
         ref={ed.timelineBox}
-        class="shrink-0 overflow-y-auto"
+        class="shrink-0 overflow-hidden"
         style={{ height: boxH ?? undefined, minHeight: `${TIMELINE_MIN_PX}px` }}
       >
         <Timeline

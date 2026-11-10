@@ -252,12 +252,16 @@ export function Timeline(props: Props) {
 
   return (
     <div
-      class="overflow-x-auto rounded border border-neutral-800 bg-neutral-900"
+      // The one scroller (both ways): the ruler and the labels stay pinned while the rows scroll.
+      class="h-full overflow-auto rounded border border-neutral-800 bg-neutral-900"
       data-testid="timeline"
     >
       <div class="flex" style={{ width: LABEL_W + total }}>
-        <div class="sticky left-0 z-20 bg-neutral-900" style={{ width: LABEL_W }}>
-          <div class="flex items-center gap-1 px-1" style={{ height: ROW.ruler }}>
+        <div class="sticky left-0 z-40 bg-neutral-900" style={{ width: LABEL_W }}>
+          <div
+            class="sticky top-0 z-40 flex items-center gap-1 bg-neutral-900 px-1"
+            style={{ height: ROW.ruler }}
+          >
             {props.corner}
           </div>
           {cameras.map((c) => (
@@ -303,7 +307,7 @@ export function Timeline(props: Props) {
             return (
               <div
                 key={m.id}
-                class="border-t border-neutral-800 px-2 py-1 text-xs"
+                class="overflow-hidden border-t border-neutral-800 px-2 py-0.5 text-xs leading-4"
                 style={{ height: ROW.audio }}
               >
                 <div class="truncate" title={m.label}>
@@ -312,7 +316,7 @@ export function Timeline(props: Props) {
                 <input
                   type="range"
                   aria-label={`Gain ${m.label}`}
-                  class="w-full"
+                  class="block h-4 w-full"
                   min={-30}
                   max={12}
                   step={1}
@@ -336,7 +340,11 @@ export function Timeline(props: Props) {
           onPointerMove={move}
           onPointerUp={up}
         >
-          <div class="relative" style={{ height: ROW.ruler }}>
+          <div
+            data-testid="ruler"
+            class="sticky top-0 z-20 bg-neutral-900"
+            style={{ height: ROW.ruler }}
+          >
             {ticks.map((t) => (
               <div
                 key={t}
@@ -389,7 +397,7 @@ export function Timeline(props: Props) {
           {audioRows.map((m) => (
             <div
               key={m.id}
-              class="relative border-t border-neutral-800"
+              class="relative overflow-hidden border-t border-neutral-800"
               style={{ height: ROW.audio }}
             >
               <Waveform
@@ -514,7 +522,7 @@ export function Timeline(props: Props) {
           )}
           {selection && band(selection, "bg-white/20 ring-1 ring-white/60", "sel", 0, "100%")}
           <div
-            class="pointer-events-none absolute top-0 z-10 h-full w-0.5 bg-amber-400"
+            class="pointer-events-none absolute top-0 z-30 h-full w-0.5 bg-amber-400"
             style={{ left: x(playhead) }}
             data-testid="playhead"
           />

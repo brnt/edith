@@ -274,6 +274,11 @@ test("an unselected segment has no drag handles", () => {
   expect(screen.queryByRole("separator", { name: /of the segment/ })).toBeNull();
 });
 
+test("the time ruler is pinned (sticky) so it stays put while the rows scroll", () => {
+  setup();
+  expect(screen.getByTestId("ruler").className).toContain("sticky top-0");
+});
+
 test("the playhead is amber, so it never reads as one of the red cut spans", () => {
   setup();
   const playhead = screen.getByTestId("playhead");
