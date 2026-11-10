@@ -77,7 +77,7 @@ comes next.
      when speech follows right after). *Cut all*, or drag-select and press `x` to cut by hand.
      Cuts ripple.
    - **Selecting on the timeline:** click a channel's **segment** (a blue or teal block: one
-     stretch where that channel is on screen) or a **cut** to select it (white outline).
+     stretch where that channel is on screen) or a **cut** to select it (it gets a faint diagonal stripe texture).
      Every click on the timeline moves the playhead to the clicked moment; on a segment or a cut it
      also selects it, and on anything else it deselects. `Esc` deselects.
      - **Resize:** drag a selected item's edges. Grip marks inside a segment's ends show which
