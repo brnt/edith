@@ -38,7 +38,8 @@ above them with four tabs (**Media**, **Sync**, **Edit**, **Export**); it opens 
 comes next.
 
 1. **Media.** Create a project, then **Add media…** and pick the camera, audio, and still-image
-   files. **Build proxies** (low-res copies the browser can scrub; originals are untouched).
+   files (each shows a tiny thumbnail). **Build proxies** (low-res copies the browser can scrub;
+   originals are untouched).
 2. **Sync.** Every device should have recorded a registration sound once shortly after it started
    and once shortly before it stopped. Pick any recording that contains it and drag across the
    sound on the waveform (a quiet beep is visible as a small bump), then **Find the sound in every
@@ -46,24 +47,26 @@ comes next.
    inconsistent: review it), or *not found*. Nudge any file by hand in milliseconds.
 3. **Edit** (the preview plays the synced proxies; the timeline shows each camera, the stills, and
    each audio track's waveform).
-   - **Camera:** put the playhead where you want the switch and press the camera's number
-     (or click its button). It stays active until the next switch.
+   - **Channels:** the output shows one *channel* at a time: a camera or a still. Cameras are
+     numbered first, then stills (each by name), and only the first nine get a number. Put the
+     playhead where you want the change and press the channel's number (or click its button);
+     it stays on screen until the next switch, so a still is cut to and from like a camera.
    - **Dead time:** *Find* outlines silent stretches (all output tracks quiet) and always
      includes the registration sounds, which are sync marks and not content (it cuts them even
      when speech follows right after). *Cut all*, or drag-select and press `x` to cut by hand.
      Cuts ripple.
-   - **Stills:** drag-select a range, pick an image, *Show still*. The photo takes over the
-     video; audio continues.
+   - **Still over a range:** drag-select, pick an image, *Show still*: it switches to the still at
+     the start and back to whatever was showing at the end. The audio always continues.
    - **Audio:** per-track gain and mute on the timeline. By default every audio-only file is
      used; camera audio is discarded.
    - **Range:** `i` / `o` set the in and out points.
-   - **Edit list:** the Switches, Cuts and Stills menus list every decision; click one to jump to
-     it, ✕ to remove it.
+   - **Edit list:** the Switches and Cuts menus list every decision; click one to jump to it, ✕
+     to remove it.
    - **Save** (⌘/Ctrl+S) writes the edit into the project file. Undo/redo with ⌘/Ctrl+Z.
 4. **Export.** FCPXML (DaVinci Resolve, Final Cut), Premiere XML, EDL (video only), the Edith
    JSON, or **Render MP4 (1080p)**. Exports and renders use the *saved* edit.
 
-Keys: `space` play · `1`–`9` camera · `x` cut selection · `i`/`o` range · `←`/`→` step (shift = 10 s).
+Keys: `space` play · `1`–`9` camera or still · `x` cut selection · `i`/`o` range · `←`/`→` step (shift = 10 s).
 
 ## Development
 
@@ -118,8 +121,8 @@ frontend/src/ Preact SPA; all HTTP in lib/api.ts; timeline math in lib/timeline.
 - **Sync.** Energy-normalised correlation against a template of the registration sound, then a
   cross-file solver that rejects loud lookalikes
   ([ADR 0003](docs/adr/0003-sync-by-normalized-correlation-and-cross-file-consensus.md)).
-- **The edit** is a non-destructive list on the shared timeline (camera switches, cuts, stills,
-  track settings, range). `edit/plan.py` turns it into concrete clips; preview mirrors it, every
+- **The edit** is a non-destructive list on the shared timeline (channel switches, cuts, track
+  settings, range). A still is a channel like a camera. `edit/plan.py` turns it into concrete clips; preview mirrors it, every
   export serialises it, and the render compiles it to one ffmpeg command.
 
 ## Known limits

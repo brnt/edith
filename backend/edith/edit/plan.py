@@ -10,7 +10,7 @@ close the gap (ripple), so output time = timeline time minus the cut time before
 from dataclasses import dataclass, field, replace
 from typing import Literal
 
-from edith.db.documents import CameraSwitch, EditList, MediaItem, Still, SyncState
+from edith.db.documents import CameraSwitch, EditList, MediaItem, SyncState
 
 EPS = 1e-6
 
@@ -99,17 +99,13 @@ def default_camera(media: dict[str, MediaItem], offsets: dict[str, float]) -> st
     return cameras[0] if cameras else None
 
 
-def active_camera(switches: list[CameraSwitch], t: float, fallback: str | None) -> str | None:
+def active_channel(switches: list[CameraSwitch], t: float, fallback: str | None) -> str | None:
+    """The camera or still the output shows at `t` (None switches mean the default camera)."""
     current = fallback
     for switch in sorted(switches, key=lambda s: s.at_s):
         if switch.at_s <= t + EPS:
-            current = switch.media_id
+            current = switch.media_id if switch.media_id is not None else fallback
     return current
-
-
-def covering_still(stills: list[Still], t: float) -> Still | None:
-    covering = [s for s in stills if s.start_s <= t + EPS < s.end_s]
-    return max(covering, key=lambda s: s.start_s, default=None)
 
 
 def output_tracks(edit: EditList, media: dict[str, MediaItem]) -> list[tuple[str, float]]:
@@ -182,29 +178,27 @@ def build_plan(edit: EditList, media: dict[str, MediaItem], sync: SyncState) -> 
     warned: set[str] = set()
     rec = 0.0
     for a, b in keep:
-        points = {a, b}
-        points |= {s.at_s for s in edit.switches if a < s.at_s < b}
-        for still in edit.stills:
-            points |= {t for t in (still.start_s, still.end_s) if a < t < b}
+        points = {a, b} | {s.at_s for s in edit.switches if a < s.at_s < b}
         ordered = sorted(points)
         for x, y in zip(ordered, ordered[1:], strict=False):
             if y - x <= EPS:
                 continue
-            still = covering_still(edit.stills, x)
-            if still is not None and still.media_id in media:
-                _append_video(video, VideoSeg(still.media_id, "still", rec + (x - a), y - x, 0.0))
+            channel = active_channel(edit.switches, x, fallback)
+            if channel is None or channel not in media:
                 continue
-            camera = active_camera(edit.switches, x, fallback)
-            if camera is None or camera not in media:
+            if media[channel].kind == "image":
+                _append_video(video, VideoSeg(channel, "still", rec + (x - a), y - x, 0.0))
                 continue
-            src_in = x - offsets[camera]
-            end = offsets[camera] + (media[camera].duration_s or 0.0)
-            if (src_in < -EPS or y > end + EPS) and camera not in warned:
-                warned.add(camera)
+            src_in = x - offsets[channel]
+            end = offsets[channel] + (media[channel].duration_s or 0.0)
+            if (src_in < -EPS or y > end + EPS) and channel not in warned:
+                warned.add(channel)
                 warnings.append(
-                    f"{media[camera].label} has no footage for part of the selected range"
+                    f"{media[channel].label} has no footage for part of the selected range"
                 )
-            _append_video(video, VideoSeg(camera, "camera", rec + (x - a), y - x, max(0.0, src_in)))
+            _append_video(
+                video, VideoSeg(channel, "camera", rec + (x - a), y - x, max(0.0, src_in))
+            )
         for media_id, gain in tracks:
             start = max(a, offsets.get(media_id, 0.0))
             stop = min(b, offsets.get(media_id, 0.0) + (media[media_id].duration_s or 0.0))

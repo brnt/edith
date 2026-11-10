@@ -54,10 +54,15 @@ Root `justfile` delegates to both; Compose runs `api` (:8000) and `web` (:8080).
   Exporters and the ffmpeg render serialise it; the frontend's `lib/timeline.ts` mirrors its
   rules for the preview. Change the semantics in the plan first, then both.
 - All edit times are **shared-timeline seconds before cuts** (earliest file = 0). Source time =
-  timeline time minus the file's offset (sync start + nudge). Cuts ripple; stills override video
-  while audio continues; camera audio is never used.
+  timeline time minus the file's offset (sync start + nudge). Cuts ripple; the output shows one *channel* (a camera or a still) from each switch until the
+  next, and audio continues regardless; camera audio is never used.
 - Document kinds live in `db/documents.py`; every shape change is a version bump + upcaster +
-  fixture project + test (see below). Saving writes the *current* version; reading never writes.
+  fixture project + test. Saving writes the *current* version; reading never writes.
+  **Edit is at v2** (stills became switches; `_edit_v1_to_v2`); the v1 fixture lives in
+  `backend/tests/fixtures/projects/` and is exercised by `tests/api/test_old_projects.py`.
+- **Channels are numbered cameras-first, then stills, by name, only 1-9** (`channelsOf` in
+  `lib/timeline.ts`): this numbering drives the number keys, the ribbon buttons, the timeline row
+  badges and the switch list, so change it in one place.
 - Long work (proxies, sync, render) runs as a job (`services/jobs.py`); the UI polls `/jobs/{id}`.
 - **ffmpeg gotchas learned on real footage:** never loop a still with `-loop 1` as an input inside
   a concat (it stalls); `-ss` before `-i` for every clip; hold stills with the `loop` filter.
@@ -72,8 +77,7 @@ Root `justfile` delegates to both; Compose runs `api` (:8000) and `web` (:8080).
 - Sample session for real-data checks: `EDITH_SAMPLE_MEDIA=/Volumes/BRENTexp/media uv run pytest
   tests/sync/test_real_media.py` (skipped when unset; the media is ~1.9 GB, never commit it).
 - Not built yet: applying measured drift to clip placement, vertical/9:16 reframing, segment-level
-  audio gain, a room-audio sync fallback, and a fixture project per document version (there is
-  only v1 so far; add `tests/fixtures/projects/` with the first bump).
+  audio gain, and a room-audio sync fallback. Add a fixture project for every future version bump.
 
 **Local use:** `LIBRARY_DIR` (root `.env`) is the host folder bind-mounted as the library; point
 it at a folder on the external SSD.

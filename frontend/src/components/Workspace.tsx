@@ -158,9 +158,9 @@ export function Workspace({ slug }: { slug: string }) {
       </header>
 
       {project?.needs_upgrade && (
-        <div class="mx-3 mb-2 flex shrink-0 items-center gap-3 rounded border border-amber-700 bg-amber-950 p-2 text-sm text-amber-200">
-          This project was saved by an older version of Edith. It opened as it was; saving your edit
-          or upgrading rewrites it in the current format.
+        <div class="mx-3 mb-2 flex shrink-0 items-center gap-3 rounded border border-amber-700 bg-amber-950 px-2 py-1 text-sm text-amber-200">
+          Saved by an older Edith. It opened unchanged; saving or upgrading rewrites it in the
+          current format.
           <Button onClick={upgrade}>Upgrade now</Button>
         </div>
       )}

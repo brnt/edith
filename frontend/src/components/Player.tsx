@@ -24,7 +24,8 @@ export function Player({ slug, media, offsets, edit, t, playing }: Props) {
   const playable = media.filter((m) => m.kind !== "image" && m.proxy_ready);
   const tracks = effectiveTracks(edit, media);
   const state = frameState(t, edit, media, offsets);
-  const still = state.still && media.find((m) => m.id === state.still?.media_id);
+  const shown = media.find((m) => m.id === state.channel);
+  const still = shown?.kind === "image" ? shown : null;
 
   useEffect(() => {
     for (const m of playable) {
@@ -90,7 +91,7 @@ export function Player({ slug, media, offsets, edit, t, playing }: Props) {
             preload="auto"
             playsInline
             muted
-            class={`absolute inset-0 h-full w-full object-contain ${!still && state.camera === m.id ? "opacity-100" : "opacity-0"}`}
+            class={`absolute inset-0 h-full w-full object-contain ${state.channel === m.id ? "opacity-100" : "opacity-0"}`}
           />
         ) : (
           <audio
@@ -110,7 +111,7 @@ export function Player({ slug, media, offsets, edit, t, playing }: Props) {
           class="absolute inset-0 h-full w-full object-contain"
         />
       )}
-      {!state.camera && !still && (
+      {!state.channel && (
         <div class="absolute inset-0 flex items-center justify-center text-sm text-neutral-500">
           No camera
         </div>

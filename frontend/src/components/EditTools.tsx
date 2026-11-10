@@ -1,6 +1,6 @@
 import type { ComponentChildren } from "preact";
 
-import { addCuts, addStill, removeCut, removeStill, removeSwitch, setRange } from "../lib/editOps";
+import { addCuts, removeCut, removeSwitch, setRange, showStill } from "../lib/editOps";
 import { formatTime, type Range } from "../lib/timeline";
 import type { EditorApi } from "../lib/useEditor";
 import { Button, Dropdown } from "./ui";
@@ -79,8 +79,15 @@ function ItemsMenu({ name, empty, items }: { name: string; empty: string; items:
 export function EditTools({ ed }: { ed: EditorApi }) {
   const { edit, media, onEdit, selection, silence, suggestions } = ed;
   const label = (id: string) => media.find((m) => m.id === id)?.label ?? id;
-  // Same numbering as the camera buttons, timeline rows, and number keys.
-  const cameraNumber = (id: string) => ed.cameras.findIndex((m) => m.id === id) + 1;
+  // Same numbering as the buttons, timeline rows, and number keys: cameras first, then stills.
+  const channelName = (id: string | null) => {
+    if (id === null) return "default camera";
+    const channel = ed.channels.find((c) => c.item.id === id);
+    if (!channel) return label(id);
+    const n = channel.number;
+    if (channel.item.kind === "video") return n ? `Camera ${n}` : channel.item.label;
+    return n ? `Still ${n} · ${channel.item.label}` : channel.item.label;
+  };
 
   const num = (key: keyof typeof silence, step: number) => (
     <input
@@ -99,18 +106,21 @@ export function EditTools({ ed }: { ed: EditorApi }) {
 
   return (
     <div class="flex h-full gap-3">
-      <Group title="Camera at playhead" width="w-32">
-        {ed.cameras.map((m, i) => (
-          <Button
-            key={m.id}
-            title={m.label}
-            aria-label={`Switch to camera ${i + 1}`}
-            onClick={() => ed.cutTo(m.id)}
-          >
-            {i + 1}
-          </Button>
-        ))}
-        {ed.cameras.length === 0 && <span class="text-neutral-500">No video</span>}
+      <Group title="Show at playhead (number keys)" width="w-40">
+        {ed.channels
+          .filter((c) => c.number !== null)
+          .map((c) => (
+            <Button
+              key={c.item.id}
+              title={c.item.label}
+              aria-label={`Switch to ${c.item.kind === "video" ? "camera" : "still"} ${c.number}`}
+              class={c.item.kind === "image" ? "!bg-fuchsia-800 hover:!bg-fuchsia-600" : ""}
+              onClick={() => ed.cutTo(c.item.id)}
+            >
+              {c.number}
+            </Button>
+          ))}
+        {ed.channels.length === 0 && <span class="text-neutral-500">No video or stills</span>}
       </Group>
 
       <Group title={`Selection: ${selectionText}`} width="w-60">
@@ -144,7 +154,7 @@ export function EditTools({ ed }: { ed: EditorApi }) {
           disabled={!selection || !ed.stillId}
           onClick={() => {
             if (!selection) return;
-            onEdit(addStill(edit, ed.stillId, selection[0], selection[1]));
+            onEdit(showStill(edit, ed.fallback, ed.stillId, selection[0], selection[1]));
             ed.setSelection(null);
           }}
         >
@@ -195,8 +205,8 @@ export function EditTools({ ed }: { ed: EditorApi }) {
           empty="Starts on the earliest camera."
           items={edit.switches.map((s, i) => ({
             key: `${s.at_s}-${s.media_id}`,
-            text: `${formatTime(s.at_s, 1)} → Camera ${cameraNumber(s.media_id)}`,
-            title: label(s.media_id),
+            text: `${formatTime(s.at_s, 1)} → ${channelName(s.media_id)}`,
+            title: s.media_id ? label(s.media_id) : undefined,
             onSeek: () => ed.setT(s.at_s),
             onRemove: () => onEdit(removeSwitch(edit, i)),
           }))}
@@ -209,16 +219,6 @@ export function EditTools({ ed }: { ed: EditorApi }) {
             text: `${formatTime(c.start_s, 1)} – ${formatTime(c.end_s, 1)} (${(c.end_s - c.start_s).toFixed(1)} s)`,
             onSeek: () => ed.setT(c.start_s),
             onRemove: () => onEdit(removeCut(edit, i)),
-          }))}
-        />
-        <ItemsMenu
-          name="Stills"
-          empty="No stills."
-          items={edit.stills.map((s) => ({
-            key: s.id,
-            text: `${formatTime(s.start_s, 1)} – ${formatTime(s.end_s, 1)} ${label(s.media_id)}`,
-            onSeek: () => ed.setT(s.start_s),
-            onRemove: () => onEdit(removeStill(edit, s.id)),
           }))}
         />
       </Group>

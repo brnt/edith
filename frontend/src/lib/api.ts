@@ -46,17 +46,12 @@ export interface SyncState {
   needs_upgrade: boolean;
 }
 
+/** From `at_s` on, the output shows this channel: a camera or a still. null = default camera. */
 export interface CameraSwitch {
   at_s: number;
-  media_id: string;
+  media_id: string | null;
 }
 export interface Cut {
-  start_s: number;
-  end_s: number;
-}
-export interface Still {
-  id: string;
-  media_id: string;
   start_s: number;
   end_s: number;
 }
@@ -69,7 +64,6 @@ export interface TrackSetting {
 export interface EditList {
   switches: CameraSwitch[];
   cuts: Cut[];
-  stills: Still[];
   tracks: TrackSetting[];
   range_in_s: number | null;
   range_out_s: number | null;

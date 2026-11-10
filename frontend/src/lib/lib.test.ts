@@ -1,12 +1,13 @@
 import { describe, expect, test } from "vitest";
 
 import type { EditList, MediaItem, SyncState } from "./api";
-import { addCuts, addStill, removeCut, setCamera, setTrack } from "./editOps";
+import { addCuts, removeCut, setCamera, setTrack, showStill } from "./editOps";
 import * as history from "./history";
 import {
-  activeCamera,
+  activeChannel,
   advancePlayhead,
-  cameraSpans,
+  channelSpans,
+  channelsOf,
   effectiveTracks,
   fitPxPerSec,
   formatTime,
@@ -37,7 +38,6 @@ const item = (id: string, kind: MediaItem["kind"], duration = 100): MediaItem =>
 const edit = (patch: Partial<EditList> = {}): EditList => ({
   switches: [],
   cuts: [],
-  stills: [],
   tracks: [],
   range_in_s: null,
   range_out_s: null,
@@ -167,23 +167,16 @@ describe("offsets and frame state", () => {
 
   test("the default camera is the earliest started; switches override from their time", () => {
     const offsets = mediaOffsets(media, sync);
-    expect(activeCamera([], 10, "camB")).toBe("camB");
+    expect(activeChannel([], 10, "camB")).toBe("camB");
     const e = edit({ switches: [{ at_s: 20, media_id: "camA" }] });
-    expect(frameState(10, e, media, offsets).camera).toBe("camB");
-    expect(frameState(25, e, media, offsets).camera).toBe("camA");
+    expect(frameState(10, e, media, offsets).channel).toBe("camB");
+    expect(frameState(25, e, media, offsets).channel).toBe("camA");
   });
 
   test("local times are null outside a file's footage", () => {
     const state = frameState(3, edit(), media, mediaOffsets(media, sync));
     expect(state.local.camA).toBeNull(); // starts at 5
     expect(state.local.mic).toBe(3);
-  });
-
-  test("a still covers its range", () => {
-    const e = edit({ stills: [{ id: "s", media_id: "car", start_s: 10, end_s: 12 }] });
-    const offsets = mediaOffsets(media, sync);
-    expect(frameState(11, e, media, offsets).still?.id).toBe("s");
-    expect(frameState(12, e, media, offsets).still).toBeNull();
   });
 });
 
@@ -193,12 +186,12 @@ describe("camera spans", () => {
       { at_s: 10, media_id: "camB" },
       { at_s: 30, media_id: "camA" },
     ];
-    expect(cameraSpans(switches, "camA", "camA", 0, 50)).toEqual([
+    expect(channelSpans(switches, "camA", "camA", 0, 50)).toEqual([
       [0, 10],
       [30, 50],
     ]);
-    expect(cameraSpans(switches, "camB", "camA", 0, 50)).toEqual([[10, 30]]);
-    expect(cameraSpans([], "camB", "camA", 0, 50)).toEqual([]);
+    expect(channelSpans(switches, "camB", "camA", 0, 50)).toEqual([[10, 30]]);
+    expect(channelSpans([], "camB", "camA", 0, 50)).toEqual([]);
   });
 });
 
@@ -221,11 +214,6 @@ describe("edit operations", () => {
       { start_s: 8, end_s: 9 },
     ]);
     expect(removeCut(e, 0).cuts).toEqual([{ start_s: 8, end_s: 9 }]);
-  });
-
-  test("stills are kept in time order", () => {
-    const e = addStill(addStill(edit(), "car", 20, 22, "b"), "car", 5, 6, "a");
-    expect(e.stills.map((s) => s.id)).toEqual(["a", "b"]);
   });
 
   test("the first track change writes out the default tracks", () => {
@@ -257,6 +245,88 @@ describe("fitting the timeline to the window", () => {
     expect(fitPxPerSec(0, 100)).toBe(20);
     expect(fitPxPerSec(1178, 0)).toBe(20);
     expect(fitPxPerSec(100, 100)).toBe(20); // narrower than the label column
+  });
+});
+
+describe("channels: cameras and stills", () => {
+  const many = [
+    item("z-cam", "video"),
+    item("a-cam", "video"),
+    item("mic", "audio"),
+    ...Array.from({ length: 9 }, (_, i) => item(`still${i}`, "image")),
+  ];
+
+  test("cameras are numbered first, then stills, each by name; audio gets no number", () => {
+    const channels = channelsOf([
+      item("car", "image"),
+      item("b-cam", "video"),
+      item("mic", "audio"),
+      item("a-cam", "video"),
+    ]);
+    expect(channels.map((c) => [c.item.id, c.number])).toEqual([
+      ["a-cam", 1],
+      ["b-cam", 2],
+      ["car", 3],
+    ]);
+  });
+
+  test("only the first nine channels get a number", () => {
+    const channels = channelsOf(many);
+    expect(channels.filter((c) => c.number !== null)).toHaveLength(9);
+    expect(channels[8].item.id).toBe("still6"); // 2 cameras + 7 stills
+    expect(channels[9].number).toBeNull();
+    expect(channels.slice(0, 2).every((c) => c.item.kind === "video")).toBe(true);
+  });
+
+  test("a switch to a still shows it until the next switch, like a camera", () => {
+    const e = edit({
+      switches: [
+        { at_s: 20, media_id: "car" },
+        { at_s: 30, media_id: "camA" },
+      ],
+    });
+    expect(activeChannel(e.switches, 25, "camA")).toBe("car");
+    expect(activeChannel(e.switches, 35, "camA")).toBe("camA");
+    expect(channelSpans(e.switches, "car", "camA", 0, 60)).toEqual([[20, 30]]);
+  });
+
+  test("a null switch means the default camera", () => {
+    const switches = [
+      { at_s: 10, media_id: "car" },
+      { at_s: 20, media_id: null },
+    ];
+    expect(activeChannel(switches, 15, "camA")).toBe("car");
+    expect(activeChannel(switches, 25, "camA")).toBe("camA");
+  });
+
+  test("showStill puts a still over a range and returns to what was showing at its end", () => {
+    const base = edit({ switches: [{ at_s: 5, media_id: "camB" }] });
+    expect(showStill(base, "camA", "car", 10, 14).switches).toEqual([
+      { at_s: 5, media_id: "camB" },
+      { at_s: 10, media_id: "car" },
+      { at_s: 14, media_id: "camB" },
+    ]);
+  });
+
+  test("showStill drops switches hidden under the still but keeps the one in force at its end", () => {
+    const base = edit({
+      switches: [
+        { at_s: 5, media_id: "camB" },
+        { at_s: 12, media_id: "camA" },
+      ],
+    });
+    expect(showStill(base, "camB", "car", 10, 14).switches).toEqual([
+      { at_s: 5, media_id: "camB" },
+      { at_s: 10, media_id: "car" },
+      { at_s: 14, media_id: "camA" },
+    ]);
+  });
+
+  test("showStill with no earlier switch returns to the default camera", () => {
+    expect(showStill(edit(), "camA", "car", 10, 14).switches).toEqual([
+      { at_s: 10, media_id: "car" },
+      { at_s: 14, media_id: "camA" },
+    ]);
   });
 });
 

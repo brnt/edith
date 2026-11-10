@@ -1,15 +1,33 @@
 // Immutable edit operations. Every function returns a new EditList.
-import type { Cut, EditList, MediaItem, Still } from "./api";
-import { effectiveTracks, mergeRanges } from "./timeline";
+import type { Cut, EditList, MediaItem } from "./api";
+import { activeChannel, effectiveTracks, mergeRanges } from "./timeline";
 
 const SAME_TIME = 0.05;
 
-export function setCamera(edit: EditList, at_s: number, media_id: string): EditList {
+/** From `at_s` on, show this channel (a camera or a still). */
+export function setCamera(edit: EditList, at_s: number, media_id: string | null): EditList {
   const others = edit.switches.filter((s) => Math.abs(s.at_s - at_s) > SAME_TIME);
   const switches = [...others, { at_s, media_id }].sort((a, b) => a.at_s - b.at_s);
-  // A switch to the camera that is already active changes nothing.
+  // A switch to the channel that is already showing changes nothing.
   const compact = switches.filter((s, i) => i === 0 || s.media_id !== switches[i - 1].media_id);
   return { ...edit, switches: compact };
+}
+
+/**
+ * Show a still over a range, then go back to whatever was showing at its end. Switches that fall
+ * inside the range are hidden by the still, so they are dropped (the one in force at the end is
+ * what we return to).
+ */
+export function showStill(
+  edit: EditList,
+  fallback: string | null,
+  stillId: string,
+  start_s: number,
+  end_s: number,
+): EditList {
+  const returnTo = activeChannel(edit.switches, end_s, fallback);
+  const outside = edit.switches.filter((s) => s.at_s <= start_s || s.at_s >= end_s);
+  return setCamera(setCamera({ ...edit, switches: outside }, start_s, stillId), end_s, returnTo);
 }
 
 export function removeSwitch(edit: EditList, index: number): EditList {
@@ -26,21 +44,6 @@ export function addCuts(edit: EditList, cuts: Cut[]): EditList {
 
 export function removeCut(edit: EditList, index: number): EditList {
   return { ...edit, cuts: edit.cuts.filter((_, i) => i !== index) };
-}
-
-export function addStill(
-  edit: EditList,
-  media_id: string,
-  start_s: number,
-  end_s: number,
-  id = `still-${Date.now().toString(36)}`,
-): EditList {
-  const still: Still = { id, media_id, start_s, end_s };
-  return { ...edit, stills: [...edit.stills, still].sort((a, b) => a.start_s - b.start_s) };
-}
-
-export function removeStill(edit: EditList, id: string): EditList {
-  return { ...edit, stills: edit.stills.filter((s) => s.id !== id) };
 }
 
 /** Change a track's gain or mute. The first change writes out the default track list. */

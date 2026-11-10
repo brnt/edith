@@ -1,9 +1,9 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/preact";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/preact";
 import { beforeEach, expect, test, vi } from "vitest";
 
 import { Workspace } from "./Workspace";
 
-const media = [
+const baseMedia = [
   {
     id: "camA",
     path: "m/a.mp4",
@@ -77,6 +77,7 @@ const baseEdit = {
   height: 1080,
 };
 
+let media = baseMedia;
 let puts: unknown[] = [];
 
 function respond(body: unknown, status = 200) {
@@ -89,6 +90,7 @@ function respond(body: unknown, status = 200) {
 }
 
 beforeEach(() => {
+  media = baseMedia;
   puts = [];
   vi.stubGlobal(
     "fetch",
@@ -155,7 +157,7 @@ test("loads a project, shows its media, timeline rows, warnings and the format n
   expect(screen.getAllByText("Cam A").length).toBeGreaterThan(0);
   expect(screen.getByLabelText("Mute mic.wav")).toBeInTheDocument();
   expect(await screen.findByText(/Cam B has no footage/)).toBeInTheDocument();
-  expect(screen.getByText(/saved by an older version of Edith/)).toBeInTheDocument();
+  expect(screen.getByText(/Saved by an older Edith/)).toBeInTheDocument();
 });
 
 test("switching camera marks the edit unsaved; saving sends it and clears the mark", async () => {
@@ -252,4 +254,64 @@ test("the media tab shows tiny thumbnails for video and images, not audio", asyn
   expect(sources.sort()).toEqual(
     ["camA", "camB", "car"].map((id) => `/api/projects/show/media/${id}/thumb`).sort(),
   );
+});
+
+const still = (id: string) => ({
+  id,
+  path: `m/${id}.jpg`,
+  kind: "image",
+  label: `${id}.jpg`,
+  duration_s: null,
+  width: 100,
+  height: 50,
+  fps: null,
+  has_audio: false,
+  proxy_ready: true,
+});
+
+test("stills are numbered after the cameras; their number key cuts to the still", async () => {
+  render(<Workspace slug="show" />);
+  await screen.findByTestId("timeline");
+  // Cam A = 1, Cam B = 2, car.png = 3
+  expect(await screen.findByRole("button", { name: "Switch to still 3" })).toBeInTheDocument();
+
+  fireEvent.keyDown(window, { key: "3" });
+  fireEvent.click(await screen.findByRole("button", { name: /Switches \(1\)/ }));
+  expect(screen.getByText(/→ Still 3 · car\.png/)).toBeInTheDocument();
+
+  // ...and a camera's number cuts back, like any channel (later on, not at the same instant).
+  fireEvent.keyDown(window, { key: "ArrowRight" });
+  await waitFor(() => expect(screen.getByText("0:01.00")).toBeInTheDocument());
+  fireEvent.keyDown(window, { key: "1" });
+  await waitFor(() =>
+    expect(screen.getByRole("button", { name: /Switches \(2\)/ })).toBeInTheDocument(),
+  );
+});
+
+test("each still has its own timeline row, grouped under a Stills disclosure", async () => {
+  media = [...baseMedia, still("bike")];
+  render(<Workspace slug="show" />);
+  const timeline = await screen.findByTestId("timeline");
+  const toggle = await within(timeline).findByRole("button", { name: /Stills \(2\)/ });
+  expect(toggle).toHaveAttribute("aria-expanded", "true"); // few stills: open by default
+  expect(within(timeline).getByRole("button", { name: "Switch to bike.jpg" })).toBeInTheDocument();
+  expect(within(timeline).getByRole("button", { name: "Switch to car.png" })).toBeInTheDocument();
+
+  fireEvent.click(toggle);
+  expect(within(timeline).queryByRole("button", { name: "Switch to bike.jpg" })).toBeNull();
+  expect(toggle).toHaveAttribute("aria-expanded", "false");
+});
+
+test("with many stills the group starts collapsed, and only nine channels get numbers", async () => {
+  media = [
+    ...baseMedia.filter((m) => m.kind !== "image"),
+    ...Array.from({ length: 8 }, (_, i) => still(`s${i}`)),
+  ];
+  render(<Workspace slug="show" />);
+  const timeline = await screen.findByTestId("timeline");
+  const toggle = await within(timeline).findByRole("button", { name: /Stills \(8\)/ });
+  expect(toggle).toHaveAttribute("aria-expanded", "false");
+  // 2 cameras + 8 stills: stills 3-9 are numbered, the last one is not.
+  expect(screen.getByRole("button", { name: "Switch to still 9" })).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Switch to still 10" })).toBeNull();
 });

@@ -1,12 +1,14 @@
-import { useRef } from "preact/hooks";
+import { useRef, useState } from "preact/hooks";
 
 import type { EditList, MediaItem, Peaks } from "../lib/api";
 import {
-  cameraSpans,
+  channelSpans,
+  channelsOf,
   defaultCamera,
   effectiveTracks,
   formatTime,
   TIMELINE_LABEL_W as LABEL_W,
+  type Channel,
   type Range,
 } from "../lib/timeline";
 import { MAX_CANVAS_PX, Waveform } from "./Waveform";
@@ -38,16 +40,21 @@ export function Timeline(props: Props) {
   const lanes = useRef<HTMLDivElement>(null);
   const drag = useRef<{ x: number; t: number; moved: boolean } | null>(null);
 
-  const cameras = media.filter((m) => m.kind === "video");
-  const stills = media.filter((m) => m.kind === "image");
+  const channels = channelsOf(media);
+  const cameras = channels.filter((c) => c.item.kind === "video");
+  const stills = channels.filter((c) => c.item.kind === "image");
+  // Stills sit in a disclosure group; open by default unless there are a lot of them.
+  const [stillsChoice, setStillsChoice] = useState<boolean | null>(null);
+  const stillsOpen = stillsChoice ?? stills.length <= 4;
   const tracks = effectiveTracks(edit, media);
   const audioRows = media.filter((m) => tracks.some((t) => t.media_id === m.id));
   const fallback = defaultCamera(media, offsets);
   const lo = edit.range_in_s ?? 0;
   const hi = edit.range_out_s ?? end;
   const step = STEPS.find((s) => s * px >= 70) ?? STEPS[STEPS.length - 1];
+  const stillRows = stills.length ? 1 + (stillsOpen ? stills.length : 0) : 0;
   const bodyHeight =
-    cameras.length * ROW.video + (stills.length ? ROW.still : 0) + audioRows.length * ROW.audio;
+    cameras.length * ROW.video + stillRows * ROW.still + audioRows.length * ROW.audio;
 
   const timeAt = (clientX: number) => {
     const rect = lanes.current?.getBoundingClientRect();
@@ -96,29 +103,43 @@ export function Timeline(props: Props) {
       <div class="flex" style={{ width: LABEL_W + total }}>
         <div class="sticky left-0 z-20 bg-neutral-900" style={{ width: LABEL_W }}>
           <div style={{ height: ROW.ruler }} />
-          {cameras.map((m, i) => (
+          {cameras.map((c) => (
             <div
-              key={m.id}
+              key={c.item.id}
               class="flex items-center gap-2 border-t border-neutral-800 px-2 text-xs"
               style={{ height: ROW.video }}
             >
-              <button
-                class="rounded bg-neutral-700 px-1.5 hover:bg-sky-600"
-                title={`Switch to ${m.label} at the playhead (${i + 1})`}
-                onClick={() => props.onCamera(m.id)}
-              >
-                {i + 1}
-              </button>
-              <span class="truncate">{m.label}</span>
+              <ChannelButton channel={c} onClick={() => props.onCamera(c.item.id)} />
+              <span class="truncate">{c.item.label}</span>
             </div>
           ))}
           {stills.length > 0 && (
-            <div
-              class="flex items-center border-t border-neutral-800 px-2 text-xs text-neutral-400"
-              style={{ height: ROW.still }}
-            >
-              Stills
-            </div>
+            <>
+              <div
+                class="flex items-center gap-1 border-t border-neutral-800 px-2 text-xs text-neutral-400"
+                style={{ height: ROW.still }}
+              >
+                <button
+                  class="flex items-center gap-1 hover:text-neutral-200"
+                  aria-expanded={stillsOpen}
+                  onClick={() => setStillsChoice(!stillsOpen)}
+                >
+                  <span aria-hidden="true">{stillsOpen ? "▾" : "▸"}</span>
+                  Stills ({stills.length})
+                </button>
+              </div>
+              {stillsOpen &&
+                stills.map((c) => (
+                  <div
+                    key={c.item.id}
+                    class="flex items-center gap-2 border-t border-neutral-800 px-2 text-xs"
+                    style={{ height: ROW.still }}
+                  >
+                    <ChannelButton channel={c} onClick={() => props.onCamera(c.item.id)} />
+                    <span class="truncate">{c.item.label}</span>
+                  </div>
+                ))}
+            </>
           )}
           {audioRows.map((m) => {
             const t = tracks.find((tr) => tr.media_id === m.id)!;
@@ -176,7 +197,7 @@ export function Timeline(props: Props) {
             ))}
           </div>
 
-          {cameras.map((m) => {
+          {cameras.map(({ item: m }) => {
             const off = offsets[m.id] ?? 0;
             return (
               <div
@@ -185,7 +206,7 @@ export function Timeline(props: Props) {
                 style={{ height: ROW.video }}
               >
                 {band([off, off + (m.duration_s ?? 0)], "bg-neutral-700/60", "avail", 6, "22px")}
-                {cameraSpans(edit.switches, m.id, fallback, lo, hi).map((span, i) =>
+                {channelSpans(edit.switches, m.id, fallback, lo, hi).map((span, i) =>
                   band(span, "bg-sky-500/80", i, 6, "22px"),
                 )}
               </div>
@@ -193,11 +214,28 @@ export function Timeline(props: Props) {
           })}
 
           {stills.length > 0 && (
-            <div class="relative border-t border-neutral-800" style={{ height: ROW.still }}>
-              {edit.stills.map((s) =>
-                band([s.start_s, s.end_s], "bg-fuchsia-600/80", s.id, 4, "20px"),
-              )}
-            </div>
+            <>
+              <div class="relative border-t border-neutral-800" style={{ height: ROW.still }}>
+                {!stillsOpen &&
+                  stills.flatMap(({ item: m }) =>
+                    channelSpans(edit.switches, m.id, fallback, lo, hi).map((span, i) =>
+                      band(span, "bg-fuchsia-600/80", `${m.id}-${i}`, 4, "20px"),
+                    ),
+                  )}
+              </div>
+              {stillsOpen &&
+                stills.map(({ item: m }) => (
+                  <div
+                    key={m.id}
+                    class="relative border-t border-neutral-800"
+                    style={{ height: ROW.still }}
+                  >
+                    {channelSpans(edit.switches, m.id, fallback, lo, hi).map((span, i) =>
+                      band(span, "bg-fuchsia-600/80", i, 4, "20px"),
+                    )}
+                  </div>
+                ))}
+            </>
           )}
 
           {audioRows.map((m) => (
@@ -246,5 +284,19 @@ export function Timeline(props: Props) {
         </div>
       </div>
     </div>
+  );
+}
+
+function ChannelButton({ channel, onClick }: { channel: Channel; onClick: () => void }) {
+  const still = channel.item.kind === "image";
+  return (
+    <button
+      class={`min-w-5 rounded px-1.5 ${still ? "bg-fuchsia-800 hover:bg-fuchsia-600" : "bg-neutral-700 hover:bg-sky-600"}`}
+      title={`Switch to ${channel.item.label}${channel.number ? ` (${channel.number})` : ""}`}
+      aria-label={`Switch to ${channel.item.label}`}
+      onClick={onClick}
+    >
+      {channel.number ?? "•"}
+    </button>
   );
 }

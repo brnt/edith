@@ -1,5 +1,5 @@
 // Pure timeline logic. Mirrors backend/edith/edit/plan.py so the preview agrees with exports.
-import type { CameraSwitch, Cut, EditList, MediaItem, Still, SyncState } from "./api";
+import type { CameraSwitch, Cut, EditList, MediaItem, SyncState } from "./api";
 
 export const EPS = 1e-6;
 export const TIMELINE_LABEL_W = 176;
@@ -110,21 +110,35 @@ export function defaultCamera(media: MediaItem[], offsets: Record<string, number
   return cameras[0]?.id ?? null;
 }
 
-export function activeCamera(
+/** The camera or still the output shows at `t`. A null switch means the default camera. */
+export function activeChannel(
   switches: CameraSwitch[],
   t: number,
   fallback: string | null,
 ): string | null {
   let current = fallback;
   for (const s of [...switches].sort((a, b) => a.at_s - b.at_s)) {
-    if (s.at_s <= t + EPS) current = s.media_id;
+    if (s.at_s <= t + EPS) current = s.media_id ?? fallback;
   }
   return current;
 }
 
-export function stillAt(stills: Still[], t: number): Still | null {
-  const covering = stills.filter((s) => s.start_s <= t + EPS && t + EPS < s.end_s);
-  return covering.sort((a, b) => b.start_s - a.start_s)[0] ?? null;
+export const MAX_NUMBERED_CHANNELS = 9;
+
+export interface Channel {
+  item: MediaItem;
+  /** 1-9 for the first nine channels (the number key), null beyond that. */
+  number: number | null;
+}
+
+/** Everything the output can show, cameras first and then stills (each by name), numbered 1-9. */
+export function channelsOf(media: MediaItem[]): Channel[] {
+  const byName = (a: MediaItem, b: MediaItem) => a.label.localeCompare(b.label);
+  const ordered = [
+    ...media.filter((m) => m.kind === "video").sort(byName),
+    ...media.filter((m) => m.kind === "image").sort(byName),
+  ];
+  return ordered.map((item, i) => ({ item, number: i < MAX_NUMBERED_CHANNELS ? i + 1 : null }));
 }
 
 /** Audio that reaches the output: explicit track settings, else every audio-only file. */
@@ -142,8 +156,8 @@ export function effectiveTracks(
 }
 
 export interface FrameState {
-  camera: string | null;
-  still: Still | null;
+  /** The camera or still on screen. */
+  channel: string | null;
   /** Local (file) time for every av media, or null when the file has no footage at `t`. */
   local: Record<string, number | null>;
 }
@@ -160,17 +174,13 @@ export function frameState(
     const at = t - offsets[m.id];
     local[m.id] = at >= 0 && at <= (m.duration_s ?? 0) ? at : null;
   }
-  return {
-    camera: activeCamera(edit.switches, t, defaultCamera(media, offsets)),
-    still: stillAt(edit.stills, t),
-    local,
-  };
+  return { channel: activeChannel(edit.switches, t, defaultCamera(media, offsets)), local };
 }
 
-/** Stretches of the timeline during which `cameraId` is the active camera. */
-export function cameraSpans(
+/** Stretches of the timeline during which `channelId` (a camera or a still) is on screen. */
+export function channelSpans(
   switches: CameraSwitch[],
-  cameraId: string,
+  channelId: string,
   fallback: string | null,
   lo: number,
   hi: number,
@@ -182,11 +192,11 @@ export function cameraSpans(
     .filter((s) => s.at_s > lo && s.at_s < hi)
     .sort((a, b) => a.at_s - b.at_s);
   for (const s of ordered) {
-    if (current === cameraId) spans.push([from, s.at_s]);
-    current = s.media_id;
+    if (current === channelId) spans.push([from, s.at_s]);
+    current = s.media_id ?? fallback;
     from = s.at_s;
   }
-  if (current === cameraId) spans.push([from, hi]);
+  if (current === channelId) spans.push([from, hi]);
   return spans;
 }
 
