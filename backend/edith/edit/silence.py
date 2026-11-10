@@ -14,11 +14,13 @@ def suggest_cuts(
     pad_s: float = 0.4,
     lo_s: float = 0.0,
     hi_s: float | None = None,
+    ignore: list[tuple[float, float]] | None = None,
 ) -> list[tuple[float, float]]:
     """`tracks` are (timeline offset in s, dB envelope at RATE). Returns (start, end) ranges.
 
     Each silent stretch of at least `min_s` is shrunk by `pad_s` where it meets content, so
-    the cut leaves a little air around the speech.
+    the cut leaves a little air around the speech. Ranges in `ignore` (e.g. registration
+    sounds) are not content: they count as silence however loud they are.
     """
     if not tracks:
         return []
@@ -32,6 +34,8 @@ def suggest_cuts(
         piece = env[: n - i] if i >= 0 else env[-i : n - i]
         start = max(i, 0)
         level[start : start + len(piece)] = np.maximum(level[start : start + len(piece)], piece)
+    for start_s, end_s in ignore or []:
+        level[max(0, int(start_s * RATE)) : max(0, int(np.ceil(end_s * RATE)))] = -np.inf
     first, last = int(lo_s * RATE), n
     silent = np.zeros(n + 2, dtype=bool)
     silent[1 : n + 1] = level < threshold_db

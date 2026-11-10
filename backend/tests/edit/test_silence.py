@@ -43,3 +43,11 @@ def test_threshold_decides_what_counts_as_quiet():
     audio = env((5, -45), (5, -20))
     assert suggest_cuts([(0.0, audio)], threshold_db=-50, min_s=2.0) == []
     assert suggest_cuts([(0.0, audio)], threshold_db=-40, min_s=2.0, pad_s=0.0) == [(0.0, 5.0)]
+
+
+def test_ignored_ranges_count_as_silence_however_loud():
+    # A loud registration beep in the middle of dead air splits it into two short gaps.
+    audio = env((5, -80), (0.4, -10), (5, -80), (3, -20))
+    assert suggest_cuts([(0.0, audio)], min_s=2.0, pad_s=0.0) == [(0.0, 5.0), (5.4, 10.4)]
+    merged = suggest_cuts([(0.0, audio)], min_s=2.0, pad_s=0.0, ignore=[(4.8, 5.6)])
+    assert merged == [(0.0, 10.4)]
