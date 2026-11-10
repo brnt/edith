@@ -1,4 +1,4 @@
-import { setTrack } from "../lib/editOps";
+import { setCut, setTrack } from "../lib/editOps";
 import type { Peaks } from "../lib/api";
 import type { EditorApi } from "../lib/useEditor";
 import { formatTime, timelineToOutput } from "../lib/timeline";
@@ -79,6 +79,7 @@ export function Stage({
           onSelect={ed.setSelection}
           onCamera={ed.cutTo}
           onTrack={(id, patch) => ed.onEdit(setTrack(ed.edit, ed.media, id, patch))}
+          onCutChange={(i, a, b) => ed.onEdit(setCut(ed.edit, i, a, b))}
         />
       </div>
     </div>

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import type { EditList, MediaItem, SyncState } from "./api";
-import { addCuts, removeCut, setCamera, setTrack, showStill } from "./editOps";
+import { addCuts, removeCut, setCamera, setCut, setTrack, showStill } from "./editOps";
 import * as history from "./history";
 import {
   activeChannel,
@@ -202,6 +202,21 @@ describe("edit operations", () => {
     e = setCamera(e, 20.01, "camA"); // replaces the 20 s switch
     expect(e.switches).toEqual([{ at_s: 10, media_id: "camA" }]); // camA -> camA is redundant
     expect(setCamera(e, 30, "camB").switches).toHaveLength(2);
+  });
+
+  test("setCut moves an edge, and a cut dragged over another merges with it", () => {
+    const e = edit({
+      cuts: [
+        { start_s: 5, end_s: 10 },
+        { start_s: 20, end_s: 25 },
+      ],
+    });
+    expect(setCut(e, 0, 4, 10).cuts).toEqual([
+      { start_s: 4, end_s: 10 },
+      { start_s: 20, end_s: 25 },
+    ]);
+    expect(setCut(e, 0, 5, 22).cuts).toEqual([{ start_s: 5, end_s: 25 }]);
+    expect(setCut(e, 1, 12, 25).cuts[1]).toEqual({ start_s: 12, end_s: 25 });
   });
 
   test("cuts merge and remove", () => {
