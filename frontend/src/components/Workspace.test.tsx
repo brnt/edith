@@ -576,7 +576,7 @@ describe("the other cameras beside the active view", () => {
         (el) => /(?:camera|still) (\d+)/i.exec(el.getAttribute("aria-label") ?? "")?.[1],
       );
     expect(order()).toEqual(["1", "2", "3"]); // camera 1's slot holds the placeholder
-    expect(within(tiles).getByTestId("tile-placeholder")).toHaveAttribute(
+    expect(within(tiles).getByTestId("tile-active")).toHaveAttribute(
       "aria-label",
       "Camera 1 is on screen",
     );
@@ -591,7 +591,7 @@ describe("the other cameras beside the active view", () => {
     ).toBeInTheDocument();
     expect(within(tiles).queryByRole("button", { name: /camera 2/ })).toBeNull();
     expect(order()).toEqual(["1", "2", "3"]);
-    expect(within(tiles).getByTestId("tile-placeholder")).toHaveAttribute(
+    expect(within(tiles).getByTestId("tile-active")).toHaveAttribute(
       "aria-label",
       "Camera 2 is on screen",
     );

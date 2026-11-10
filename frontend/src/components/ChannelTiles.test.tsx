@@ -79,7 +79,7 @@ const grid = (activeId: string | null, onActivate = vi.fn()) => (
   />
 );
 
-test("every camera and still has a slot: cameras by number, then stills; the one on screen is a placeholder", () => {
+test("every camera and still has a slot: cameras by number, then stills; the one on screen is a highlighted, inert copy", () => {
   render(grid("a"));
   expect(slots()).toEqual([
     { slot: "camera 1", isButton: false },
@@ -87,7 +87,7 @@ test("every camera and still has a slot: cameras by number, then stills; the one
     { slot: "camera 3", isButton: true },
     { slot: "still 4", isButton: true },
   ]);
-  const placeholder = screen.getByTestId("tile-placeholder");
+  const placeholder = screen.getByTestId("tile-active");
   expect(placeholder).toHaveAttribute("aria-label", "Camera 1 is on screen");
   expect(placeholder).toHaveTextContent("Cam A"); // still labelled, so you can see which one it is
   expect(screen.queryByRole("button", { name: /camera 1/i })).toBeNull(); // nothing to click
@@ -109,10 +109,7 @@ test("switching the active channel swaps what is in two slots but never re-order
   rerender(grid("car")); // and then the still
   expect(slots().map((s) => s.slot)).toEqual(before);
   expect(slots().map((s) => s.isButton)).toEqual([true, true, true, false]);
-  expect(screen.getByTestId("tile-placeholder")).toHaveAttribute(
-    "aria-label",
-    "Still 4 is on screen",
-  );
+  expect(screen.getByTestId("tile-active")).toHaveAttribute("aria-label", "Still 4 is on screen");
 
   rerender(grid("b"));
   expect(slots().map((s) => s.slot)).toEqual(before);
@@ -145,14 +142,14 @@ test("clicking a still's tile activates it, like a camera's", () => {
   expect(onActivate).toHaveBeenCalledWith("car");
 });
 
-test("stills are teal and cameras blue, on the tiles and on the placeholder", () => {
+test("stills are teal and cameras blue, on the tiles and on the active tile", () => {
   const { rerender } = render(grid("a"));
   const chip = (name: string) =>
     screen.getByRole("button", { name }).querySelector("span.bottom-1");
   expect(chip("Preview of camera 2: switch to it")?.className).toContain("bg-sky");
   expect(chip("Preview of still 4: switch to it")?.className).toContain("bg-teal");
   rerender(grid("car"));
-  expect(screen.getByTestId("tile-placeholder").className).toContain("border-teal");
+  expect(screen.getByTestId("tile-active").className).toContain("ring-teal");
 });
 
 test("clicking a tile activates that camera", () => {

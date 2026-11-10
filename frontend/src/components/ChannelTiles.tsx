@@ -1,10 +1,9 @@
+import type { ComponentChildren } from "preact";
 import { useEffect, useRef } from "preact/hooks";
 
 import { proxyUrl, thumbUrl, type MediaItem } from "../lib/api";
 import { channelStyle } from "../lib/channelStyle";
 import type { Channel } from "../lib/timeline";
-import { Icon } from "./Icon";
-import { Picture, VideoCamera } from "./icons";
 
 const TILE_W = 320; // canvas pixels; shown smaller, so it stays sharp
 const TILE_H = 180;
@@ -27,11 +26,11 @@ const kindOf = (channel: Channel): "video" | "image" =>
   channel.item.kind === "image" ? "image" : "video";
 
 /** The number and name on a tile, in the channel's own color (blue camera, teal still). */
-function TileLabel({ channel, dim = false }: { channel: Channel; dim?: boolean }) {
+function TileLabel({ channel }: { channel: Channel }) {
   const bg = channelStyle(kindOf(channel)).chip.split(" ")[0];
   return (
     <span
-      class={`absolute bottom-1 left-1 flex max-w-[calc(100%-0.5rem)] items-center gap-1 rounded px-1.5 text-[11px] text-white ${bg} ${dim ? "opacity-60" : ""}`}
+      class={`absolute bottom-1 left-1 flex max-w-[calc(100%-0.5rem)] items-center gap-1 rounded px-1.5 text-[11px] text-white ${bg}`}
     >
       <span class="font-semibold">{channel.number ?? "•"}</span>
       <span class="truncate">{channel.item.label}</span>
@@ -39,14 +38,58 @@ function TileLabel({ channel, dim = false }: { channel: Channel; dim?: boolean }
   );
 }
 
-const TILE =
-  "group relative aspect-video w-full overflow-hidden rounded bg-black ring-1 ring-neutral-700 hover:ring-2 focus-visible:ring-2";
+const TILE_BASE = "group relative block aspect-video w-full overflow-hidden rounded bg-black";
+
+/** The tile's frame: a button that cuts to the channel, or (when it is the one on screen) a highlighted, inert copy. */
+function TileShell({
+  channel,
+  active,
+  onActivate,
+  children,
+}: {
+  channel: Channel;
+  active: boolean;
+  onActivate: () => void;
+  children: ComponentChildren;
+}) {
+  const still = kindOf(channel) === "image";
+  const name = `${still ? "still" : "camera"} ${channel.number ?? channel.item.label}`;
+  if (active) {
+    return (
+      <div
+        role="group"
+        aria-label={`${name[0].toUpperCase()}${name.slice(1)} is on screen`}
+        data-testid="tile-active"
+        class={`${TILE_BASE} ring-2 ${still ? "ring-teal-400" : "ring-sky-400"}`}
+      >
+        {children}
+        <span
+          class={`absolute right-1 top-1 rounded ${still ? "bg-teal-600" : "bg-sky-600"} px-1.5 text-[10px] font-semibold uppercase tracking-wide text-white`}
+        >
+          on screen
+        </span>
+      </div>
+    );
+  }
+  return (
+    <button
+      type="button"
+      class={`${TILE_BASE} ring-1 ring-neutral-700 hover:ring-2 focus-visible:ring-2 ${still ? "hover:ring-teal-400 focus-visible:ring-teal-400" : "hover:ring-sky-400 focus-visible:ring-sky-400"}`}
+      aria-label={`Preview of ${name}: switch to it`}
+      title={`Switch to ${channel.item.label}${channel.number ? ` (${channel.number})` : ""} at the playhead`}
+      onClick={onActivate}
+    >
+      {children}
+    </button>
+  );
+}
 
 interface TileProps {
   channel: Channel;
   elements: { current: Record<string, HTMLMediaElement | null> };
   hasFootage: boolean;
   proxyReady: boolean;
+  active?: boolean;
   onActivate: () => void;
 }
 
@@ -54,7 +97,14 @@ interface TileProps {
  * A small live view of one camera. It paints frames from the camera's own (hidden) player element,
  * so it is in step with the playhead by construction: no second copy of the video is decoded.
  */
-export function CameraTile({ channel, elements, hasFootage, proxyReady, onActivate }: TileProps) {
+export function CameraTile({
+  channel,
+  elements,
+  hasFootage,
+  proxyReady,
+  active = false,
+  onActivate,
+}: TileProps) {
   const canvas = useRef<HTMLCanvasElement>(null);
   const attached = useRef<{ el: HTMLMediaElement; off: () => void } | null>(null);
   const repaint = useRef(() => {});
@@ -95,13 +145,7 @@ export function CameraTile({ channel, elements, hasFootage, proxyReady, onActiva
   useEffect(() => () => attached.current?.off(), []);
 
   return (
-    <button
-      type="button"
-      class={`${TILE} hover:ring-sky-400 focus-visible:ring-sky-400`}
-      aria-label={`Preview of camera ${channel.number ?? item.label}: switch to it`}
-      title={`Switch to ${item.label}${channel.number ? ` (${channel.number})` : ""} at the playhead`}
-      onClick={onActivate}
-    >
+    <TileShell channel={channel} active={active} onActivate={onActivate}>
       <canvas ref={canvas} width={TILE_W} height={TILE_H} class="h-full w-full" />
       {(!hasFootage || !proxyReady) && (
         <span class="absolute inset-0 flex items-center justify-center text-xs text-neutral-400">
@@ -109,7 +153,7 @@ export function CameraTile({ channel, elements, hasFootage, proxyReady, onActiva
         </span>
       )}
       <TileLabel channel={channel} />
-    </button>
+    </TileShell>
   );
 }
 
@@ -117,21 +161,17 @@ export function CameraTile({ channel, elements, hasFootage, proxyReady, onActiva
 export function StillTile({
   channel,
   slug,
+  active = false,
   onActivate,
 }: {
   channel: Channel;
   slug: string;
+  active?: boolean;
   onActivate: () => void;
 }) {
   const item = channel.item;
   return (
-    <button
-      type="button"
-      class={`${TILE} hover:ring-teal-400 focus-visible:ring-teal-400`}
-      aria-label={`Preview of still ${channel.number ?? item.label}: switch to it`}
-      title={`Switch to ${item.label}${channel.number ? ` (${channel.number})` : ""} at the playhead`}
-      onClick={onActivate}
-    >
+    <TileShell channel={channel} active={active} onActivate={onActivate}>
       <img
         src={item.proxy_ready ? proxyUrl(slug, item.id) : thumbUrl(slug, item.id)}
         alt=""
@@ -139,32 +179,13 @@ export function StillTile({
         class="h-full w-full object-contain"
       />
       <TileLabel channel={channel} />
-    </button>
-  );
-}
-
-/** The slot of the channel that is on screen: held empty so the other tiles never move. */
-export function TilePlaceholder({ channel }: { channel: Channel }) {
-  const still = kindOf(channel) === "image";
-  return (
-    <div
-      role="group"
-      aria-label={`${still ? "Still" : "Camera"} ${channel.number ?? channel.item.label} is on screen`}
-      data-testid="tile-placeholder"
-      class={`relative flex aspect-video w-full items-center justify-center rounded border-2 border-dashed bg-neutral-900/40 text-xs ${still ? "border-teal-500/50 text-teal-300/80" : "border-sky-500/50 text-sky-300/80"}`}
-    >
-      <span class="inline-flex items-center gap-1">
-        <Icon icon={still ? Picture : VideoCamera} />
-        on screen
-      </span>
-      <TileLabel channel={channel} dim />
-    </div>
+    </TileShell>
   );
 }
 
 /**
  * Every camera and still, each in a fixed slot (cameras by number, then stills). The one on screen
- * is a placeholder, so switching changes what is in two slots but never re-orders the grid.
+ * is a highlighted, live copy that can't be clicked, so switching never re-orders the grid.
  */
 export function ChannelTiles({
   slug,
@@ -191,13 +212,14 @@ export function ChannelTiles({
       {channels
         .filter((c) => c.enabled)
         .map((c) => {
-          if (c.item.id === activeId) return <TilePlaceholder key={c.item.id} channel={c} />;
+          const active = c.item.id === activeId;
           if (c.item.kind === "image") {
             return (
               <StillTile
                 key={c.item.id}
                 channel={c}
                 slug={slug}
+                active={active}
                 onActivate={() => onActivate(c.item.id)}
               />
             );
@@ -209,6 +231,7 @@ export function ChannelTiles({
               elements={elements}
               hasFootage={local[c.item.id] !== null && local[c.item.id] !== undefined}
               proxyReady={c.item.proxy_ready}
+              active={active}
               onActivate={() => onActivate(c.item.id)}
             />
           );
