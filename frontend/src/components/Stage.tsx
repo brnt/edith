@@ -20,7 +20,8 @@ import { Button } from "./ui";
 // Vertical space is shared like this: the timeline takes what its rows need (it scrolls inside
 // itself only when that would squeeze the view below its minimum), but never less than about four
 // rows. The active view gets everything else, up to two thirds of the window's width (37.5 * 16/9).
-const BELOW_PLAYER = "5.5rem"; // under the view: the time, the buttons, and one line of warning
+const BELOW_PLAYER_REM = 3; // under the view: the gap and the time and buttons (about 47px), nothing spare
+const BELOW_PLAYER = `${BELOW_PLAYER_REM}rem`;
 const PLAYER_MIN = "max(140px, 27vh)"; // the smallest the view is squeezed to
 const STAGE_PADDING_PX = 24; // p-3 top and bottom
 const STAGE_GAP_PX = 8; // gap-2 between the view's row and the timeline
@@ -56,7 +57,7 @@ export function Stage({
     if (!root || !scroller || !rows || typeof ResizeObserver === "undefined") return;
     const measure = () => {
       const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
-      const viewMin = Math.max(140, 0.27 * window.innerHeight) + 5.5 * rem;
+      const viewMin = Math.max(140, 0.27 * window.innerHeight) + BELOW_PLAYER_REM * rem;
       const room = root.clientHeight - STAGE_PADDING_PX - STAGE_GAP_PX - viewMin;
       // All of the rows, plus the scroller's own border (and a horizontal scrollbar when shown).
       const chrome = scroller.offsetHeight - scroller.clientHeight;
@@ -118,7 +119,7 @@ export function Stage({
           class="flex h-full shrink-0 flex-col gap-1.5"
           style={{ width: compare ? "100%" : "calc(var(--player-h) * 16 / 9)" }}
         >
-          <div class="w-full shrink-0" style={{ height: "var(--player-h)" }}>
+          <div class="relative w-full shrink-0" style={{ height: "var(--player-h)" }}>
             <Player
               slug={slug}
               media={ed.media}
@@ -129,6 +130,18 @@ export function Stage({
               playing={ed.playing}
               elements={ed.mediaElements}
             />
+            {warnings.length > 0 && (
+              // Over the bottom edge of the view, so it takes no room of its own (and nothing moves
+              // when it appears).
+              <div
+                class="absolute inset-x-0 bottom-0 flex items-center gap-1 truncate bg-black/65 px-2 py-0.5 text-xs text-amber-300"
+                title={warnings.join("\n")}
+              >
+                <Icon icon={Warning} />
+                {warnings[0]}
+                {warnings.length > 1 ? ` (+${warnings.length - 1} more)` : ""}
+              </div>
+            )}
           </div>
           <div class="flex shrink-0 items-center gap-3 text-sm">
             <div>
@@ -148,18 +161,6 @@ export function Stage({
             <Button icon={StepBackward} onClick={() => ed.setT(ed.firstKept)}>
               Start
             </Button>
-          </div>
-          <div class="h-4 shrink-0">
-            {warnings.length > 0 && (
-              <div
-                class="flex w-0 min-w-full items-center gap-1 truncate text-xs text-amber-300"
-                title={warnings.join("\n")}
-              >
-                <Icon icon={Warning} />
-                {warnings[0]}
-                {warnings.length > 1 ? ` (+${warnings.length - 1} more)` : ""}
-              </div>
-            )}
           </div>
         </div>
 
