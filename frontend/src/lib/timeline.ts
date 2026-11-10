@@ -67,6 +67,23 @@ export function skipCuts(t: number, keeps: Range[]): number {
   return keeps.length ? keeps[keeps.length - 1][1] : t;
 }
 
+/** The last moment that is kept: where playback ends (a trailing cut is never played). */
+export function playbackEnd(keeps: Range[]): number {
+  return keeps.length ? keeps[keeps.length - 1][1] : 0;
+}
+
+/** Move the playhead forward by `dt`, jumping cuts, and say when there is nothing left to play. */
+export function advancePlayhead(
+  t: number,
+  dt: number,
+  keeps: Range[],
+): { t: number; ended: boolean } {
+  const end = playbackEnd(keeps);
+  const next = t + dt;
+  if (next >= end) return { t: end, ended: true };
+  return { t: skipCuts(next, keeps), ended: false };
+}
+
 export function mediaOffsets(media: MediaItem[], sync: SyncState | null): Record<string, number> {
   const offsets: Record<string, number> = {};
   for (const m of media) {
