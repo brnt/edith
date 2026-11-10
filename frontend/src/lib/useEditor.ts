@@ -57,6 +57,8 @@ export function useEditor({ slug, media, sync, edit, onEdit, onError, ready }: A
   const [selection, setSelection] = useState<Range | null>(null);
   // A segment or cut selected by clicking it (the thing Delete removes and whose edges can be dragged).
   const [picked, setPicked] = useState<Picked | null>(null);
+  // The edit as it would be if the edge being dragged were dropped now: what the preview shows.
+  const [preview, setPreview] = useState<EditList | null>(null);
   // null = fit the window width (and keep fitting on resize) until the user zooms.
   const [zoom, setZoom] = useState<number | null>(null);
   const [width, setWidth] = useState(0);
@@ -219,6 +221,8 @@ export function useEditor({ slug, media, sync, edit, onEdit, onError, ready }: A
     pick,
     changeSegmentEdge,
     scrub,
+    preview,
+    setPreview,
     changeCut,
     zoom,
     setZoom,
