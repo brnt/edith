@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/preact";
-import { beforeEach, expect, test, vi } from "vitest";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import { Workspace } from "./Workspace";
 
@@ -79,6 +79,7 @@ const baseEdit = {
 
 let media = baseMedia;
 let puts: unknown[] = [];
+let syncPosts: { template: Record<string, unknown> }[] = [];
 
 function respond(body: unknown, status = 200) {
   return Promise.resolve({
@@ -92,6 +93,7 @@ function respond(body: unknown, status = 200) {
 beforeEach(() => {
   media = baseMedia;
   puts = [];
+  syncPosts = [];
   vi.stubGlobal(
     "fetch",
     vi.fn((url: string, init?: RequestInit) => {
@@ -121,6 +123,43 @@ beforeEach(() => {
           message: "",
           error: null,
           result: { name: "show-20260101-000001.mp4" },
+        });
+      if (init?.method === "POST" && path.endsWith("/sync")) {
+        syncPosts.push(JSON.parse(init.body as string));
+        return respond({
+          id: "s1",
+          label: "sync",
+          state: "running",
+          progress: 0,
+          message: "",
+          error: null,
+          result: null,
+        });
+      }
+      if (path === "/jobs/s1")
+        return respond({
+          id: "s1",
+          label: "sync",
+          state: "done",
+          progress: 1,
+          message: "",
+          error: null,
+          result: { synced: 3, files: 3 },
+        });
+      if (path.startsWith("/library/files"))
+        return respond({
+          dir: "",
+          parent: null,
+          entries: [
+            {
+              name: "reference.wav",
+              path: "reference.wav",
+              is_dir: false,
+              kind: "audio",
+              size: 1000,
+            },
+            { name: "cam.mp4", path: "cam.mp4", is_dir: false, kind: "video", size: 1000 },
+          ],
         });
       if (path.endsWith("/media")) return respond(media);
       if (path.endsWith("/sync"))
@@ -314,4 +353,62 @@ test("with many stills the group starts collapsed, and only nine channels get nu
   // 2 cameras + 8 stills: stills 3-9 are numbered, the last one is not.
   expect(screen.getByRole("button", { name: "Switch to still 9" })).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Switch to still 10" })).toBeNull();
+});
+
+describe("choosing the registration sound", () => {
+  const openSync = async () => {
+    render(<Workspace slug="show" />);
+    await screen.findByTestId("timeline");
+    fireEvent.click(screen.getByRole("tab", { name: /Sync/ }));
+    return screen.findByLabelText("Registration sound source");
+  };
+
+  test("a generated sound: type the text, download link follows it, and the seed is sent", async () => {
+    const source = await openSync();
+    fireEvent.change(source, { target: { value: "seed" } });
+    const find = screen.getByRole("button", { name: "Find the sound in every file" });
+    expect(find).toBeDisabled(); // no text yet
+
+    fireEvent.input(screen.getByLabelText("Registration text"), {
+      target: { value: "stickshift" },
+    });
+    expect(screen.getByRole("link", { name: "Download .wav" })).toHaveAttribute(
+      "href",
+      "/api/registration/sound?seed=stickshift",
+    );
+    fireEvent.click(find);
+    await waitFor(() => expect(syncPosts).toHaveLength(1));
+    expect(syncPosts[0].template).toEqual({ kind: "seed", seed: "stickshift" });
+  });
+
+  test("an audio file: only audio is offered, and its path is sent", async () => {
+    const source = await openSync();
+    fireEvent.change(source, { target: { value: "file" } });
+    const find = screen.getByRole("button", { name: "Find the sound in every file" });
+    expect(find).toBeDisabled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Choose file…" }));
+    expect(await screen.findByText("reference.wav")).toBeInTheDocument();
+    expect(screen.queryByText("cam.mp4")).toBeNull(); // video is filtered out
+    fireEvent.click(screen.getByRole("radio"));
+    fireEvent.click(screen.getByRole("button", { name: "Use this file" }));
+
+    await waitFor(() => expect(find).toBeEnabled());
+    fireEvent.click(find);
+    await waitFor(() => expect(syncPosts).toHaveLength(1));
+    expect(syncPosts[0].template).toEqual({ kind: "file", path: "reference.wav" });
+  });
+
+  test("marking it in a recording is still there and sends the excerpt", async () => {
+    const source = await openSync();
+    expect(source).toHaveValue("excerpt");
+    expect(screen.getByLabelText("Recording")).toBeInTheDocument();
+    expect(screen.getByText(/Drag across the beep/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Find the sound in every file" })).toBeDisabled();
+  });
+
+  test("shows how well each file matched", async () => {
+    await openSync();
+    expect((await screen.findAllByText("0.50")).length).toBe(3);
+  });
 });

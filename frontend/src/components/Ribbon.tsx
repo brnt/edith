@@ -10,7 +10,7 @@ export interface RibbonTab {
  * A tab bar over a content area of fixed height. The selected tab and the panel share one
  * background so the tab reads as the folder tab of the panel it opens.
  */
-export const RIBBON_HEIGHT = "11.75rem";
+export const RIBBON_HEIGHT = "12.5rem";
 const TABS_HEIGHT = "2rem";
 
 export function Ribbon({

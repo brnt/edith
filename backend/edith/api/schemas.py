@@ -1,6 +1,7 @@
 from datetime import datetime
+from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class ProjectCreate(BaseModel):
@@ -72,9 +73,23 @@ class PeaksRead(BaseModel):
 
 
 class SyncTemplateIn(BaseModel):
-    media_id: str
-    start_s: float
-    end_s: float
+    kind: Literal["excerpt", "seed", "file"] = "excerpt"
+    media_id: str | None = None
+    start_s: float | None = None
+    end_s: float | None = None
+    seed: str | None = Field(default=None, max_length=64)
+    path: str | None = None
+
+    @model_validator(mode="after")
+    def _has_what_its_kind_needs(self):
+        needs = {
+            "excerpt": (self.media_id, self.start_s, self.end_s),
+            "seed": (self.seed,),
+            "file": (self.path,),
+        }[self.kind]
+        if any(v is None or v == "" for v in needs):
+            raise ValueError(f"a {self.kind} sound is missing a field")
+        return self
 
 
 class SyncRun(BaseModel):

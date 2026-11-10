@@ -8,6 +8,10 @@ never assumes a particular signal.
 Detection returns *candidates* (time + score) and the cross-file solver (solver.py) decides
 which are real. The score is **energy-normalised** cross-correlation (0..1): raw correlation
 scales with loudness, so claps and thumps in the content outscored a quiet real tone.
+
+Beware: bursts from *different* seeds still correlate at about 0.6-0.7, so a wrong seed can find
+the beeps, with the peak up to ~30 ms off. The match score is what tells them apart (the right
+seed scores ~0.9+ even in noise), which is why the UI shows it.
 """
 
 import hashlib
@@ -46,6 +50,35 @@ def registration_burst(seed: str, sample_rate: int = SAMPLE_RATE) -> np.ndarray:
         tone = np.sin(2 * np.pi * (F1_HZ if bit == "1" else F0_HZ) * t_bit * freq_mod)
         burst[start:end] += tone * np.hanning(end - start)
     return np.float32(burst / np.max(np.abs(burst)))
+
+
+def trim_silence(audio: np.ndarray, floor: float = 0.01) -> np.ndarray:
+    """Drop leading and trailing near-silence (below `floor` of the peak), e.g. the padding
+    around a generated registration sound, so it does not dilute the match."""
+    peak = float(np.max(np.abs(audio))) if audio.size else 0.0
+    if peak == 0.0:
+        return audio
+    loud = np.flatnonzero(np.abs(audio) >= floor * peak)
+    return audio[loud[0] : loud[-1] + 1]
+
+
+def padded_wav(seed: str, lead_s: float = 0.5, tail_s: float = 0.5) -> bytes:
+    """A playable WAV (16-bit mono) of the seeded burst with silence either side, as a person
+    would play it on set."""
+    import io
+    import wave
+
+    burst = registration_burst(seed)
+    audio = np.concatenate(
+        [np.zeros(int(lead_s * SAMPLE_RATE)), burst, np.zeros(int(tail_s * SAMPLE_RATE))]
+    )
+    buffer = io.BytesIO()
+    with wave.open(buffer, "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(SAMPLE_RATE)
+        w.writeframes((np.clip(audio, -1, 1) * 32767).astype(np.int16).tobytes())
+    return buffer.getvalue()
 
 
 def normalized_correlation(

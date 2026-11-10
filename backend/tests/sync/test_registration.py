@@ -5,6 +5,7 @@ from edith.sync.registration import (
     find_candidates,
     normalized_correlation,
     registration_burst,
+    trim_silence,
 )
 
 SR = SAMPLE_RATE
@@ -59,3 +60,12 @@ def test_block_size_does_not_change_the_result():
     whole = normalized_correlation(audio, burst)
     blocked = normalized_correlation(audio, burst, block=7_001)
     assert np.allclose(whole, blocked, atol=1e-5)
+
+
+def test_trim_silence_drops_padding_but_keeps_the_sound():
+    burst = registration_burst("stickshift")
+    padded = np.concatenate([np.zeros(SR // 2), burst, np.zeros(SR)])
+    trimmed = trim_silence(padded)
+    assert abs(len(trimmed) - len(burst)) < 200  # the burst's own faint edges may trim a little
+    assert np.array_equal(trim_silence(burst * 0), burst * 0)  # nothing loud: left alone
+    assert trim_silence(np.zeros(0)).size == 0

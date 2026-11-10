@@ -68,9 +68,12 @@ Root `justfile` delegates to both; Compose runs `api` (:8000) and `web` (:8080).
   a concat (it stalls); `-ss` before `-i` for every clip; hold stills with the `loop` filter.
   Exports and renders use the *saved* edit, not unsaved UI state.
 - **Sync** (`backend/edith/sync/`, try it: `cd backend && uv run python -m edith.sync --template FILE:START:END FILES...`):
-  the registration sound is a pluggable *template* (seed, WAV, or an excerpt cut from a
-  recording), because what was actually played is not always the generated burst
-  ([0003](docs/adr/0003-sync-by-normalized-correlation-and-cross-file-consensus.md)). Never score
+  the registration sound is a pluggable *template* (`SyncTemplate.kind`: `excerpt` of a
+  registered recording, `seed` text, or a library `file`; the sync document gained these fields
+  additively, so no version bump), because what was actually played is not always the generated burst
+  ([0003](docs/adr/0003-sync-by-normalized-correlation-and-cross-file-consensus.md)). Different seeds
+  still correlate ~0.6-0.7 (so a wrong seed partly matches, up to ~30 ms off): surface the Match
+  score, don't try to reject by threshold. Never score
   by raw correlation (loud claps beat the quiet tone); never trust one file's best peak. The
   seeded burst generator is a bit-exact port of `~/projects/stickshift/audio/registration.py`
   (its bit-verifying detector fails on recorded audio; don't port it).
