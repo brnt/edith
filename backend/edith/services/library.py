@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 
-from edith.core.errors import InvalidMediaPath
+from edith.core.errors import InvalidMediaPath, MediaNotFound
 
 VIDEO_EXTS = {".mp4", ".mov", ".m4v", ".mkv", ".avi", ".mts", ".mxf"}
 AUDIO_EXTS = {".wav", ".mp3", ".m4a", ".aac", ".flac", ".aif", ".aiff", ".ogg"}
@@ -65,6 +65,8 @@ def list_dir(library: Path, rel_dir: str = "") -> LibraryListing:
 
 def media_file(library: Path, rel: str) -> Path:
     path = library / safe_relative(rel)
-    if not path.is_file() or kind_for(path.name) is None:
+    if not path.is_file():
+        raise MediaNotFound(f"Can't read {rel}")
+    if kind_for(path.name) is None:
         raise InvalidMediaPath(rel)
     return path

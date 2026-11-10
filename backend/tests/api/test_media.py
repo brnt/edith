@@ -43,13 +43,17 @@ def test_browse_library_and_add_each_kind_of_media(client: TestClient, library, 
     assert len(client.get(f"/projects/{project}/media").json()) == 3
 
 
-@pytest.mark.parametrize(
-    "bad", ["/etc/passwd", "../outside.wav", "media/../../x.wav", "missing.wav"]
-)
+@pytest.mark.parametrize("bad", ["/etc/passwd", "../outside.wav", "media/../../x.wav"])
 def test_unsafe_or_missing_paths_are_rejected(client: TestClient, project, bad):
     response = client.post(f"/projects/{project}/media", json={"path": bad})
     assert response.status_code == 422, response.text
     assert client.get("/library/files", params={"dir": "../"}).status_code == 422
+
+
+def test_adding_a_file_that_does_not_exist_is_a_404_that_names_it(client: TestClient, project):
+    response = client.post(f"/projects/{project}/media", json={"path": "missing.wav"})
+    assert response.status_code == 404
+    assert response.json()["message"] == "Can't read missing.wav"
 
 
 def test_adding_media_requires_the_token(client: TestClient, library, project):
@@ -126,3 +130,18 @@ def test_thumbnails_for_video_and_images_but_not_audio(client: TestClient, libra
         assert (library / project / "cache" / "thumbs" / f"{ids[name]}.jpg").is_file()
     assert client.get(f"/projects/{project}/media/{ids['mic.wav']}/thumb").status_code == 404
     assert client.get(f"/projects/{project}/media/nope/thumb").status_code == 404
+
+
+def test_missing_media_is_a_404_that_names_the_file(client: TestClient, library, project):
+    """Both a moved file and an unplugged drive (a dangling link) say which file can't be read."""
+    write_wav(library / "media" / "mic.wav", np.zeros(44_100))
+    item = client.post(f"/projects/{project}/media", json={"path": "media/mic.wav"}).json()
+    peaks = f"/projects/{project}/media/{item['id']}/peaks"
+
+    (library / "media" / "mic.wav").unlink()
+    assert client.get(peaks).status_code == 404
+    assert client.get(peaks).json()["message"] == "Can't read media/mic.wav"
+
+    (library / "media").rmdir()
+    (library / "media").symlink_to(library / "unplugged-drive")  # a link whose target is gone
+    assert client.get(peaks).json()["message"] == "Can't read media/mic.wav"
