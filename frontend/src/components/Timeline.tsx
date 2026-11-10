@@ -224,7 +224,7 @@ export function Timeline(props: Props) {
         {on && canStart && (
           <span
             data-grip="start"
-            class="pointer-events-none absolute inset-y-0 -left-[0.41em] flex items-center text-xs text-neutral-500/50"
+            class="pointer-events-none absolute inset-y-0 -left-[0.41em] flex items-center text-xs text-neutral-700/50"
           >
             <Icon icon={Holder} />
           </span>
@@ -232,7 +232,7 @@ export function Timeline(props: Props) {
         {on && canEnd && (
           <span
             data-grip="end"
-            class="pointer-events-none absolute inset-y-0 -right-[0.38em] flex items-center text-xs text-neutral-500/50"
+            class="pointer-events-none absolute inset-y-0 -right-[0.38em] flex items-center text-xs text-neutral-700/50"
           >
             <Icon icon={Holder} />
           </span>
