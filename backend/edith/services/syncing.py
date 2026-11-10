@@ -79,6 +79,7 @@ def run_sync(library: Path, slug: str, template: SyncTemplate, job: Job) -> dict
     with open_project(library, slug) as project:
         items = {m.doc_id: m.document for m in project.documents_of(MEDIA)}
     audio = _template_audio(library, items, template)
+    template = template.model_copy(update={"duration_s": len(audio) / analyze.SAMPLE_RATE})
 
     paths = {
         i.id: lib.media_file(library, i.path)

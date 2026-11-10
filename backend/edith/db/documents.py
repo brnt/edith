@@ -91,6 +91,7 @@ class SyncTemplate(Part):
     end_s: float | None = None
     seed: str | None = None
     path: str | None = None  # library-relative
+    duration_s: float | None = None  # the sound's actual length, recorded when syncing
 
 
 class SyncResult(Part):
