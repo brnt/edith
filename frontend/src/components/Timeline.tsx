@@ -46,6 +46,8 @@ interface Props {
   onPick: (picked: Picked | null) => void;
   /** A selected segment's edge was dragged: the switch that starts the segment on that edge, and its new time. */
   onSegmentEdge?: (switchIndex: number, at_s: number) => void;
+  /** While an edge is dragged, the playhead follows it so the frame at the edge can be checked. */
+  onScrub?: (t: number) => void;
 }
 
 const MIN_CUT_S = 0.1; // a dragged edge cannot squeeze a cut below this
@@ -150,11 +152,14 @@ export function Timeline(props: Props) {
         e.stopPropagation();
         (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
         setSegDrag({ index: switchIndex, value: at });
+        props.onScrub?.(at);
       }}
       onPointerMove={(e) => {
         if (segDrag?.index !== switchIndex) return;
         e.stopPropagation();
-        setSegDrag({ index: switchIndex, value: timeAt(e.clientX) });
+        const value = timeAt(e.clientX);
+        setSegDrag({ index: switchIndex, value });
+        props.onScrub?.(movedSwitches(edit.switches, switchIndex, value, end)[switchIndex].at_s);
       }}
       onPointerUp={(e) => {
         if (segDrag?.index !== switchIndex) return;
@@ -388,7 +393,9 @@ export function Timeline(props: Props) {
                 onPointerDown={(e) => {
                   e.stopPropagation();
                   (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
-                  setEdgeDrag({ index: i, edge, value: edge === "start" ? c.start_s : c.end_s });
+                  const at = edge === "start" ? c.start_s : c.end_s;
+                  setEdgeDrag({ index: i, edge, value: at });
+                  props.onScrub?.(at);
                 }}
                 onPointerMove={(e) => {
                   if (edgeDrag?.index !== i || edgeDrag.edge !== edge) return;
@@ -398,7 +405,9 @@ export function Timeline(props: Props) {
                     edge === "start"
                       ? Math.min(t, c.end_s - MIN_CUT_S)
                       : Math.max(t, c.start_s + MIN_CUT_S);
-                  setEdgeDrag({ index: i, edge, value: Math.max(0, Math.min(end, value)) });
+                  const clamped = Math.max(0, Math.min(end, value));
+                  setEdgeDrag({ index: i, edge, value: clamped });
+                  props.onScrub?.(clamped);
                 }}
                 onPointerUp={(e) => {
                   if (edgeDrag?.index !== i || edgeDrag.edge !== edge) return;

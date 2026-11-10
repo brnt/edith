@@ -67,6 +67,7 @@ function setup(opts: { edit?: Partial<EditList>; picked?: Picked | null } = {}) 
     onCutChange: vi.fn(),
     onPick: vi.fn(),
     onSegmentEdge: vi.fn(),
+    onScrub: vi.fn(),
   };
   render(
     <Timeline
@@ -185,6 +186,20 @@ test("a selected segment can be dragged at both edges; the change is committed o
   fireEvent.pointerUp(stop, { clientX: 1200, pointerId: 1 });
   expect(h.onSegmentEdge).toHaveBeenLastCalledWith(1, 100);
   expect(h.onSeek).not.toHaveBeenCalled();
+});
+
+test("dragging an edge (segment or cut) moves the playhead with it", () => {
+  const h = setup({ edit: { switches: SWITCHES }, picked: { kind: "segment", index: 0 } });
+  const start = screen.getByRole("separator", { name: "Drag the start of the segment" });
+  drag(start, 300, 350, 380);
+  expect(h.onScrub).toHaveBeenNthCalledWith(1, 30); // grabbing it
+  expect(h.onScrub).toHaveBeenLastCalledWith(38);
+  fireEvent.pointerUp(start, { clientX: 380, pointerId: 1 });
+
+  const c = setup({ picked: { kind: "cut", index: 0 } });
+  const end = screen.getAllByRole("separator", { name: "Drag the end of the cut" })[0];
+  drag(end, 200, 260);
+  expect(c.onScrub).toHaveBeenLastCalledWith(26);
 });
 
 test("an unselected segment has no drag handles", () => {
