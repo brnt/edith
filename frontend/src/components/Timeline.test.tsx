@@ -218,27 +218,27 @@ test("dragging an edge (segment or cut) moves the playhead with it", () => {
   expect(c.onScrub).toHaveBeenLastCalledWith(expect.closeTo(26 - 1001 / 30000, 5));
 });
 
-test("a selected segment shows arrows inside its draggable edges, and only those", () => {
+test("a selected segment shows grips inside its draggable edges, and only those", () => {
   setup({ edit: { switches: SWITCHES }, picked: { kind: "segment", index: 0 } });
   const seg = screen
     .getAllByTestId("segment")
     .find((g) => g.getAttribute("aria-selected") === "true")!;
-  expect(seg.querySelector('[data-icon="caret-left"]')).not.toBeNull();
-  expect(seg.querySelector('[data-icon="caret-right"]')).not.toBeNull();
+  expect(seg.querySelector('[data-grip="start"]')).not.toBeNull();
+  expect(seg.querySelector('[data-grip="end"]')).not.toBeNull();
 });
 
-test("the opening stretch has no start edge to drag, so no arrow there; the last has no end edge", () => {
+test("the opening stretch has no start edge to drag, so no grip there; the last has no end edge", () => {
   setup({ edit: { switches: SWITCHES }, picked: { kind: "segment", index: -1 } });
   const opening = screen
     .getAllByTestId("segment")
     .find((g) => g.getAttribute("aria-selected") === "true")!;
-  expect(opening.querySelector('[data-icon="caret-left"]')).toBeNull();
-  expect(opening.querySelector('[data-icon="caret-right"]')).not.toBeNull();
+  expect(opening.querySelector('[data-grip="start"]')).toBeNull();
+  expect(opening.querySelector('[data-grip="end"]')).not.toBeNull();
 });
 
-test("an unselected segment has no arrows", () => {
+test("an unselected segment has no grips", () => {
   setup({ edit: { switches: SWITCHES } });
-  expect(document.querySelector('[data-icon="caret-left"]')).toBeNull();
+  expect(document.querySelector("[data-grip]")).toBeNull();
 });
 
 test("an unselected segment has no drag handles", () => {

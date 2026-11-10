@@ -21,7 +21,7 @@ import { AUDIO_WAVEFORM, channelStyle } from "../lib/channelStyle";
 import { ChannelChip } from "./ChannelChip";
 import { MAX_CANVAS_PX, Waveform } from "./Waveform";
 import { Icon } from "./Icon";
-import { CaretDown, CaretLeft, CaretRight } from "./icons";
+import { CaretDown, CaretRight, Holder } from "./icons";
 
 const ROW = { ruler: 24, video: 34, still: 28, audio: 56 };
 
@@ -219,18 +219,22 @@ export function Timeline(props: Props) {
       >
         {on && canStart && segHandle(seg.index, "start", seg.start)}
         {on && canEnd && segHandle(seg.index + 1, "end", seg.end)}
-        {/* Little arrows inside the extremes say the edges can be dragged. */}
+        {/* Grips inside the extremes say the edges (not the whole segment) can be dragged. */}
         {on && canStart && (
-          <Icon
-            icon={CaretLeft}
-            class="pointer-events-none absolute inset-y-0 left-0.5 text-xs text-white/90"
-          />
+          <span
+            data-grip="start"
+            class="pointer-events-none absolute inset-y-0 left-0 flex items-center text-xs text-white/90"
+          >
+            <Icon icon={Holder} />
+          </span>
         )}
         {on && canEnd && (
-          <Icon
-            icon={CaretRight}
-            class="pointer-events-none absolute inset-y-0 right-0.5 text-xs text-white/90"
-          />
+          <span
+            data-grip="end"
+            class="pointer-events-none absolute inset-y-0 right-0 flex items-center text-xs text-white/90"
+          >
+            <Icon icon={Holder} />
+          </span>
         )}
         {on && segDrag && (segDrag.index === seg.index || segDrag.index === seg.index + 1) && (
           <div

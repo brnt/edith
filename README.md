@@ -79,7 +79,7 @@ comes next.
    - **Selecting on the timeline:** click a channel's **segment** (a blue or teal block: one
      stretch where that channel is on screen) or a **cut** to select it (white outline).
      Clicking anywhere else still moves the playhead; `Esc` deselects. A selected item can be
-     **dragged by its edges** (little arrows inside a selected segment's ends show which can move) (the playhead follows the edge and the preview shows the edit as it would be
+     **dragged by its edges** (grip marks inside a selected segment's ends show which can move) (the playhead follows the edge and the preview shows the edit as it would be
      if you dropped it now. At a boundary between two **videos** the grid steps aside and the two
      are shown side by side, in timeline order: the last frame before the boundary on the left, the
      first frame after it on the right. Between a **video and a still**, the video is shown (its
