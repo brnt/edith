@@ -3,7 +3,17 @@
 from pathlib import Path
 
 from edith.core.errors import InvalidEdit
-from edith.db.documents import EDIT, EDIT_ID, MEDIA, SYNC, SYNC_ID, EditList, MediaItem, SyncState
+from edith.db.documents import (
+    EDIT,
+    EDIT_ID,
+    MEDIA,
+    SYNC,
+    SYNC_ID,
+    EditList,
+    MediaItem,
+    SyncState,
+    SyncTemplate,
+)
 from edith.db.project_file import ProjectFile
 from edith.edit import plan as planning
 from edith.edit import silence
@@ -81,6 +91,18 @@ def build_project_plan(library: Path, slug: str) -> planning.RenderPlan:
 REGISTRATION_MARGIN_S = 0.25
 
 
+def _sound_length(template: SyncTemplate | None) -> float:
+    """How long the registration sound is: recorded at sync time, else the marked excerpt, else
+    the generated burst's length (older projects, and seeds, have no excerpt to measure)."""
+    if template is None:
+        return 0.2
+    if template.duration_s:
+        return template.duration_s
+    if template.start_s is not None and template.end_s is not None:
+        return template.end_s - template.start_s
+    return 0.2
+
+
 def registration_windows(
     sync: SyncState, offsets: dict[str, float], margin_s: float = REGISTRATION_MARGIN_S
 ) -> list[tuple[float, float]]:
@@ -88,7 +110,7 @@ def registration_windows(
 
     These are sync marks, not content, so they are cut from the edit.
     """
-    length = (sync.template.end_s - sync.template.start_s) if sync.template else 0.2
+    length = _sound_length(sync.template)
     windows: list[tuple[float, float]] = []
     for media_id, result in sync.results.items():
         if result.status == "unsynced" or media_id not in offsets:

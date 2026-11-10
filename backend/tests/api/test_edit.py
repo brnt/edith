@@ -3,7 +3,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from edith.services.jobs import jobs
-from edith.sync.registration import registration_burst
+from edith.sync.registration import padded_wav, registration_burst
 from tests.conftest import needs_ffmpeg, write_image, write_video, write_wav
 
 pytestmark = needs_ffmpeg
@@ -105,8 +105,11 @@ def test_silence_suggestions_come_from_the_audio_envelope(client: TestClient, pr
     ]
 
 
-def _beep_session(client: TestClient, library, project, speech_from: float = 8.0):
-    """Quiet room, a registration beep at 5 s and 15 s, speech-like noise until 12 s."""
+def _beep_session(client: TestClient, library, project, speech_from: float = 8.0, kind="excerpt"):
+    """Quiet room, a registration beep at 5 s and 15 s, speech-like noise until 12 s.
+
+    `kind` is how the sound is specified to sync: a marked excerpt, a seed, or an audio file.
+    """
     rate = 44_100
     audio = np.random.default_rng(3).normal(0, 0.0003, 22 * rate)
     burst = registration_burst("x") * 0.1
@@ -116,7 +119,13 @@ def _beep_session(client: TestClient, library, project, speech_from: float = 8.0
     audio[start : 12 * rate] += np.random.default_rng(4).normal(0, 0.1, 12 * rate - start)
     write_wav(library / "mic.wav", audio)
     media_id = client.post(f"/projects/{project}/media", json={"path": "mic.wav"}).json()["id"]
-    template = {"media_id": media_id, "start_s": 4.9, "end_s": 5.3}
+    if kind == "seed":
+        template = {"kind": "seed", "seed": "x"}
+    elif kind == "file":
+        (library / "reference.wav").write_bytes(padded_wav("x"))
+        template = {"kind": "file", "path": "reference.wav"}
+    else:
+        template = {"kind": "excerpt", "media_id": media_id, "start_s": 4.9, "end_s": 5.3}
     job = client.post(f"/projects/{project}/sync", json={"template": template}).json()
     assert jobs.wait(job["id"]).state == "done"
 
@@ -180,3 +189,13 @@ def test_removing_media_removes_its_mix_regions(client: TestClient, project, ids
     client.put(f"/projects/{project}/edit", json={**base, "mix": mix})
     assert client.delete(f"/projects/{project}/media/{ids['mic.wav']}").status_code == 204
     assert client.get(f"/projects/{project}/edit").json()["edit"]["mix"] == []
+
+
+@pytest.mark.parametrize("kind", ["excerpt", "seed", "file"])
+def test_registration_sounds_are_cut_whichever_way_the_sound_was_specified(
+    client, library, project, kind
+):
+    # Regression: dead-time detection returned a 500 unless the sound was marked in a recording.
+    _beep_session(client, library, project, kind=kind)
+    cuts = _cuts(client, project)
+    assert cuts == [pytest.approx((0.0, 7.6), abs=0.05), pytest.approx((12.4, 22.0), abs=0.05)]
