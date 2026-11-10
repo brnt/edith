@@ -1,8 +1,24 @@
 // Immutable edit operations. Every function returns a new EditList.
 import type { Cut, EditList, MediaItem, MixRegion } from "./api";
-import { EPS, effectiveTracks, mergeRanges } from "./timeline";
+import { activeChannel, EPS, effectiveTracks, mergeRanges } from "./timeline";
 
 const SAME_TIME = 0.05;
+
+/**
+ * Show a channel over a range, then go back to whatever was showing at its end (a cutaway).
+ * Switches inside the range are hidden by it, so they are dropped.
+ */
+export function showOver(
+  edit: EditList,
+  fallback: string | null,
+  media_id: string,
+  start_s: number,
+  end_s: number,
+): EditList {
+  const returnTo = activeChannel(edit.switches, end_s, fallback);
+  const outside = edit.switches.filter((s) => s.at_s <= start_s || s.at_s >= end_s);
+  return setCamera(setCamera({ ...edit, switches: outside }, start_s, media_id), end_s, returnTo);
+}
 
 /** From `at_s` on, show this channel (a camera or a still). */
 export function setCamera(edit: EditList, at_s: number, media_id: string | null): EditList {

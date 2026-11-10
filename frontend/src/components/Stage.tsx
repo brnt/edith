@@ -115,6 +115,7 @@ export function Stage({
           activeId={frame.channel}
           elements={ed.mediaElements}
           local={frame.local}
+          selection={ed.selection}
           onActivate={ed.cutTo}
         />
       </div>

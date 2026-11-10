@@ -506,7 +506,7 @@ test("channels share one palette on the grid tiles and on the timeline rows", as
   render(<Workspace slug="show" />);
   const timeline = await screen.findByTestId("timeline");
   const tiles = await screen.findByTestId("channel-tiles");
-  const chipOf = (tile: HTMLElement) => tile.querySelector("span.bottom-1") as HTMLElement; // the label chip
+  const chipOf = (tile: HTMLElement) => tile.querySelector("span.top-1") as HTMLElement; // the number chip
   const tileCamera = await within(tiles).findByRole("button", {
     name: "Preview of camera 2: switch to it",
   });
@@ -598,6 +598,38 @@ describe("the other cameras beside the active view", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /Switches \(1\)/ }));
     expect(screen.getByText(/0:01\.0 → Camera 2/)).toBeInTheDocument();
+  });
+
+  test("with a range selected, clicking a tile shows it over that range and goes back; Esc clears the selection", async () => {
+    render(<Workspace slug="show" />);
+    const tiles = await screen.findByTestId("channel-tiles");
+    const timeline = screen.getByTestId("timeline");
+    await within(tiles).findByRole("button", { name: "Preview of camera 2: switch to it" });
+    await screen.findByText("synced");
+    const lanes = timeline.querySelector(".cursor-crosshair") as HTMLElement;
+    const select = () => {
+      fireEvent.pointerDown(lanes, { clientX: 200, pointerId: 1 });
+      fireEvent.pointerMove(lanes, { clientX: 400, pointerId: 1 });
+      fireEvent.pointerUp(lanes, { clientX: 400, pointerId: 1 });
+    };
+
+    select(); // 0:10 – 0:20
+    expect(
+      within(tiles).getByRole("button", { name: "Preview of camera 2: switch to it" }),
+    ).toHaveAttribute("title", expect.stringContaining("over 0:10.00 – 0:20.00, then go back"));
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(
+      within(tiles).getByRole("button", { name: "Preview of camera 2: switch to it" }),
+    ).toHaveAttribute("title", expect.stringContaining("at the playhead"));
+
+    select();
+    fireEvent.click(
+      within(tiles).getByRole("button", { name: "Preview of camera 2: switch to it" }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Switches \(2\)/ }));
+    expect(screen.getByText(/0:10\.0 → Camera 2/)).toBeInTheDocument();
+    expect(screen.getByText(/0:20\.0 → Camera 1/)).toBeInTheDocument(); // back to what was showing
+    expect(screen.getByRole("button", { name: "Cut (x)" })).toBeDisabled(); // selection used up
   });
 
   test("the transport sits under the active view and the zoom controls moved to the timeline", async () => {

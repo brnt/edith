@@ -66,6 +66,9 @@ comes next.
      numbered first, then stills (each by name), and only the first nine get a number. Put the
      playhead where you want the change and press the channel's number (or click its button);
      it stays on screen until the next switch, so a still is cut to and from like a camera.
+     **With a range selected** (drag on the timeline), clicking a thumbnail or pressing a number
+     shows that channel over just the range, then goes back to whatever was showing at its end (a
+     cutaway); the selection then clears. `Esc` clears a selection without doing anything.
      The eye switch beside each file in the **Media** tab hides a camera or still from the grid:
      it loses its number (the rest close up), is dimmed on the timeline, and isn't decoded
      unless it is on screen. It only tidies your workspace; the rendered output never changes.
