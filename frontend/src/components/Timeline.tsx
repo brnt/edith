@@ -54,6 +54,11 @@ interface Props {
   onPreview?: (preview: Preview | null) => void;
 }
 
+/** Faint diagonal stripes over the body of whatever is selected (no outline: that looked heavy). */
+const stripes = (alpha: number) => ({
+  backgroundImage: `repeating-linear-gradient(135deg, rgba(255,255,255,${alpha}) 0 3px, transparent 3px 7px)`,
+});
+
 const MIN_CUT_S = 0.1; // a dragged edge cannot squeeze a cut below this
 const STEPS = [1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 1800];
 
@@ -214,17 +219,24 @@ export function Timeline(props: Props) {
         data-testid="segment"
         aria-selected={on}
         title={on ? undefined : "Click to select"}
-        class={`absolute cursor-pointer ${channelStyle(kind).span} ${on ? "border-x-2 border-y border-white" : "hover:brightness-125"}`}
+        class={`absolute cursor-pointer ${channelStyle(kind).span} ${on ? "" : "hover:brightness-125"}`}
         style={{ left: x(from), width: Math.max(1, x(to - from)), top, height }}
       >
+        {on && (
+          <div
+            data-texture="selected"
+            class="pointer-events-none absolute inset-0"
+            style={stripes(0.18)}
+          />
+        )}
         {on && canStart && segHandle(seg.index, "start", seg.start)}
         {on && canEnd && segHandle(seg.index + 1, "end", seg.end)}
-        {/* A vertical row of dots (an ellipsis turned on its side) inside each draggable edge, close to
-            the border, says the edge (not the whole segment) can be dragged. */}
+        {/* A vertical row of dots (an ellipsis turned on its side) inside each draggable edge, this far in from
+            the edge, says the edge (not the whole segment) can be dragged. */}
         {on && canStart && (
           <span
             data-grip="start"
-            class="pointer-events-none absolute inset-y-0 -left-[0.2em] flex items-center text-xs text-neutral-700/65"
+            class="pointer-events-none absolute inset-y-0 -left-[0.03em] flex items-center text-xs text-neutral-700/65"
           >
             <Icon icon={Ellipsis} class="rotate-90" />
           </span>
@@ -232,7 +244,7 @@ export function Timeline(props: Props) {
         {on && canEnd && (
           <span
             data-grip="end"
-            class="pointer-events-none absolute inset-y-0 -right-[0.2em] flex items-center text-xs text-neutral-700/65"
+            class="pointer-events-none absolute inset-y-0 -right-[0.03em] flex items-center text-xs text-neutral-700/65"
           >
             <Icon icon={Ellipsis} class="rotate-90" />
           </span>
@@ -482,7 +494,9 @@ export function Timeline(props: Props) {
                 }}
               >
                 <div
-                  class={`pointer-events-none absolute inset-0 bg-red-600/40 ${on ? "ring-2 ring-white" : "ring-1 ring-red-500"}`}
+                  class="pointer-events-none absolute inset-0 bg-red-600/40 ring-1 ring-red-500"
+                  data-texture={on ? "selected" : undefined}
+                  style={on ? stripes(0.16) : undefined}
                 />
                 {on && handle("start")}
                 {on && handle("end")}

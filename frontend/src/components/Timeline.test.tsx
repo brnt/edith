@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/preact";
+import { cleanup, fireEvent, render, screen } from "@testing-library/preact";
 import { expect, test, vi } from "vitest";
 
 import type { EditList, MediaItem } from "../lib/api";
@@ -234,6 +234,24 @@ test("the opening stretch has no start edge to drag, so no grip there; the last 
     .find((g) => g.getAttribute("aria-selected") === "true")!;
   expect(opening.querySelector('[data-grip="start"]')).toBeNull();
   expect(opening.querySelector('[data-grip="end"]')).not.toBeNull();
+});
+
+test("the selected segment or cut is marked by a stripe texture, not an outline", () => {
+  setup({ edit: { switches: SWITCHES }, picked: { kind: "segment", index: 0 } });
+  const selected = screen
+    .getAllByTestId("segment")
+    .find((g) => g.getAttribute("aria-selected") === "true")!;
+  expect(selected.querySelector('[data-texture="selected"]')).not.toBeNull();
+  expect(selected.className).not.toMatch(/border|ring/);
+  expect(document.querySelectorAll('[data-texture="selected"]')).toHaveLength(1);
+});
+
+test("a selected cut is striped too, and unselected ones are not", () => {
+  setup({ picked: { kind: "cut", index: 0 } });
+  expect(screen.getByTestId("cut").querySelector('[data-texture="selected"]')).not.toBeNull();
+  cleanup();
+  setup();
+  expect(document.querySelector('[data-texture="selected"]')).toBeNull();
 });
 
 test("an unselected segment has no grips", () => {

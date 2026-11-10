@@ -86,6 +86,8 @@ Root `justfile` delegates to both; Compose runs `api` (:8000) and `web` (:8080).
   compared side by side (`Player`'s `compare` prop, each element at its own time, grid hidden);
   video|still shows the video; still|still the one being resized. The playhead sits on the first frame
   after the boundary, or one frame earlier to show the last frame before it.
+- **A selected segment or cut is marked by a faint stripe texture** (`stripes()` in `Timeline.tsx`),
+  not an outline or glow: both looked heavy on the cut blocks. Don't add borders back.
 - **Clicking a tile or pressing a number while a range is selected is a cutaway** (`showOver` in
   `lib/editOps.ts`, via `cutTo` in `useEditor`): the channel is shown over the range, then the edit
   returns to what was showing at its end, and the selection clears. No selection: switch at the playhead.
