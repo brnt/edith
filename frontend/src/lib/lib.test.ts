@@ -1,7 +1,16 @@
 import { describe, expect, test } from "vitest";
 
 import type { EditList, MediaItem, SyncState } from "./api";
-import { addCuts, removeCut, setCamera, setCut, setTrack, showStill } from "./editOps";
+import {
+  addCuts,
+  addMix,
+  removeCut,
+  setAudioIncluded,
+  setCamera,
+  setCut,
+  setTrack,
+  showStill,
+} from "./editOps";
 import * as history from "./history";
 import {
   activeChannel,
@@ -20,6 +29,8 @@ import {
   skipCuts,
   sortMedia,
   timelineToOutput,
+  trackGainDb,
+  trackIncluded,
 } from "./timeline";
 
 const item = (id: string, kind: MediaItem["kind"], duration = 100): MediaItem => ({
@@ -39,6 +50,7 @@ const edit = (patch: Partial<EditList> = {}): EditList => ({
   switches: [],
   cuts: [],
   tracks: [],
+  mix: [],
   range_in_s: null,
   range_out_s: null,
   fps_num: 30000,
@@ -342,6 +354,74 @@ describe("channels: cameras and stills", () => {
       { at_s: 10, media_id: "car" },
       { at_s: 14, media_id: "camA" },
     ]);
+  });
+});
+
+describe("mixing", () => {
+  const withTracks = (patch: Partial<EditList> = {}) => edit(patch);
+  const region = (start: number, end: number, gain_db = 0, muted = false, media_id = "mic") => ({
+    media_id,
+    start_s: start,
+    end_s: end,
+    gain_db,
+    muted,
+  });
+
+  test("a track's level at a moment is its gain plus the region there; muted regions are silent", () => {
+    const e = withTracks({
+      tracks: [{ media_id: "mic", gain_db: -3, muted: false }],
+      mix: [region(10, 20, -6), region(30, 40, 0, true)],
+    });
+    expect(trackGainDb(e, media, "mic", 5)).toBe(-3);
+    expect(trackGainDb(e, media, "mic", 15)).toBe(-9);
+    expect(trackGainDb(e, media, "mic", 20)).toBe(-3); // a region ends exclusively
+    expect(trackGainDb(e, media, "mic", 35)).toBeNull();
+  });
+
+  test("a track that is not in the output has no level", () => {
+    const e = withTracks({ tracks: [{ media_id: "mic", gain_db: 0, muted: true }] });
+    expect(trackGainDb(e, media, "mic", 5)).toBeNull();
+    expect(trackGainDb(edit(), media, "camA", 5)).toBeNull(); // camera audio is off by default
+  });
+
+  test("where regions overlap, the later one wins", () => {
+    const e = withTracks({
+      tracks: [{ media_id: "mic", gain_db: 0, muted: false }],
+      mix: [region(0, 20, -10), region(5, 10, 4)],
+    });
+    expect(trackGainDb(e, media, "mic", 7)).toBe(4);
+    expect(trackGainDb(e, media, "mic", 15)).toBe(-10);
+  });
+
+  test("addMix paints over what was there: overlapped regions are trimmed or split", () => {
+    const base = withTracks({
+      mix: [region(0, 20, -10), region(30, 40, -2), region(5, 6, 1, false, "other")],
+    });
+    const next = addMix(base, region(5, 10, 3));
+    expect(next.mix.map((r) => [r.media_id, r.start_s, r.end_s, r.gain_db])).toEqual([
+      ["mic", 0, 5, -10],
+      ["other", 5, 6, 1], // another track is untouched
+      ["mic", 5, 10, 3],
+      ["mic", 10, 20, -10],
+      ["mic", 30, 40, -2],
+    ]);
+    expect(
+      addMix(base, region(0, 20, 0, true)).mix.filter((r) => r.media_id === "mic"),
+    ).toHaveLength(2);
+  });
+
+  test("including a file's audio: camera audio is off until you include it", () => {
+    expect(trackIncluded(edit(), media, "mic")).toBe(true); // audio-only files are in by default
+    expect(trackIncluded(edit(), media, "camA")).toBe(false);
+
+    const withCam = setAudioIncluded(edit(), media, "camA", true);
+    expect(trackIncluded(withCam, media, "camA")).toBe(true);
+    expect(trackIncluded(withCam, media, "mic")).toBe(true); // the default track is kept
+
+    const muted = setAudioIncluded(edit(), media, "mic", false);
+    expect(trackIncluded(muted, media, "mic")).toBe(false);
+    expect(muted.tracks).toEqual([{ media_id: "mic", gain_db: 0, muted: true }]);
+    expect(setAudioIncluded(edit(), media, "camA", false)).toEqual(edit()); // nothing to turn off
   });
 });
 

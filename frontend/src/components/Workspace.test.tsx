@@ -69,6 +69,7 @@ const baseEdit = {
   cuts: [],
   stills: [],
   tracks: [],
+  mix: [],
   range_in_s: null,
   range_out_s: null,
   fps_num: 30000,
@@ -194,7 +195,7 @@ test("loads a project, shows its media, timeline rows, warnings and the format n
   await waitFor(() => expect(screen.getByText("Show")).toBeInTheDocument());
   expect(await screen.findByTestId("timeline")).toBeInTheDocument();
   expect(screen.getAllByText("Cam A").length).toBeGreaterThan(0);
-  expect(screen.getByLabelText("Mute mic.wav")).toBeInTheDocument();
+  expect(screen.getByRole("slider", { name: "Gain mic.wav" })).toBeInTheDocument();
   expect(await screen.findByText(/Cam B has no footage/)).toBeInTheDocument();
   expect(screen.getByText(/Saved by an older Edith/)).toBeInTheDocument();
 });
@@ -223,17 +224,28 @@ test("undo reverts a change", async () => {
   expect(screen.queryByText("unsaved changes")).toBeNull();
 });
 
-test("muting a track and the number keys edit the timeline", async () => {
+test("a file's audio is switched off from the Media tab, and the number keys edit the timeline", async () => {
   render(<Workspace slug="show" />);
   await screen.findByTestId("timeline");
-  fireEvent.click(screen.getByLabelText("Mute mic.wav"));
+  expect(screen.queryByLabelText("Mute mic.wav")).toBeNull(); // no longer a timeline control
+  expect(screen.getByRole("slider", { name: "Gain mic.wav" })).toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole("tab", { name: /Media/ }));
+  const use = await screen.findByLabelText("Use audio from mic.wav");
+  expect(use).toBeChecked();
+  expect(screen.getByLabelText("Use audio from Cam A")).not.toBeChecked(); // camera audio is off
+  expect(screen.queryByLabelText("Use audio from car.png")).toBeNull(); // pictures have none
+  fireEvent.click(use);
   expect(screen.getByText("unsaved changes")).toBeInTheDocument();
+  expect(screen.queryByRole("slider", { name: "Gain mic.wav" })).toBeNull(); // its row is gone
+
   fireEvent.click(screen.getByRole("button", { name: "Save" }));
   await waitFor(() => expect(puts).toHaveLength(1));
   expect((puts[0] as typeof baseEdit).tracks).toEqual([
     { media_id: "mic", gain_db: 0, muted: true },
   ]);
 
+  fireEvent.click(screen.getByRole("tab", { name: "Edit" }));
   fireEvent.keyDown(window, { key: "2" });
   await waitFor(() =>
     expect(screen.getByRole("button", { name: /Switches \(1\)/ })).toBeInTheDocument(),
@@ -411,4 +423,40 @@ describe("choosing the registration sound", () => {
     await openSync();
     expect((await screen.findAllByText("0.50")).length).toBe(3);
   });
+});
+
+test("mixing a stretch of one track: select it, set a level, see it on the track, and save it", async () => {
+  render(<Workspace slug="show" />);
+  const timeline = await screen.findByTestId("timeline");
+  expect(screen.getByRole("button", { name: "Set" })).toBeDisabled(); // nothing selected yet
+
+  // Drag across the timeline: in jsdom the lanes start at x=0 and run at 20 px per second.
+  const lanes = timeline.querySelector(".cursor-crosshair") as HTMLElement;
+  fireEvent.pointerDown(lanes, { clientX: 200, pointerId: 1 });
+  fireEvent.pointerMove(lanes, { clientX: 400, pointerId: 1 });
+  fireEvent.pointerUp(lanes, { clientX: 400, pointerId: 1 });
+
+  fireEvent.change(screen.getByLabelText("Level change (dB)"), { target: { value: "-8" } });
+  fireEvent.click(screen.getByRole("button", { name: "Set" }));
+  expect(within(timeline).getByText("-8 dB")).toBeInTheDocument(); // drawn on the mic's row
+
+  fireEvent.click(screen.getByRole("button", { name: /Mix \(1\)/ }));
+  expect(screen.getByText(/0:10\.0 – 0:20\.0 mic\.wav -8 dB/)).toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  await waitFor(() => expect(puts).toHaveLength(1));
+  expect((puts[0] as { mix: unknown[] }).mix).toEqual([
+    { media_id: "mic", start_s: 10, end_s: 20, gain_db: -8, muted: false },
+  ]);
+});
+
+test("muting a stretch shows it as muted on the track", async () => {
+  render(<Workspace slug="show" />);
+  const timeline = await screen.findByTestId("timeline");
+  const lanes = timeline.querySelector(".cursor-crosshair") as HTMLElement;
+  fireEvent.pointerDown(lanes, { clientX: 100, pointerId: 1 });
+  fireEvent.pointerMove(lanes, { clientX: 160, pointerId: 1 });
+  fireEvent.pointerUp(lanes, { clientX: 160, pointerId: 1 });
+  fireEvent.click(screen.getByRole("button", { name: "Mute" }));
+  expect(within(timeline).getByText("muted")).toBeInTheDocument();
 });

@@ -155,6 +155,27 @@ export function effectiveTracks(
   return chosen.map((m) => ({ media_id: m.id, gain_db: 0, muted: false }));
 }
 
+/** Does this file's audio go into the output? (Present in the track list and not muted.) */
+export function trackIncluded(edit: EditList, media: MediaItem[], mediaId: string): boolean {
+  const track = effectiveTracks(edit, media).find((t) => t.media_id === mediaId);
+  return track !== undefined && !track.muted;
+}
+
+/** A track's level at `t` in dB (its own gain plus any mix region), or null when it is silent. */
+export function trackGainDb(
+  edit: EditList,
+  media: MediaItem[],
+  mediaId: string,
+  t: number,
+): number | null {
+  const track = effectiveTracks(edit, media).find((x) => x.media_id === mediaId);
+  if (!track || track.muted) return null;
+  const covering = edit.mix.filter((r) => r.media_id === mediaId && r.start_s <= t && t < r.end_s);
+  const region = covering[covering.length - 1]; // where regions overlap, the later one wins
+  if (region?.muted) return null;
+  return track.gain_db + (region?.gain_db ?? 0);
+}
+
 export interface FrameState {
   /** The camera or still on screen. */
   channel: string | null;

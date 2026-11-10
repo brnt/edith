@@ -1,10 +1,13 @@
 import { useState } from "preact/hooks";
 
+import { setAudioIncluded } from "../lib/editOps";
+import { trackIncluded } from "../lib/timeline";
 import {
   addMedia,
   removeMedia,
   startProxies,
   thumbUrl,
+  type EditList,
   type Job,
   type MediaItem,
 } from "../lib/api";
@@ -16,11 +19,13 @@ import { Badge, Button, Progress } from "./ui";
 interface Props {
   slug: string;
   media: MediaItem[];
+  edit: EditList;
+  onEdit: (edit: EditList) => void;
   onChange: () => void;
   onError: (message: string) => void;
 }
 
-export function MediaPanel({ slug, media, onChange, onError }: Props) {
+export function MediaPanel({ slug, media, edit, onEdit, onChange, onError }: Props) {
   const [browsing, setBrowsing] = useState(false);
   const [job, setJob] = useState<Job | null>(null);
   const missing = media.filter((m) => !m.proxy_ready).length;
@@ -64,11 +69,31 @@ export function MediaPanel({ slug, media, onChange, onError }: Props) {
           No media yet. Add the camera and audio files from this session; they stay where they are.
         </p>
       ) : (
-        <ul class="grid min-w-0 auto-cols-[19rem] grid-flow-col grid-rows-3 content-start gap-x-4 gap-y-1 text-sm">
+        <ul class="grid min-w-0 auto-cols-[22rem] grid-flow-col grid-rows-3 content-start gap-x-4 gap-y-1 text-sm">
           {media.map((m) => (
             <li key={m.id} class="flex h-9 items-center gap-2" title={details(m)}>
               <Thumb slug={slug} item={m} />
               <Badge>{m.kind}</Badge>
+              {m.has_audio && m.kind !== "image" ? (
+                <label
+                  class="flex items-center gap-1 text-xs text-neutral-300"
+                  title={
+                    m.kind === "video"
+                      ? "Use this camera's own audio in the output (normally discarded)"
+                      : "Use this audio in the output (untick to mute it everywhere)"
+                  }
+                >
+                  <input
+                    type="checkbox"
+                    aria-label={`Use audio from ${m.label}`}
+                    checked={trackIncluded(edit, media, m.id)}
+                    onChange={(e) =>
+                      onEdit(setAudioIncluded(edit, media, m.id, e.currentTarget.checked))
+                    }
+                  />
+                  <span aria-hidden="true">🔊</span>
+                </label>
+              ) : null}
               <span class="min-w-0 flex-1 truncate">{m.label}</span>
               {m.proxy_ready ? (
                 <Badge tone="good">proxy</Badge>

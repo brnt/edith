@@ -1,6 +1,6 @@
 // Immutable edit operations. Every function returns a new EditList.
-import type { Cut, EditList, MediaItem } from "./api";
-import { activeChannel, effectiveTracks, mergeRanges } from "./timeline";
+import type { Cut, EditList, MediaItem, MixRegion } from "./api";
+import { activeChannel, EPS, effectiveTracks, mergeRanges } from "./timeline";
 
 const SAME_TIME = 0.05;
 
@@ -52,7 +52,7 @@ export function removeCut(edit: EditList, index: number): EditList {
   return { ...edit, cuts: edit.cuts.filter((_, i) => i !== index) };
 }
 
-/** Change a track's gain or mute. The first change writes out the default track list. */
+/** Change a track's overall gain. The first change writes out the default track list. */
 export function setTrack(
   edit: EditList,
   media: MediaItem[],
@@ -63,6 +63,48 @@ export function setTrack(
     t.media_id === media_id ? { ...t, ...patch } : t,
   );
   return { ...edit, tracks };
+}
+
+/**
+ * Use (or stop using) a file's audio in the output. The first change writes out the default
+ * track list; a camera's audio is excluded until you include it.
+ */
+export function setAudioIncluded(
+  edit: EditList,
+  media: MediaItem[],
+  media_id: string,
+  included: boolean,
+): EditList {
+  const tracks = effectiveTracks(edit, media);
+  if (tracks.some((t) => t.media_id === media_id)) {
+    return {
+      ...edit,
+      tracks: tracks.map((t) => (t.media_id === media_id ? { ...t, muted: !included } : t)),
+    };
+  }
+  return included ? { ...edit, tracks: [...tracks, { media_id, gain_db: 0, muted: false }] } : edit;
+}
+
+/**
+ * Put a level change on a track over a stretch. It paints over anything already there on that
+ * track: overlapped regions are trimmed or split so regions on one track never overlap.
+ */
+export function addMix(edit: EditList, region: MixRegion): EditList {
+  const kept: MixRegion[] = [];
+  for (const r of edit.mix) {
+    if (r.media_id !== region.media_id || r.end_s <= region.start_s || r.start_s >= region.end_s) {
+      kept.push(r);
+      continue;
+    }
+    if (r.start_s < region.start_s - EPS) kept.push({ ...r, end_s: region.start_s });
+    if (r.end_s > region.end_s + EPS) kept.push({ ...r, start_s: region.end_s });
+  }
+  const mix = [...kept, region].sort((a, b) => a.start_s - b.start_s);
+  return { ...edit, mix };
+}
+
+export function removeMix(edit: EditList, index: number): EditList {
+  return { ...edit, mix: edit.mix.filter((_, i) => i !== index) };
 }
 
 export function setRange(

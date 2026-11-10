@@ -139,3 +139,44 @@ def test_a_beep_right_before_speech_is_still_cut_but_the_speech_is_not(client, l
     cuts = _cuts(client, project)
     assert cuts[0][0] <= 4.65 and cuts[0][1] >= 5.55  # the beep plus its margin
     assert cuts[0][1] < 5.7  # and none of the speech
+
+
+def test_mix_regions_save_and_shape_the_plan(client: TestClient, project, ids):
+    base = client.get(f"/projects/{project}/edit").json()["edit"]
+    mix = [
+        {"media_id": ids["mic.wav"], "start_s": 2.0, "end_s": 4.0, "gain_db": -9.0, "muted": False}
+    ]
+    saved = client.put(f"/projects/{project}/edit", json={**base, "mix": mix})
+    assert saved.status_code == 200, saved.text
+    assert client.get(f"/projects/{project}/edit").json()["edit"]["mix"] == mix
+    plan = client.get(f"/projects/{project}/plan").json()
+    assert sorted(round(a["gain_db"], 1) for a in plan["audio"]) == [-9.0, 0.0, 0.0]
+
+
+@pytest.mark.parametrize(
+    "region",
+    [
+        {"media_id": "nope", "start_s": 1, "end_s": 2},
+        {"media_id": "IMAGE", "start_s": 1, "end_s": 2},  # an image has no audio
+        {"media_id": "MIC", "start_s": 3, "end_s": 3},
+    ],
+)
+def test_invalid_mix_regions_are_rejected(client: TestClient, project, ids, region):
+    region = {
+        **region,
+        "media_id": {"IMAGE": ids["car.png"], "MIC": ids["mic.wav"]}.get(
+            region["media_id"], region["media_id"]
+        ),
+    }
+    base = client.get(f"/projects/{project}/edit").json()["edit"]
+    assert (
+        client.put(f"/projects/{project}/edit", json={**base, "mix": [region]}).status_code == 422
+    )
+
+
+def test_removing_media_removes_its_mix_regions(client: TestClient, project, ids):
+    base = client.get(f"/projects/{project}/edit").json()["edit"]
+    mix = [{"media_id": ids["mic.wav"], "start_s": 1.0, "end_s": 2.0, "muted": True}]
+    client.put(f"/projects/{project}/edit", json={**base, "mix": mix})
+    assert client.delete(f"/projects/{project}/media/{ids['mic.wav']}").status_code == 204
+    assert client.get(f"/projects/{project}/edit").json()["edit"]["mix"] == []

@@ -10,7 +10,7 @@ close the gap (ripple), so output time = timeline time minus the cut time before
 from dataclasses import dataclass, field, replace
 from typing import Literal
 
-from edith.db.documents import CameraSwitch, EditList, MediaItem, SyncState
+from edith.db.documents import CameraSwitch, EditList, MediaItem, MixRegion, SyncState
 
 EPS = 1e-6
 
@@ -123,6 +123,28 @@ def output_tracks(edit: EditList, media: dict[str, MediaItem]) -> list[tuple[str
     return [(with_audio[0], 0.0)] if with_audio else []
 
 
+def gain_pieces(
+    media_id: str, base_gain_db: float, x: float, y: float, mix: list[MixRegion]
+) -> list[tuple[float, float, float]]:
+    """Split [x, y) wherever a mix region on this track starts or ends: (start, end, gain dB).
+
+    Muted stretches are left out. Where regions overlap, the one later in the list wins.
+    """
+    regions = [r for r in mix if r.media_id == media_id and r.end_s > x and r.start_s < y]
+    points = sorted({x, y} | {t for r in regions for t in (r.start_s, r.end_s) if x < t < y})
+    pieces: list[tuple[float, float, float]] = []
+    for a, b in zip(points, points[1:], strict=False):
+        if b - a <= EPS:
+            continue
+        mid = (a + b) / 2
+        covering = [r for r in regions if r.start_s <= mid < r.end_s]
+        region = covering[-1] if covering else None
+        if region is not None and region.muted:
+            continue
+        pieces.append((a, b, base_gain_db + (region.gain_db if region else 0.0)))
+    return pieces
+
+
 def _extends(last, seg) -> bool:
     """True if `seg` continues `last`: same media, back to back on both timelines."""
     return (
@@ -202,12 +224,12 @@ def build_plan(edit: EditList, media: dict[str, MediaItem], sync: SyncState) -> 
         for media_id, gain in tracks:
             start = max(a, offsets.get(media_id, 0.0))
             stop = min(b, offsets.get(media_id, 0.0) + (media[media_id].duration_s or 0.0))
-            if stop - start > EPS:
+            if stop - start <= EPS:
+                continue
+            for p, q, piece_gain in gain_pieces(media_id, gain, start, stop, edit.mix):
                 _append_audio(
                     audio,
-                    AudioSeg(
-                        media_id, rec + (start - a), stop - start, start - offsets[media_id], gain
-                    ),
+                    AudioSeg(media_id, rec + (p - a), q - p, p - offsets[media_id], piece_gain),
                 )
         rec += b - a
     return RenderPlan(

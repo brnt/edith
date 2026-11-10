@@ -40,6 +40,11 @@ def validate(edit: EditList, media: dict[str, MediaItem]) -> None:
             switch.media_id not in media or media[switch.media_id].kind == "audio"
         ):
             raise InvalidEdit(f"switch refers to unknown camera or still {switch.media_id}")
+    for region in edit.mix:
+        if region.media_id not in media or not media[region.media_id].has_audio:
+            raise InvalidEdit(f"mix region refers to media without audio {region.media_id}")
+        if region.end_s <= region.start_s:
+            raise InvalidEdit("a mix region must end after it starts")
     for cut in edit.cuts:
         if cut.end_s <= cut.start_s:
             raise InvalidEdit("a cut must end after it starts")

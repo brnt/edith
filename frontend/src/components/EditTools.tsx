@@ -1,7 +1,16 @@
 import type { ComponentChildren } from "preact";
+import { useState } from "preact/hooks";
 
-import { addCuts, removeCut, removeSwitch, setRange, showStill } from "../lib/editOps";
-import { formatTime, type Range } from "../lib/timeline";
+import {
+  addCuts,
+  addMix,
+  removeCut,
+  removeMix,
+  removeSwitch,
+  setRange,
+  showStill,
+} from "../lib/editOps";
+import { effectiveTracks, formatTime, type Range } from "../lib/timeline";
 import type { EditorApi } from "../lib/useEditor";
 import { Button, Dropdown } from "./ui";
 
@@ -79,6 +88,26 @@ function ItemsMenu({ name, empty, items }: { name: string; empty: string; items:
 export function EditTools({ ed }: { ed: EditorApi }) {
   const { edit, media, onEdit, selection, silence, suggestions } = ed;
   const label = (id: string) => media.find((m) => m.id === id)?.label ?? id;
+  // The mix applies to audio that is in the output.
+  const outputTracks = effectiveTracks(edit, media).filter((t) => !t.muted);
+  const [mixChoice, setMixChoice] = useState("");
+  const [mixGain, setMixGain] = useState(-6);
+  const mixTrack = outputTracks.some((t) => t.media_id === mixChoice)
+    ? mixChoice
+    : (outputTracks[0]?.media_id ?? "");
+  const mixOver = (muted: boolean) => {
+    if (!selection || !mixTrack) return;
+    onEdit(
+      addMix(edit, {
+        media_id: mixTrack,
+        start_s: selection[0],
+        end_s: selection[1],
+        gain_db: muted ? 0 : mixGain,
+        muted,
+      }),
+    );
+    ed.setSelection(null);
+  };
   // Same numbering as the buttons, timeline rows, and number keys: cameras first, then stills.
   const channelName = (id: string | null) => {
     if (id === null) return "default camera";
@@ -106,7 +135,7 @@ export function EditTools({ ed }: { ed: EditorApi }) {
 
   return (
     <div class="flex h-full gap-3">
-      <Group title="Show at playhead (number keys)" width="w-40">
+      <Group title="Show at playhead (number keys)" width="w-32">
         {ed.channels
           .filter((c) => c.number !== null)
           .map((c) => (
@@ -123,7 +152,7 @@ export function EditTools({ ed }: { ed: EditorApi }) {
         {ed.channels.length === 0 && <span class="text-neutral-500">No video or stills</span>}
       </Group>
 
-      <Group title={`Selection: ${selectionText}`} width="w-60">
+      <Group title={`Selection: ${selectionText}`} width="w-52">
         <Button disabled={!selection} onClick={ed.cutSelection}>
           Cut (x)
         </Button>
@@ -170,7 +199,38 @@ export function EditTools({ ed }: { ed: EditorApi }) {
         </Button>
       </Group>
 
-      <Group title="Dead time (uses saved range and tracks)" width="w-52">
+      <Group title="Mix the selection" width="w-44">
+        <select
+          class="w-full rounded bg-neutral-900 px-1 py-1"
+          aria-label="Mix track"
+          title="Which audio track to adjust"
+          value={mixTrack}
+          onChange={(e) => setMixChoice(e.currentTarget.value)}
+        >
+          {outputTracks.map((t) => (
+            <option key={t.media_id} value={t.media_id}>
+              {label(t.media_id)}
+            </option>
+          ))}
+        </select>
+        <input
+          type="number"
+          step={1}
+          class="w-14 rounded bg-neutral-900 px-1 py-0.5"
+          aria-label="Level change (dB)"
+          value={mixGain}
+          onChange={(e) => setMixGain(Number(e.currentTarget.value))}
+        />
+        <span>dB</span>
+        <Button disabled={!selection || !mixTrack} onClick={() => mixOver(false)}>
+          Set
+        </Button>
+        <Button disabled={!selection || !mixTrack} onClick={() => mixOver(true)}>
+          Mute
+        </Button>
+      </Group>
+
+      <Group title="Dead time (uses saved range and tracks)" width="w-44">
         <label>&lt; {num("threshold", 1)} dB</label>
         <label>≥ {num("minS", 0.5)} s</label>
         <label>keep {num("pad", 0.1)} s</label>
@@ -209,6 +269,18 @@ export function EditTools({ ed }: { ed: EditorApi }) {
             title: s.media_id ? label(s.media_id) : undefined,
             onSeek: () => ed.setT(s.at_s),
             onRemove: () => onEdit(removeSwitch(edit, i)),
+          }))}
+        />
+        <ItemsMenu
+          name="Mix"
+          empty="No level changes."
+          items={edit.mix.map((r, i) => ({
+            key: `${r.media_id}-${r.start_s}-${r.end_s}`,
+            text: `${formatTime(r.start_s, 1)} – ${formatTime(r.end_s, 1)} ${label(r.media_id)} ${
+              r.muted ? "muted" : `${r.gain_db > 0 ? "+" : ""}${r.gain_db} dB`
+            }`,
+            onSeek: () => ed.setT(r.start_s),
+            onRemove: () => onEdit(removeMix(edit, i)),
           }))}
         />
         <ItemsMenu

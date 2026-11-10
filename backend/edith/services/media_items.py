@@ -79,6 +79,7 @@ def remove_media(library: Path, slug: str, media_id_: str) -> None:
             doc = edit.document
             doc.switches = [s for s in doc.switches if s.media_id != media_id_]
             doc.tracks = [t for t in doc.tracks if t.media_id != media_id_]
+            doc.mix = [m for m in doc.mix if m.media_id != media_id_]
             project.put(EDIT, EDIT_ID, doc)
         if (sync := project.get(SYNC, SYNC_ID)) and isinstance(sync.document, SyncState):
             state = sync.document

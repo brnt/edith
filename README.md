@@ -39,7 +39,8 @@ comes next.
 
 1. **Media.** Create a project, then **Add media…** and pick the camera, audio, and still-image
    files (each shows a tiny thumbnail). **Build proxies** (low-res copies the browser can scrub;
-   originals are untouched).
+   originals are untouched). The speaker checkbox beside a file says whether its audio goes into
+   the output: audio-only files are on by default, a camera's own audio is off until you tick it.
 2. **Sync.** Every device should have recorded a registration sound once shortly after it started
    and once shortly before it stopped. Tell Edith what it sounds like, then **Find the sound in
    every file**. Three ways:
@@ -70,8 +71,12 @@ comes next.
      while you drag, and one drag is one undo step.
    - **Still over a range:** drag-select, pick an image, *Show still*: it switches to the still at
      the start and back to whatever was showing at the end. The audio always continues.
-   - **Audio:** per-track gain and mute on the timeline. By default every audio-only file is
-     used; camera audio is discarded.
+   - **Audio:** each included file gets a track on the timeline with an overall gain slider. To
+     change the level over just a stretch, drag-select it, pick the track under **Mix the
+     selection**, and press **Set** (a dB change added to the track) or **Mute**. It shows on the
+     track as an amber (gain) or red (muted) band; a new one paints over what it overlaps. The
+     **Mix** menu lists them. Mixing is part of the edit, so it reaches the preview, the exports
+     and the render.
    - **Range:** `i` / `o` set the in and out points.
    - **Edit list:** the Switches and Cuts menus list every decision; click one to jump to it, ✕
      to remove it.

@@ -28,7 +28,7 @@ interface Props {
   onSeek: (t: number) => void;
   onSelect: (range: Range | null) => void;
   onCamera: (mediaId: string) => void;
-  onTrack: (mediaId: string, patch: { gain_db?: number; muted?: boolean }) => void;
+  onTrack: (mediaId: string, patch: { gain_db?: number }) => void;
   /** A cut's edges were dragged: its index and its new start and end. */
   onCutChange?: (index: number, start_s: number, end_s: number) => void;
 }
@@ -56,7 +56,8 @@ export function Timeline(props: Props) {
   const [stillsChoice, setStillsChoice] = useState<boolean | null>(null);
   const stillsOpen = stillsChoice ?? stills.length <= 4;
   const tracks = effectiveTracks(edit, media);
-  const audioRows = media.filter((m) => tracks.some((t) => t.media_id === m.id));
+  // Only audio that is in the output gets a row; include or exclude files in the Media tab.
+  const audioRows = media.filter((m) => tracks.some((t) => t.media_id === m.id && !t.muted));
   const fallback = defaultCamera(media, offsets);
   const lo = edit.range_in_s ?? 0;
   const hi = edit.range_out_s ?? end;
@@ -71,7 +72,7 @@ export function Timeline(props: Props) {
   };
 
   const down = (e: PointerEvent) => {
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
     drag.current = { x: e.clientX, t: timeAt(e.clientX), moved: false };
   };
   const move = (e: PointerEvent) => {
@@ -158,14 +159,8 @@ export function Timeline(props: Props) {
                 class="border-t border-neutral-800 px-2 py-1 text-xs"
                 style={{ height: ROW.audio }}
               >
-                <div class="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    aria-label={`Mute ${m.label}`}
-                    checked={t.muted}
-                    onChange={(e) => props.onTrack(m.id, { muted: e.currentTarget.checked })}
-                  />
-                  <span class="truncate">{m.label}</span>
+                <div class="truncate" title={m.label}>
+                  {m.label}
                 </div>
                 <input
                   type="range"
@@ -250,7 +245,7 @@ export function Timeline(props: Props) {
           {audioRows.map((m) => (
             <div
               key={m.id}
-              class={`border-t border-neutral-800 ${tracks.find((t) => t.media_id === m.id)?.muted ? "opacity-30" : ""}`}
+              class="relative border-t border-neutral-800"
               style={{ height: ROW.audio }}
             >
               <Waveform
@@ -261,6 +256,22 @@ export function Timeline(props: Props) {
                 height={ROW.audio}
                 color="#34d399"
               />
+              {edit.mix
+                .filter((r) => r.media_id === m.id)
+                .map((r, i) => (
+                  <div
+                    key={`mix${i}`}
+                    class={`pointer-events-none absolute inset-y-0 overflow-hidden px-1 text-[10px] font-semibold ${
+                      r.muted
+                        ? "bg-red-950/80 text-red-200 ring-1 ring-red-700"
+                        : "bg-amber-400/25 text-amber-200 ring-1 ring-amber-400"
+                    }`}
+                    style={{ left: x(r.start_s), width: Math.max(2, x(r.end_s - r.start_s)) }}
+                    title={r.muted ? "Muted" : `${r.gain_db > 0 ? "+" : ""}${r.gain_db} dB`}
+                  >
+                    {r.muted ? "muted" : `${r.gain_db > 0 ? "+" : ""}${r.gain_db} dB`}
+                  </div>
+                ))}
             </div>
           ))}
 

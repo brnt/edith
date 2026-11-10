@@ -54,6 +54,14 @@ def test_filtergraph_scales_concatenates_and_mixes_with_gain_and_delay():
     assert "loop=loop=" in graph  # the still is held by a filter
 
 
+def test_each_audio_piece_keeps_its_own_level():
+    audio = [AudioSeg("mic", 0, 4, 3.0, -3.0), AudioSeg("mic", 4, 2, 7.0, -9.0)]
+    graph = command(plan(audio=audio)).args
+    graph = graph[graph.index("-filter_complex") + 1]
+    assert "volume=-3dB" in graph and "volume=-9dB" in graph
+    assert "adelay=4000|4000" in graph
+
+
 def test_no_audio_means_no_audio_mapping():
     args = command(plan(audio=[])).args
     assert "[aout]" not in " ".join(args) and "-c:a" not in args
