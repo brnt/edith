@@ -16,6 +16,8 @@ export { default as CustomerService } from "@ant-design/icons-svg/es/asn/Custome
 export { default as Down } from "@ant-design/icons-svg/es/asn/DownOutlined";
 export { default as Download } from "@ant-design/icons-svg/es/asn/DownloadOutlined";
 export { default as Export } from "@ant-design/icons-svg/es/asn/ExportOutlined";
+export { default as ExclamationCircle } from "@ant-design/icons-svg/es/asn/ExclamationCircleOutlined";
+export { default as Stop } from "@ant-design/icons-svg/es/asn/StopOutlined";
 export { default as Eye } from "@ant-design/icons-svg/es/asn/EyeOutlined";
 export { default as EyeInvisible } from "@ant-design/icons-svg/es/asn/EyeInvisibleOutlined";
 export { default as Folder } from "@ant-design/icons-svg/es/asn/FolderOutlined";

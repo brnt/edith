@@ -95,6 +95,17 @@ def _bit_depth(stream: dict) -> int | None:
     return 8 if pix else None
 
 
+# What a still image's codec is called, and which file extensions it belongs under.
+_IMAGE_FORMATS = {
+    "mjpeg": ("JPEG", {".jpg", ".jpeg"}),
+    "png": ("PNG", {".png"}),
+    "webp": ("WebP", {".webp"}),
+    "av1": ("AVIF", {".avif"}),
+    "hevc": ("HEIC", {".heic", ".heif"}),
+}
+_IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".avif", ".heic", ".heif"}
+
+
 def details(path: Path) -> dict:
     """Everything worth showing about a file: container, video and audio streams (read-only)."""
     result = subprocess.run(
@@ -122,9 +133,19 @@ def details(path: Path) -> dict:
         "duration_s": _num(fmt.get("duration")),
         "bit_rate": _num(fmt.get("bit_rate")),
         "created": (fmt.get("tags") or {}).get("creation_time"),
+        "image_format": None,
+        "image_extension_matches": None,
         "video": None,
         "audio": None,
     }
+    if video and path.suffix.lower() in _IMAGE_EXTS:
+        # A still: describe what is really inside (ffprobe calls an AVIF's container "QuickTime"),
+        # and say if the file name promises something else (a WebP called .jpeg).
+        name, exts = _IMAGE_FORMATS.get(
+            video.get("codec_name") or "", (video.get("codec_name"), set())
+        )
+        out["image_format"] = name
+        out["image_extension_matches"] = path.suffix.lower() in exts if exts else None
     if video:
         avg, real = _fps(video.get("avg_frame_rate")), _fps(video.get("r_frame_rate"))
         out["video"] = {

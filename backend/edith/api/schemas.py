@@ -202,5 +202,7 @@ class MediaDetailsRead(BaseModel):
     duration_s: float | None
     bit_rate: float | None
     created: str | None
+    image_format: str | None = None
+    image_extension_matches: bool | None = None
     video: VideoDetailsRead | None
     audio: AudioDetailsRead | None

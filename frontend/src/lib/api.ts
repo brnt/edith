@@ -37,6 +37,10 @@ export interface MediaDetails {
   duration_s: number | null;
   bit_rate: number | null;
   created: string | null;
+  /** For a still: what is really in the file (JPEG, PNG, WebP, AVIF…). */
+  image_format?: string | null;
+  /** False when the file name's extension promises a different format than the one inside. */
+  image_extension_matches?: boolean | null;
   video: {
     codec: string | null;
     profile: string | null;

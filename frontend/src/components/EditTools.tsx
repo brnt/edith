@@ -6,7 +6,8 @@ import { effectiveTracks, formatTime, type Range } from "../lib/timeline";
 import type { EditorApi } from "../lib/useEditor";
 import { Button, Dropdown } from "./ui";
 import { Icon } from "./Icon";
-import { AudioMuted, Check, Clear, Close, Scissor, Search, Sound } from "./icons";
+import { Check, Clear, Close, Scissor, Search, Sound } from "./icons";
+import { SoundOff } from "./SoundOff";
 
 /** A ribbon group: controls wrap within `width`, with the group's name underneath. */
 function Group({
@@ -195,12 +196,8 @@ export function EditTools({ ed }: { ed: EditorApi }) {
         >
           Set
         </Button>
-        <Button
-          size="sm"
-          icon={AudioMuted}
-          disabled={!selection || !mixTrack}
-          onClick={() => mixOver(true)}
-        >
+        <Button size="sm" disabled={!selection || !mixTrack} onClick={() => mixOver(true)}>
+          <SoundOff />
           Mute
         </Button>
       </Group>

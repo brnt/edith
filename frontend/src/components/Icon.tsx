@@ -20,7 +20,7 @@ export function Icon({ icon, class: cls }: { icon: IconDefinition; class?: strin
   return (
     <span
       aria-hidden="true"
-      class={`inline-flex shrink-0 items-center ${cls ?? ""}`}
+      class={`inline-flex shrink-0 items-center leading-none ${cls ?? ""}`}
       data-icon={icon.name}
     >
       {h(

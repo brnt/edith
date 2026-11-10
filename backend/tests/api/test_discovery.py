@@ -183,3 +183,23 @@ def test_relinking_to_a_different_kind_of_file_is_refused(
         f"/projects/{project}/media/{cam['id']}/relink", json={"path": "m/mic.wav"}
     )
     assert refused.status_code == 422 and "audio media" in refused.json()["message"]
+
+
+def test_a_still_is_described_by_its_image_format_and_a_wrong_extension_is_noticed(
+    client: TestClient, library: Path, project: str
+):
+    honest = _age(write_image(library / project / "honest.png"))
+    liar = library / project / "liar.jpg"  # a PNG with a JPEG's name
+    liar.write_bytes(honest.read_bytes())
+    _age(liar)
+    media = _media(client, project)
+    d_ok = client.get(f"/projects/{project}/media/{media['honest.png']['id']}/details").json()
+    d_bad = client.get(f"/projects/{project}/media/{media['liar.jpg']['id']}/details").json()
+    assert d_ok["image_format"] == "PNG" and d_ok["image_extension_matches"] is True
+    assert d_bad["image_format"] == "PNG" and d_bad["image_extension_matches"] is False
+    video = _age(write_video(library / project / "cam.mp4"))
+    cam = _media(client, project)["cam.mp4"]
+    assert (
+        client.get(f"/projects/{project}/media/{cam['id']}/details").json()["image_format"] is None
+    )
+    assert video.exists()
