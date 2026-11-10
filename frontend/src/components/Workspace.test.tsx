@@ -489,3 +489,18 @@ describe("where the playhead starts", () => {
     await waitFor(() => expect(screen.getByText("0:14.05")).toBeInTheDocument());
   });
 });
+
+test("channel buttons share one palette in the ribbon and on the timeline", async () => {
+  render(<Workspace slug="show" />);
+  const timeline = await screen.findByTestId("timeline");
+  const ribbonCamera = await screen.findByRole("button", { name: "Switch to camera 1" });
+  const ribbonStill = screen.getByRole("button", { name: "Switch to still 3" });
+  const rowCamera = within(timeline).getByRole("button", { name: "Switch to Cam A" });
+  const rowStill = within(timeline).getByRole("button", { name: "Switch to car.png" });
+
+  for (const chip of [ribbonCamera, rowCamera]) expect(chip.className).toContain("bg-sky");
+  for (const chip of [ribbonStill, rowStill]) expect(chip.className).toContain("bg-teal");
+  for (const chip of [ribbonCamera, ribbonStill, rowCamera, rowStill]) {
+    expect(chip.className).not.toMatch(/neutral|fuchsia|purple|violet/);
+  }
+});

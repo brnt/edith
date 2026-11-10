@@ -11,6 +11,8 @@ import {
   type Channel,
   type Range,
 } from "../lib/timeline";
+import { channelStyle } from "../lib/channelStyle";
+import { ChannelChip } from "./ChannelChip";
 import { MAX_CANVAS_PX, Waveform } from "./Waveform";
 
 const ROW = { ruler: 24, video: 34, still: 28, audio: 56 };
@@ -211,7 +213,7 @@ export function Timeline(props: Props) {
               >
                 {band([off, off + (m.duration_s ?? 0)], "bg-neutral-700/60", "avail", 6, "22px")}
                 {channelSpans(edit.switches, m.id, fallback, lo, hi).map((span, i) =>
-                  band(span, "bg-sky-500/80", i, 6, "22px"),
+                  band(span, channelStyle("video").span, i, 6, "22px"),
                 )}
               </div>
             );
@@ -223,7 +225,7 @@ export function Timeline(props: Props) {
                 {!stillsOpen &&
                   stills.flatMap(({ item: m }) =>
                     channelSpans(edit.switches, m.id, fallback, lo, hi).map((span, i) =>
-                      band(span, "bg-fuchsia-600/80", `${m.id}-${i}`, 4, "20px"),
+                      band(span, channelStyle("image").span, `${m.id}-${i}`, 4, "20px"),
                     ),
                   )}
               </div>
@@ -235,7 +237,7 @@ export function Timeline(props: Props) {
                     style={{ height: ROW.still }}
                   >
                     {channelSpans(edit.switches, m.id, fallback, lo, hi).map((span, i) =>
-                      band(span, "bg-fuchsia-600/80", i, 4, "20px"),
+                      band(span, channelStyle("image").span, i, 4, "20px"),
                     )}
                   </div>
                 ))}
@@ -361,15 +363,13 @@ export function Timeline(props: Props) {
 }
 
 function ChannelButton({ channel, onClick }: { channel: Channel; onClick: () => void }) {
-  const still = channel.item.kind === "image";
   return (
-    <button
-      class={`min-w-5 rounded px-1.5 ${still ? "bg-fuchsia-800 hover:bg-fuchsia-600" : "bg-neutral-700 hover:bg-sky-600"}`}
+    <ChannelChip
+      kind={channel.item.kind as "video" | "image"}
+      number={channel.number}
       title={`Switch to ${channel.item.label}${channel.number ? ` (${channel.number})` : ""}`}
-      aria-label={`Switch to ${channel.item.label}`}
+      ariaLabel={`Switch to ${channel.item.label}`}
       onClick={onClick}
-    >
-      {channel.number ?? "•"}
-    </button>
+    />
   );
 }
