@@ -106,6 +106,12 @@ Root `justfile` delegates to both; Compose runs `api` (:8000) and `web` (:8080).
   into `cache/probe/`. Looking never writes `project.edith`; including a file (`POST /media`) is the
   edit that does. The frontend polls `GET /media` (5s, and on focus). Only `included` media go to
   the editor; the Media tab gets all of them (`available`).
+- **Relinking** (`media_items.relink_media`, `POST /media/{id}/relink`): media ids come from paths,
+  so a relinked file gets a new id and the edit and sync documents are rewritten server-side; the
+  client mirrors it with `renameMedia` over the saved edit and every undo step (`history.mapAll`),
+  which returns the same object when nothing refers to the id, so "unsaved changes" stays accurate.
+- **The ribbon is 13.75rem** (the media cards need two rows plus a folder header); keep card sizes in
+  step with it (`CARD` in `MediaPanel.tsx`).
 - **Clicking a tile or pressing a number while a range is selected is a cutaway** (`showOver` in
   `lib/editOps.ts`, via `cutTo` in `useEditor`): the channel is shown over the range, then the edit
   returns to what was showing at its end, and the selection clears. No selection: switch at the playhead.

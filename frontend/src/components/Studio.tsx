@@ -42,6 +42,8 @@ interface Props {
   dirty: boolean;
   ready: boolean;
   onEdit: (edit: EditList) => void;
+  /** A media item was relinked to a different file: its old id is now the new one. */
+  onRelinked: (from: string, to: string) => void;
   onMediaChange: () => void;
   onSyncChange: () => void;
   onError: (message: string) => void;
@@ -110,6 +112,7 @@ export function Studio(props: Props) {
             peaks={props.peaks}
             edit={edit}
             onEdit={props.onEdit}
+            onRelinked={props.onRelinked}
             onChange={props.onMediaChange}
             onError={props.onError}
           />

@@ -207,6 +207,9 @@ export const addMedia = (slug: string, path: string) =>
 export const removeMedia = (slug: string, id: string) =>
   request<void>(`${p(slug)}/media/${id}`, json("DELETE"));
 export const startProxies = (slug: string) => request<Job>(`${p(slug)}/proxies`, json("POST"));
+export const relinkMedia = (slug: string, id: string, path: string) =>
+  request<MediaItem>(`${p(slug)}/media/${id}/relink`, json("POST", { path }));
+
 export const fetchMediaDetails = (slug: string, id: string) =>
   request<MediaDetails>(`${p(slug)}/media/${id}/details`);
 

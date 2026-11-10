@@ -1,7 +1,14 @@
 import { expect, test } from "vitest";
 
 import type { MediaDetails, MediaItem } from "./api";
-import { detailSections, formatBitrate, formatBytes } from "./mediaInfo";
+import type { SyncState } from "./api";
+import {
+  detailSections,
+  formatBitrate,
+  formatBytes,
+  formatNotes,
+  matchesFilter,
+} from "./mediaInfo";
 
 const item = { kind: "video", width: 1920, height: 1080 } as MediaItem;
 
@@ -80,4 +87,35 @@ test("a still has a picture section, and audio-only files have no video section"
   });
   const wav = detailSections(details({ video: null }), { kind: "audio" } as MediaItem, null);
   expect(wav.map((s) => s.title)).toEqual(["File", "Audio"]);
+});
+
+test("a frame rate that differs from the project's, or a portrait picture, gets a note", () => {
+  const cam = (patch: Partial<MediaItem>) =>
+    ({ kind: "video", fps: 29.97, width: 1920, height: 1080, ...patch }) as MediaItem;
+  expect(formatNotes(cam({}), { fps: 29.97 })).toEqual([]);
+  expect(formatNotes(cam({ fps: 59.94 }), { fps: 29.97 })).toEqual([
+    "59.94 fps, but the project is 29.97 fps",
+  ]);
+  expect(formatNotes(cam({ width: 1080, height: 1920 }), { fps: 29.97 })).toEqual([
+    "Portrait (vertical) picture",
+  ]);
+  expect(formatNotes({ kind: "audio" } as MediaItem, { fps: 25 })).toEqual([]);
+  expect(formatNotes(cam({ kind: "image", fps: null }), { fps: 25 })).toEqual([]);
+});
+
+test("the media filter: by kind, new files, and files the sync has not placed", () => {
+  const m = (patch: Partial<MediaItem>) =>
+    ({ id: "x", kind: "video", included: true, ...patch }) as MediaItem;
+  const sync = {
+    results: { ok: { status: "synced" }, weak: { status: "low_confidence" } },
+  } as unknown as SyncState;
+  expect(matchesFilter(m({}), "all", sync)).toBe(true);
+  expect(matchesFilter(m({ kind: "audio" }), "video", sync)).toBe(false);
+  expect(matchesFilter(m({ kind: "audio" }), "audio", sync)).toBe(true);
+  expect(matchesFilter(m({ included: false }), "new", sync)).toBe(true);
+  expect(matchesFilter(m({ id: "ok" }), "unsynced", sync)).toBe(false);
+  expect(matchesFilter(m({ id: "weak" }), "unsynced", sync)).toBe(true);
+  expect(matchesFilter(m({ id: "none" }), "unsynced", sync)).toBe(true);
+  expect(matchesFilter(m({ kind: "image" }), "unsynced", sync)).toBe(false); // pictures aren't synced
+  expect(matchesFilter(m({ included: false }), "unsynced", sync)).toBe(false); // not in the project
 });

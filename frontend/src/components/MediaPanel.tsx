@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 
-import { setAudioIncluded, setEnabled } from "../lib/editOps";
+import { setAllEnabled, setAudioIncluded, setEnabled } from "../lib/editOps";
 import {
   addMedia,
   fetchMediaDetails,
+  relinkMedia,
+  startSync,
   removeMedia,
   startProxies,
   thumbUrl,
@@ -16,8 +18,17 @@ import {
   type SyncState,
 } from "../lib/api";
 import { waitForJob } from "../lib/jobs";
-import { detailSections } from "../lib/mediaInfo";
-import { channelsOf, groupMedia, trackIncluded, type MediaGroup } from "../lib/timeline";
+import { detailSections, formatNotes, matchesFilter, type MediaFilter } from "../lib/mediaInfo";
+import {
+  channelsOf,
+  defaultCamera,
+  groupMedia,
+  mediaOffsets,
+  segments,
+  timelineEnd,
+  trackIncluded,
+  type MediaGroup,
+} from "../lib/timeline";
 import { channelStyle } from "../lib/channelStyle";
 import { LibraryBrowser } from "./LibraryBrowser";
 import { Button, Progress } from "./ui";
@@ -31,6 +42,7 @@ import {
   InfoCircle,
   Plus,
   Sound,
+  Sync,
   Thunderbolt,
   Warning,
 } from "./icons";
@@ -45,6 +57,8 @@ interface Props {
   peaks: Record<string, Peaks>;
   edit: EditList;
   onEdit: (edit: EditList) => void;
+  /** A missing file was relinked: the id that named it is now the new one. */
+  onRelinked: (from: string, to: string) => void;
   onChange: () => void;
   onError: (message: string) => void;
 }
@@ -53,8 +67,11 @@ const CARD = "w-[7.25rem]"; // slightly bigger than the grid's tiles' smallest, 
 
 /** The media tab: every file of the project folder as a card, grouped by folder. */
 export function MediaPanel(props: Props) {
-  const { slug, media, available, sync, peaks, edit, onEdit, onChange, onError } = props;
+  const { slug, media, available, sync, peaks, edit, onEdit, onRelinked, onChange, onError } =
+    props;
   const [browsing, setBrowsing] = useState(false);
+  // A missing file being pointed at another: the browser opens to choose the new one.
+  const [relinking, setRelinking] = useState<MediaItem | null>(null);
   const [job, setJob] = useState<Job | null>(null);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [open, setOpen] = useState<{ item: MediaItem; rect: DOMRect } | null>(null);
@@ -63,7 +80,26 @@ export function MediaPanel(props: Props) {
     () => new Map(channelsOf(media, edit.disabled).map((c) => [c.item.id, c.number])),
     [media, edit.disabled],
   );
-  const groups = useMemo(() => groupMedia(available), [available]);
+  const [filter, setFilter] = useState<MediaFilter>("all");
+  const groups = useMemo(
+    () => groupMedia(available.filter((m) => matchesFilter(m, filter, sync))),
+    [available, filter, sync],
+  );
+  const projectFps = edit.fps_den ? { fps: edit.fps_num / edit.fps_den } : null;
+  // How many segments of the edit show each camera or still.
+  const usage = useMemo(() => {
+    const offsets = mediaOffsets(media, sync);
+    const counts = new Map<string, number>();
+    for (const seg of segments(
+      edit.switches,
+      defaultCamera(media, offsets),
+      timelineEnd(media, offsets),
+    )) {
+      if (seg.channel && seg.end > seg.start)
+        counts.set(seg.channel, (counts.get(seg.channel) ?? 0) + 1);
+    }
+    return counts;
+  }, [media, sync, edit.switches]);
 
   const fail = (e: unknown) => onError(e instanceof Error ? e.message : String(e));
 
@@ -74,6 +110,45 @@ export function MediaPanel(props: Props) {
     } catch (e) {
       fail(e);
     }
+    onChange();
+  };
+
+  const relink = async (item: MediaItem, path: string) => {
+    setRelinking(null);
+    try {
+      const moved = await relinkMedia(slug, item.id, path);
+      onRelinked(item.id, moved.id);
+    } catch (e) {
+      fail(e);
+    }
+    onChange();
+  };
+
+  /** A file turned up in the folder with this one's name and length: probably it moved. */
+  const suggestionFor = (m: MediaItem) =>
+    m.missing
+      ? (available.find(
+          (a) =>
+            !a.included &&
+            !a.missing &&
+            a.kind === m.kind &&
+            a.label === m.label &&
+            Math.abs((a.duration_s ?? 0) - (m.duration_s ?? 0)) < 0.1,
+        ) ?? null)
+      : null;
+
+  /** Search every file for this audio file's sound: the same sync the Sync tab runs. */
+  const useAsRegistrationSound = async (item: MediaItem) => {
+    setOpen(null);
+    try {
+      const started = await startSync(slug, { kind: "file", path: item.path });
+      setJob(started);
+      const done = await waitForJob(started.id, setJob);
+      if (done.state === "error") onError(done.error ?? "sync failed");
+    } catch (e) {
+      fail(e);
+    }
+    setJob(null);
     onChange();
   };
 
@@ -107,12 +182,29 @@ export function MediaPanel(props: Props) {
           Build proxies{noProxy ? ` (${noProxy})` : ""}
         </Button>
         {job && <Progress value={job.progress} label={job.message} />}
+        {available.length > 0 && (
+          <select
+            aria-label="Show"
+            class="rounded bg-neutral-900 px-1 py-1 text-sm"
+            value={filter}
+            onChange={(e) => setFilter(e.currentTarget.value as MediaFilter)}
+          >
+            <option value="all">All files</option>
+            <option value="video">Cameras</option>
+            <option value="audio">Audio</option>
+            <option value="image">Stills</option>
+            <option value="new">New (not included)</option>
+            <option value="unsynced">Not synced</option>
+          </select>
+        )}
       </div>
       {available.length === 0 ? (
         <p class="self-center text-sm text-neutral-500">
           No media yet. Put the camera and audio files from this session in the project&apos;s
           folder (subfolders are fine) and they show up here, or add files from elsewhere.
         </p>
+      ) : groups.length === 0 ? (
+        <p class="self-center text-sm text-neutral-500">Nothing matches this filter.</p>
       ) : (
         <div
           class="flex min-w-0 flex-1 items-start gap-4 overflow-x-auto"
@@ -124,6 +216,24 @@ export function MediaPanel(props: Props) {
               group={g}
               collapsed={collapsed.has(g.key)}
               onToggle={() => toggleFolder(g.key)}
+              onIncludeAll={() => add(g.items.filter((m) => !m.included).map((m) => m.path))}
+              onShowAll={(on) =>
+                onEdit(
+                  setAllEnabled(
+                    edit,
+                    media,
+                    g.items.filter((m) => m.included),
+                    on,
+                  ),
+                )
+              }
+              allShown={g.items
+                .filter((m) => m.included)
+                .every((m) =>
+                  m.kind === "audio"
+                    ? trackIncluded(edit, media, m.id)
+                    : !edit.disabled.includes(m.id),
+                )}
             >
               {g.items.map((m) => (
                 <MediaCard
@@ -135,6 +245,9 @@ export function MediaPanel(props: Props) {
                   number={numbers.get(m.id) ?? null}
                   syncResult={sync?.results[m.id] ?? null}
                   peaks={peaks[m.id] ?? null}
+                  projectFps={projectFps}
+                  suggestion={suggestionFor(m)}
+                  onRelink={(path) => (path ? relink(m, path) : setRelinking(m))}
                   onEdit={onEdit}
                   onInclude={() => add([m.path])}
                   onDetails={(rect) => setOpen({ item: m, rect })}
@@ -149,7 +262,9 @@ export function MediaPanel(props: Props) {
           slug={slug}
           item={open.item}
           rect={open.rect}
-          edit={edit}
+          projectFps={projectFps}
+          usedIn={usage.get(open.item.id) ?? 0}
+          onUseAsSound={() => useAsRegistrationSound(open.item)}
           syncResult={sync?.results[open.item.id] ?? null}
           onRemove={() => {
             const id = open.item.id;
@@ -160,6 +275,12 @@ export function MediaPanel(props: Props) {
         />
       )}
       {browsing && <LibraryBrowser onAdd={add} onClose={() => setBrowsing(false)} />}
+      {relinking && (
+        <LibraryBrowser
+          onAdd={(paths) => paths[0] && relink(relinking, paths[0])}
+          onClose={() => setRelinking(null)}
+        />
+      )}
     </div>
   );
 }
@@ -169,28 +290,58 @@ function FolderGroup({
   group,
   collapsed,
   onToggle,
+  onIncludeAll,
+  onShowAll,
+  allShown,
   children,
 }: {
   group: MediaGroup;
   collapsed: boolean;
   onToggle: () => void;
+  onIncludeAll: () => void;
+  onShowAll: (on: boolean) => void;
+  allShown: boolean;
   children: preact.ComponentChildren;
 }) {
+  const waiting = group.items.filter((m) => !m.included).length;
+  const included = group.items.length - waiting;
   const name = group.external
     ? `Elsewhere${group.title ? ` · ${group.title}` : ""}`
     : group.title || "Project folder";
   return (
     <section class="flex shrink-0 flex-col gap-1" data-testid="media-folder" aria-label={name}>
-      <button
-        type="button"
-        class="flex items-center gap-1 text-left text-[11px] leading-4 text-neutral-400 hover:text-neutral-200"
-        aria-expanded={!collapsed}
-        onClick={onToggle}
-      >
-        <Icon icon={collapsed ? CaretRight : CaretDown} />
-        <span class="max-w-[16rem] truncate">{name}</span>
-        <span class="text-neutral-600">({group.items.length})</span>
-      </button>
+      <div class="flex items-center gap-2 text-[11px] leading-4">
+        <button
+          type="button"
+          class="flex min-w-0 items-center gap-1 text-left text-neutral-400 hover:text-neutral-200"
+          aria-expanded={!collapsed}
+          onClick={onToggle}
+        >
+          <Icon icon={collapsed ? CaretRight : CaretDown} />
+          <span class="max-w-[16rem] truncate">{name}</span>
+          <span class="text-neutral-600">({group.items.length})</span>
+        </button>
+        {waiting > 0 && (
+          <button
+            type="button"
+            class="text-amber-300 hover:text-amber-200"
+            onClick={onIncludeAll}
+            title="Include every new file of this folder in the project"
+          >
+            Include {waiting === group.items.length ? "all" : `${waiting} new`}
+          </button>
+        )}
+        {included > 1 && (
+          <button
+            type="button"
+            class="text-neutral-500 hover:text-neutral-200"
+            onClick={() => onShowAll(!allShown)}
+            title={allShown ? "Hide all of this folder's files" : "Show all of this folder's files"}
+          >
+            {allShown ? "Hide all" : "Show all"}
+          </button>
+        )}
+      </div>
       {!collapsed && (
         <ul class="grid auto-cols-[7.25rem] grid-flow-col grid-rows-2 gap-1.5">{children}</ul>
       )}
@@ -213,6 +364,9 @@ function MediaCard({
   number,
   syncResult,
   peaks,
+  projectFps,
+  suggestion,
+  onRelink,
   onEdit,
   onInclude,
   onDetails,
@@ -224,6 +378,10 @@ function MediaCard({
   number: number | null;
   syncResult: SyncResult | null;
   peaks: Peaks | null;
+  projectFps: { fps: number } | null;
+  suggestion: MediaItem | null;
+  /** With a path: use that file; without: choose one. */
+  onRelink: (path?: string) => void;
   onEdit: (edit: EditList) => void;
   onInclude: () => void;
   onDetails: (rect: DOMRect) => void;
@@ -255,6 +413,7 @@ function MediaCard({
   };
   const showsAudioToggle = included && m.kind === "video" && m.has_audio;
   const sync = SYNC_DOT[syncResult?.status ?? "none"];
+  const notes = formatNotes(m, projectFps);
   const syncable = included && !m.missing && m.kind !== "image";
   const colour = channelStyle(m.kind === "image" ? "image" : "video").chip.split(" ")[0];
   const iconButton =
@@ -272,8 +431,22 @@ function MediaCard({
         <Picture_ slug={slug} item={m} peaks={peaks} />
       </div>
       {m.missing && (
-        <div class="absolute inset-0 flex items-center justify-center bg-red-950/80 px-1 text-center text-[11px] text-red-200">
+        <div class="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-red-950/85 px-1 text-center text-[11px] text-red-200">
           Can&apos;t read this file
+          {included && (
+            <button
+              type="button"
+              class="rounded bg-red-800 px-1.5 text-[11px] text-white hover:bg-red-700"
+              title={
+                suggestion
+                  ? `Use ${suggestion.path}, which has the same name and length`
+                  : "Choose where the file is now"
+              }
+              onClick={() => onRelink(suggestion?.path)}
+            >
+              {suggestion ? "Use found file" : "Relink…"}
+            </button>
+          )}
         </div>
       )}
       {included && number !== null && on && (
@@ -333,6 +506,11 @@ function MediaCard({
             title={`Sync: ${sync.label}${syncResult?.score ? ` (match ${syncResult.score.toFixed(2)})` : ""}`}
             class={`h-2.5 w-2.5 rounded-full ring-1 ring-black/60 ${sync.tone}`}
           />
+        )}
+        {notes.length > 0 && (
+          <span title={notes.join("\n")} aria-label={notes.join(". ")} role="img">
+            <Icon icon={Warning} class="text-xs text-amber-300" />
+          </span>
         )}
         {included && !m.proxy_ready && !m.missing && m.kind !== "image" && (
           <Icon icon={Thunderbolt} class="text-xs text-amber-400" />
@@ -397,7 +575,9 @@ function DetailsPopover({
   slug,
   item,
   rect,
-  edit,
+  projectFps,
+  usedIn,
+  onUseAsSound,
   syncResult,
   onRemove,
   onClose,
@@ -405,7 +585,9 @@ function DetailsPopover({
   slug: string;
   item: MediaItem;
   rect: DOMRect;
-  edit: EditList;
+  projectFps: { fps: number } | null;
+  usedIn: number;
+  onUseAsSound: () => void;
   syncResult: SyncResult | null;
   onRemove: () => void;
   onClose: () => void;
@@ -438,7 +620,6 @@ function DetailsPopover({
     };
   }, [onClose]);
 
-  const projectFps = edit.fps_den ? { fps: edit.fps_num / edit.fps_den } : null;
   const width = 288;
   const left = Math.max(8, Math.min(rect.right - width, window.innerWidth - width - 8));
   const sections = details ? detailSections(details, item, projectFps) : [];
@@ -493,6 +674,16 @@ function DetailsPopover({
           <dd>{item.included ? "included" : "found in the folder, not included yet"}</dd>
           {item.kind !== "image" && item.included && (
             <>
+              {item.kind !== "audio" && (
+                <>
+                  <dt class="text-neutral-400">Used</dt>
+                  <dd>
+                    {usedIn === 0
+                      ? "not in any segment"
+                      : `in ${usedIn} segment${usedIn === 1 ? "" : "s"}`}
+                  </dd>
+                </>
+              )}
               <dt class="text-neutral-400">Proxy</dt>
               <dd>{item.proxy_ready ? "built" : "not built yet"}</dd>
               <dt class="text-neutral-400">Sync</dt>
@@ -505,6 +696,17 @@ function DetailsPopover({
           )}
         </dl>
       </div>
+      {item.kind === "audio" && !item.missing && (
+        <div class="mt-3 border-t border-neutral-700 pt-2">
+          <Button icon={Sync} onClick={onUseAsSound}>
+            Use as the registration sound
+          </Button>
+          <p class="mt-1 text-[11px] text-neutral-500">
+            Finds this sound in every file and syncs them to it (the same as the Sync tab&apos;s
+            &ldquo;An audio file&rdquo;).
+          </p>
+        </div>
+      )}
       {item.included && (
         <div class="mt-3 border-t border-neutral-700 pt-2">
           <Button variant="ghost" icon={Close} onClick={onRemove}>

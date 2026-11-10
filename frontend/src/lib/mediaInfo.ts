@@ -1,5 +1,5 @@
 // Human-readable pieces of a media file's technical details.
-import type { MediaDetails, MediaItem } from "./api";
+import type { MediaDetails, MediaItem, SyncState } from "./api";
 
 export function formatBytes(bytes: number | null): string {
   if (bytes === null) return "–";
@@ -94,4 +94,32 @@ export function detailSections(
     sections.push({ title: "Audio", rows });
   }
   return sections;
+}
+
+/** Things about a file worth a second look, for a note on its card. */
+export function formatNotes(item: MediaItem, project: { fps: number } | null): string[] {
+  const notes: string[] = [];
+  if (item.kind === "video" && item.fps && project && Math.abs(item.fps - project.fps) > 0.05) {
+    notes.push(`${item.fps.toFixed(2)} fps, but the project is ${project.fps.toFixed(2)} fps`);
+  }
+  if (item.kind !== "audio" && item.width && item.height && item.height > item.width) {
+    notes.push("Portrait (vertical) picture");
+  }
+  return notes;
+}
+
+export type MediaFilter = "all" | "video" | "audio" | "image" | "new" | "unsynced";
+
+/** Which media the media tab shows. "Unsynced": video and audio the sync hasn't placed. */
+export function matchesFilter(m: MediaItem, filter: MediaFilter, sync: SyncState | null): boolean {
+  switch (filter) {
+    case "all":
+      return true;
+    case "new":
+      return !m.included;
+    case "unsynced":
+      return m.included && m.kind !== "image" && sync?.results[m.id]?.status !== "synced";
+    default:
+      return m.kind === filter;
+  }
 }
