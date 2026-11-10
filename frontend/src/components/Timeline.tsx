@@ -1,3 +1,4 @@
+import type { ComponentChildren } from "preact";
 import { useRef, useState } from "preact/hooks";
 
 import type { EditList, MediaItem, Peaks } from "../lib/api";
@@ -33,6 +34,8 @@ interface Props {
   onSelect: (range: Range | null) => void;
   onCamera: (mediaId: string) => void;
   onTrack: (mediaId: string, patch: { gain_db?: number }) => void;
+  /** Controls for the empty top-left corner (zoom). */
+  corner?: ComponentChildren;
   /** A cut's edges were dragged: its index and its new start and end. */
   onCutChange?: (index: number, start_s: number, end_s: number) => void;
 }
@@ -116,7 +119,9 @@ export function Timeline(props: Props) {
     >
       <div class="flex" style={{ width: LABEL_W + total }}>
         <div class="sticky left-0 z-20 bg-neutral-900" style={{ width: LABEL_W }}>
-          <div style={{ height: ROW.ruler }} />
+          <div class="flex items-center gap-1 px-1" style={{ height: ROW.ruler }}>
+            {props.corner}
+          </div>
           {cameras.map((c) => (
             <div
               key={c.item.id}

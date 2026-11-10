@@ -69,6 +69,10 @@ Root `justfile` delegates to both; Compose runs `api` (:8000) and `web` (:8080).
   exporting it from `components/icons.ts`, then pass `icon={...}` to `Button`/`Badge` or render
   `<Icon />`. Always pair an icon with visible text or an `aria-label` (icons are `aria-hidden`);
   a test fails if text glyphs/emoji stand in for icons. Use `size="sm"` buttons in dense toolbars.
+- **Camera tiles paint from the player's own `<video>` elements** (`useEditor().mediaElements`, a
+  registry the Player fills; `CameraTile` copies frames to a small canvas on each render and on
+  `seeked`). Never give a tile its own `<video>`: that would decode every camera twice. Tiles keep
+  fixed slots by camera number; the active camera is a placeholder so the grid never reorders.
 - **Channels are numbered cameras-first, then stills, by name, only 1-9** (`channelsOf` in
   `lib/timeline.ts`): this numbering drives the number keys, the ribbon buttons, the timeline row
   badges and the switch list, so change it in one place.

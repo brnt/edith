@@ -6,6 +6,7 @@ HTMLCanvasElement.prototype.getContext = vi.fn(() => ({
   clearRect: vi.fn(),
   fillRect: vi.fn(),
   fillStyle: "",
+  drawImage: vi.fn(),
   setTransform: vi.fn(),
   scale: vi.fn(),
 })) as unknown as HTMLCanvasElement["getContext"];

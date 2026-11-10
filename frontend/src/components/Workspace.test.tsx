@@ -533,3 +533,57 @@ describe("icons", () => {
     }
   });
 });
+
+describe("the other cameras beside the active view", () => {
+  test("show the cameras that are not on screen; clicking one cuts to it at the playhead", async () => {
+    render(<Workspace slug="show" />);
+    const tiles = await screen.findByTestId("camera-tiles");
+    // Cam A is on screen (it starts first), so only Cam B (camera 2) is offered. Waiting for its
+    // tile also waits for the media to load, which the timeline length depends on.
+    await within(tiles).findByRole("button", { name: "Preview of camera 2: switch to it" });
+    await screen.findByText("synced"); // loading is finished; the playhead has been placed
+    expect(within(tiles).getAllByRole("button")).toHaveLength(1);
+    fireEvent.keyDown(window, { key: "ArrowRight" });
+    await waitFor(() => expect(screen.getByText("0:01.00")).toBeInTheDocument());
+
+    const order = () =>
+      [...tiles.children].map(
+        (el) => /camera (\d+)/i.exec(el.getAttribute("aria-label") ?? "")?.[1],
+      );
+    expect(order()).toEqual(["1", "2"]); // camera 1's slot holds the placeholder
+    expect(within(tiles).getByTestId("tile-placeholder")).toHaveAttribute(
+      "aria-label",
+      "Camera 1 is on screen",
+    );
+
+    fireEvent.click(
+      within(tiles).getByRole("button", { name: "Preview of camera 2: switch to it" }),
+    );
+    expect(screen.getByText("unsaved changes")).toBeInTheDocument();
+    // Now camera 1 is the one on the side, in its own slot: swapping did not move any tile.
+    expect(
+      await within(tiles).findByRole("button", { name: "Preview of camera 1: switch to it" }),
+    ).toBeInTheDocument();
+    expect(within(tiles).queryByRole("button", { name: /camera 2/ })).toBeNull();
+    expect(order()).toEqual(["1", "2"]);
+    expect(within(tiles).getByTestId("tile-placeholder")).toHaveAttribute(
+      "aria-label",
+      "Camera 2 is on screen",
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Switches \(1\)/ }));
+    expect(screen.getByText(/0:01\.0 → Camera 2/)).toBeInTheDocument();
+  });
+
+  test("the transport sits under the active view and the zoom controls moved to the timeline", async () => {
+    render(<Workspace slug="show" />);
+    const timeline = await screen.findByTestId("timeline");
+    expect(within(timeline).getByRole("button", { name: "Zoom in" })).toBeInTheDocument();
+    expect(within(timeline).getByRole("button", { name: "Fit" })).toBeInTheDocument();
+    const player = screen.getByTestId("player");
+    const play = screen.getByRole("button", { name: /Play \(space\)/ });
+    // Same column as the player: the play button is not inside the camera tiles or the timeline.
+    expect(player.closest(".flex-col")?.contains(play)).toBe(true);
+    expect(screen.getByTestId("camera-tiles").contains(play)).toBe(false);
+  });
+});
