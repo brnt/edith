@@ -10,13 +10,17 @@ from fastapi.testclient import TestClient
 
 from edith.db.documents import EDIT
 from edith.db.project_file import ProjectFile
+from edith.services.projects import slug_for
 
 FIXTURES = Path(__file__).parent.parent / "fixtures" / "projects"
 
 
-def install(library: Path, fixture: str, slug: str = "old-show") -> Path:
-    """Write a project file whose documents carry the versions they were saved with."""
-    folder = library / slug
+def install(workspace: Path, fixture: str) -> tuple[Path, str]:
+    """Write a project file whose documents carry the versions they were saved with.
+
+    Returns the file and the project's id (the folder is wherever we put it: no list needed).
+    """
+    folder = workspace / "old-show"
     folder.mkdir()
     ProjectFile.create(folder / "project.edith").close()
     conn = sqlite3.connect(folder / "project.edith")
@@ -27,21 +31,21 @@ def install(library: Path, fixture: str, slug: str = "old-show") -> Path:
                 (doc["kind"], doc["id"], doc["schema_version"], json.dumps(doc["body"])),
             )
     conn.close()
-    return folder / "project.edith"
+    return folder / "project.edith", slug_for(folder)
 
 
 def fingerprint(path: Path) -> tuple[str, int]:
     return hashlib.sha256(path.read_bytes()).hexdigest(), path.stat().st_mtime_ns
 
 
-def test_a_v1_project_opens_reads_as_current_and_is_left_untouched(client: TestClient, library):
-    path = install(library, "v1_with_still_overlays.json")
+def test_a_v1_project_opens_reads_as_current_and_is_left_untouched(client: TestClient, workspace):
+    path, slug = install(workspace, "v1_with_still_overlays.json")
     before = fingerprint(path)
 
-    summary = client.get("/projects/old-show").json()
+    summary = client.get(f"/projects/{slug}").json()
     assert summary["needs_upgrade"] is True and summary["name"] == "Old Show"
 
-    edit = client.get("/projects/old-show/edit").json()
+    edit = client.get(f"/projects/{slug}/edit").json()
     assert edit["needs_upgrade"] is True
     body = edit["edit"]
     assert "stills" not in body
@@ -52,7 +56,7 @@ def test_a_v1_project_opens_reads_as_current_and_is_left_untouched(client: TestC
     ]
     assert body["a_field_from_the_future"] == 7  # unknown fields survive
 
-    plan = client.get("/projects/old-show/plan").json()
+    plan = client.get(f"/projects/{slug}/plan").json()
     assert [(s["kind"], s["media_id"], s["rec_in_s"], s["dur_s"]) for s in plan["video"]] == [
         ("camera", "camA", 0, 5),  # the default camera before the first switch
         ("camera", "camB", 5, 5),
@@ -65,12 +69,12 @@ def test_a_v1_project_opens_reads_as_current_and_is_left_untouched(client: TestC
     assert fingerprint(path) == before  # nothing above wrote to the file
 
 
-def test_saving_the_edit_rewrites_it_in_the_current_format(client: TestClient, library):
-    path = install(library, "v1_with_still_overlays.json")
-    edit = client.get("/projects/old-show/edit").json()["edit"]
-    assert client.put("/projects/old-show/edit", json=edit).status_code == 200
+def test_saving_the_edit_rewrites_it_in_the_current_format(client: TestClient, workspace):
+    path, slug = install(workspace, "v1_with_still_overlays.json")
+    edit = client.get(f"/projects/{slug}/edit").json()["edit"]
+    assert client.put(f"/projects/{slug}/edit", json=edit).status_code == 200
 
     with ProjectFile.open(path) as project:
         loaded = project.get(EDIT, "edit")
     assert loaded is not None and loaded.stored_version == EDIT.current_version
-    assert client.get("/projects/old-show").json()["needs_upgrade"] is False
+    assert client.get(f"/projects/{slug}").json()["needs_upgrade"] is False

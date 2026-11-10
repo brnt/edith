@@ -1,5 +1,7 @@
+import os
 import shutil
 import subprocess
+import time
 import wave
 from pathlib import Path
 
@@ -14,18 +16,35 @@ needs_ffmpeg = pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg
 
 
 @pytest.fixture
-def library(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """An empty, throwaway project library. The default suite never touches ./.library."""
-    monkeypatch.setenv("LIBRARY_DIR", str(tmp_path))
+def workspace(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """A throwaway place for test folders, with Edith's own state kept apart from it."""
+    for name in ("LIBRARY_DIR", "LEGACY_LIBRARY_DIR"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("STATE_DIR", str(tmp_path / "state"))
     get_settings.cache_clear()
-    yield tmp_path
+    work = tmp_path / "work"
+    work.mkdir()
+    yield work
     get_settings.cache_clear()
 
 
 @pytest.fixture
-def client(library: Path) -> TestClient:
+def project_dir(workspace: Path) -> Path:
+    """The folder the `project` fixture's project lives in (made when the project is created)."""
+    return workspace / "show"
+
+
+@pytest.fixture
+def client(workspace: Path) -> TestClient:
     headers = {"Authorization": f"Bearer {get_settings().api_token}"}
     return TestClient(app, headers=headers)
+
+
+def settled(path: Path, seconds: float = 60) -> Path:
+    """Make a file look old enough that discovery doesn't think it is still being copied."""
+    past = time.time() - seconds
+    os.utime(path, (past, past))
+    return path
 
 
 def write_wav(path: Path, audio: np.ndarray, rate: int = 44_100) -> Path:
@@ -79,7 +98,7 @@ def write_image(path: Path, size: str = "640x360") -> Path:
 
 
 @pytest.fixture
-def project(client: TestClient) -> str:
-    created = client.post("/projects", json={"name": "Test Show"})
+def project(client: TestClient, project_dir: Path) -> str:
+    created = client.post("/projects", json={"name": "Test Show", "folder": str(project_dir)})
     assert created.status_code == 201, created.text
     return created.json()["slug"]

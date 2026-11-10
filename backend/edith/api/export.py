@@ -14,11 +14,9 @@ def get_export(
     fmt: Literal["json", "fcpxml", "xmeml", "edl"],
     settings: Settings = Depends(get_settings),
 ):
-    body, media_type, ext = exporting.export(
-        settings.library_dir, settings.host_library_dir, slug, fmt
-    )
+    body, media_type, filename = exporting.export(slug, fmt)
     return Response(
         body,
         media_type=media_type,
-        headers={"Content-Disposition": f'attachment; filename="{slug}.{ext}"'},
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )

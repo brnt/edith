@@ -25,6 +25,10 @@ from edith.db.documents import Document, DocumentKind
 
 FORMAT = "edith-project"
 CONTAINER_VERSION = 1  # the frozen two-table layout below
+# Where media paths in the file are relative to. "folder": the project's own folder (the project is
+# the folder that holds it). Files from before that have no marker (media paths relative to the
+# library) and are converted once at startup (services/migration.py).
+LAYOUT_FOLDER = "folder"
 
 _SCHEMA = """
 CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -64,7 +68,11 @@ class ProjectFile:
             conn.executescript(_SCHEMA)
             conn.executemany(
                 "INSERT INTO meta (key, value) VALUES (?, ?)",
-                [("format", FORMAT), ("container_version", str(CONTAINER_VERSION))],
+                [
+                    ("format", FORMAT),
+                    ("container_version", str(CONTAINER_VERSION)),
+                    ("layout", LAYOUT_FOLDER),
+                ],
             )
         return cls(conn, writable=True)
 
@@ -88,6 +96,20 @@ class ProjectFile:
                 f"{path.name} was written by a newer Edith; update to open it."
             )
         return cls(conn, writable=writable)
+
+    def layout(self) -> str | None:
+        row = self._conn.execute("SELECT value FROM meta WHERE key = 'layout'").fetchone()
+        return row[0] if row else None
+
+    def set_layout(self, layout: str) -> None:
+        if not self._writable:
+            raise ReadOnlyProject("project opened read-only")
+        with self._conn:
+            self._conn.execute(
+                "INSERT INTO meta (key, value) VALUES ('layout', ?) "
+                "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                (layout,),
+            )
 
     def get(self, kind: DocumentKind, doc_id: str) -> LoadedDocument | None:
         row = self._conn.execute(

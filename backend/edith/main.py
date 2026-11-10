@@ -13,6 +13,7 @@ from edith.api.sync import router as sync_router
 from edith.core.config import get_settings
 from edith.core.logging import configure_logging
 from edith.core.middleware import RequestIDMiddleware
+from edith.services.migration import import_legacy_library
 
 log = structlog.get_logger()
 
@@ -21,6 +22,8 @@ log = structlog.get_logger()
 async def lifespan(app: FastAPI):
     settings = get_settings()
     log.info("startup", app=settings.app_name, environment=settings.environment)
+    if settings.legacy_library_dir is not None:  # projects from before the folder layout
+        import_legacy_library(settings.legacy_library_dir, settings.state_dir)
     yield
     log.info("shutdown")
 

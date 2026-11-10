@@ -68,7 +68,7 @@ class Part(BaseModel):
 
 class MediaItem(Document):
     id: str
-    path: str  # relative to the library root; media is referenced in place, never copied
+    path: str  # relative to the project folder (links in the folder are fine); never copied
     kind: Literal["video", "audio", "image"]
     label: str
     duration_s: float | None = None
@@ -82,7 +82,7 @@ class SyncTemplate(Part):
     """The registration sound, and where it comes from.
 
     `excerpt` (the default, and all that v1 files hold): a stretch of a registered recording.
-    `seed`: generated from a text string. `file`: an audio file in the library.
+    `seed`: generated from a text string. `file`: an audio file in the project folder.
     """
 
     kind: Literal["excerpt", "seed", "file"] = "excerpt"
@@ -90,7 +90,7 @@ class SyncTemplate(Part):
     start_s: float | None = None
     end_s: float | None = None
     seed: str | None = None
-    path: str | None = None  # library-relative
+    path: str | None = None  # relative to the project folder
     duration_s: float | None = None  # the sound's actual length, recorded when syncing
 
 

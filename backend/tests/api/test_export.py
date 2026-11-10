@@ -11,10 +11,10 @@ pytestmark = needs_ffmpeg
 
 
 @pytest.fixture
-def edited(client: TestClient, library, project):
-    write_wav(library / "media" / "mic.wav", np.zeros(10 * 44_100))
-    write_video(library / "media" / "cam.mp4", seconds=10)
-    write_image(library / "media" / "car.png")
+def edited(client: TestClient, project_dir, project):
+    write_wav(project_dir / "media" / "mic.wav", np.zeros(10 * 44_100))
+    write_video(project_dir / "media" / "cam.mp4", seconds=10)
+    write_image(project_dir / "media" / "car.png")
     ids = {
         n: client.post(f"/projects/{project}/media", json={"path": f"media/{n}"}).json()["id"]
         for n in ("mic.wav", "cam.mp4", "car.png")
@@ -35,21 +35,17 @@ def edited(client: TestClient, library, project):
 def test_every_format_downloads(client: TestClient, project, edited, fmt, ext):
     response = client.get(f"/projects/{project}/export/{fmt}")
     assert response.status_code == 200, response.text
-    assert f'filename="{project}.{ext}"' in response.headers["content-disposition"]
+    assert f'filename="Test-Show.{ext}"' in response.headers["content-disposition"]  # the name
     assert len(response.text) > 100
 
 
-def test_xml_exports_parse_and_use_host_paths(
-    client: TestClient, project, edited, monkeypatch, library
+def test_xml_exports_parse_and_point_at_the_media_in_the_project_folder(
+    client: TestClient, project, project_dir, edited
 ):
-    from edith.core.config import get_settings
-
-    monkeypatch.setenv("HOST_LIBRARY_DIR", "/Volumes/BRENTexp")
-    get_settings.cache_clear()
     for fmt in ("fcpxml", "xmeml"):
         text = client.get(f"/projects/{project}/export/{fmt}").text
         ET.fromstring(text.split("\n", 2)[2])
-        assert "file://localhost/Volumes/BRENTexp/media/" in text
+        assert f"file://localhost{project_dir}/media/" in text
 
 
 def test_json_export_contains_every_document_with_its_version(client: TestClient, project, edited):

@@ -23,11 +23,11 @@ def _recording(rate: int, seconds: float, tones: list[float], seed: int) -> np.n
 
 
 @pytest.fixture
-def session(client: TestClient, library, project):
+def session(client: TestClient, project_dir, project):
     """A recorder and a camera-audio file that started 7.25 s later, plus a still."""
-    write_wav(library / "media" / "zoom.wav", _recording(44_100, 50, [13.0, 43.0], 1))
-    write_wav(library / "media" / "cam.wav", _recording(48_000, 40, [5.75, 35.75], 2), 48_000)
-    write_image(library / "media" / "car.png")
+    write_wav(project_dir / "media" / "zoom.wav", _recording(44_100, 50, [13.0, 43.0], 1))
+    write_wav(project_dir / "media" / "cam.wav", _recording(48_000, 40, [5.75, 35.75], 2), 48_000)
+    write_image(project_dir / "media" / "car.png")
     ids = {}
     for name in ("zoom.wav", "cam.wav", "car.png"):
         ids[name] = client.post(
@@ -120,10 +120,10 @@ def test_the_sound_can_be_generated_from_a_seed(client: TestClient, project, ses
 
 
 def test_the_sound_can_be_an_audio_file_padded_with_silence(
-    client: TestClient, project, session, library
+    client: TestClient, project, session, project_dir
 ):
     # Generated sounds come with silence either side; it must not stop the match.
-    (library / "reference.wav").write_bytes(padded_wav("stickshift", lead_s=0.5, tail_s=1.0))
+    (project_dir / "reference.wav").write_bytes(padded_wav("stickshift", lead_s=0.5, tail_s=1.0))
     done = _sync_with(client, project, {"kind": "file", "path": "reference.wav"})
     assert done.state == "done", done.error
     _synced(client, project, session)
@@ -149,8 +149,8 @@ def test_a_file_that_is_not_usable_audio_fails_the_job(client: TestClient, proje
     assert done.state == "error", done.result
 
 
-def test_a_silent_audio_file_fails_the_job(client: TestClient, project, session, library):
-    write_wav(library / "silent.wav", np.zeros(44_100))
+def test_a_silent_audio_file_fails_the_job(client: TestClient, project, session, project_dir):
+    write_wav(project_dir / "silent.wav", np.zeros(44_100))
     done = _sync_with(client, project, {"kind": "file", "path": "silent.wav"})
     assert done.state == "error" and "InvalidTemplate" in done.error
 

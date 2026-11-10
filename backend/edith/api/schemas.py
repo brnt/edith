@@ -6,6 +6,11 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 class ProjectCreate(BaseModel):
     name: str
+    folder: str  # absolute path; made if it does not exist yet
+
+
+class ProjectOpen(BaseModel):
+    folder: str  # absolute path of a folder that holds a project
 
 
 class ProjectRead(BaseModel):
@@ -13,16 +18,19 @@ class ProjectRead(BaseModel):
 
     slug: str
     name: str
-    created_at: datetime
+    folder: str
+    created_at: datetime | None
     needs_upgrade: bool
+    available: bool = True
+    last_opened: str | None = None
 
 
 class MediaAdd(BaseModel):
-    path: str  # relative to the library root
+    path: str  # relative to the project folder
 
 
 class MediaRelink(BaseModel):
-    path: str  # the file to use instead, relative to the library root
+    path: str  # the file to use instead, relative to the project folder
 
 
 class MediaRead(BaseModel):
@@ -41,26 +49,31 @@ class MediaRead(BaseModel):
     included: bool = True
     missing: bool = False
     folder: str = ""
-    external: bool = False
     size_bytes: int | None = None
 
 
-class LibraryEntryRead(BaseModel):
+class FolderEntryRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     name: str
     path: str
-    is_dir: bool
-    kind: str | None
-    size: int | None
+    is_project: bool
 
 
-class LibraryListingRead(BaseModel):
+class FolderListingRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     dir: str
     parent: str | None
-    entries: list[LibraryEntryRead]
+    entries: list[FolderEntryRead]
+    is_project: bool
+
+
+class PlaceRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    name: str
+    path: str
 
 
 class JobRead(BaseModel):

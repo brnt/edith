@@ -73,10 +73,12 @@ def test_an_edit_without_video_cannot_render():
 
 
 @needs_ffmpeg
-def test_renders_a_real_edit_to_1080p_with_audio(client: TestClient, library, project):
-    write_video(library / "cam.mp4", seconds=8)
-    write_wav(library / "mic.wav", 0.2 * np.sin(2 * np.pi * 330 * np.arange(8 * 44_100) / 44_100))
-    write_image(library / "car.jpg", "800x400")
+def test_renders_a_real_edit_to_1080p_with_audio(client: TestClient, project_dir, project):
+    write_video(project_dir / "cam.mp4", seconds=8)
+    write_wav(
+        project_dir / "mic.wav", 0.2 * np.sin(2 * np.pi * 330 * np.arange(8 * 44_100) / 44_100)
+    )
+    write_image(project_dir / "car.jpg", "800x400")
     ids = {n: client.post(f"/projects/{project}/media", json={"path": n}).json()["id"]
            for n in ("cam.mp4", "mic.wav", "car.jpg")}  # fmt: skip
     edit = client.get(f"/projects/{project}/edit").json()["edit"]
@@ -97,7 +99,7 @@ def test_renders_a_real_edit_to_1080p_with_audio(client: TestClient, library, pr
     assert (
         len(listed) == 1 and listed[0]["name"] == done.result["name"] and listed[0]["size"] > 5_000
     )
-    path = library / project / "renders" / listed[0]["name"]
+    path = project_dir / "renders" / listed[0]["name"]
     info = probing.probe(path)
     assert (info.width, info.height) == (1920, 1080) and info.has_audio
     assert info.duration_s == pytest.approx(7.0, abs=0.25)  # 8 s minus the 1 s cut
@@ -106,12 +108,12 @@ def test_renders_a_real_edit_to_1080p_with_audio(client: TestClient, library, pr
     download = client.get(f"/projects/{project}/renders/{listed[0]['name']}")
     assert download.status_code == 200 and download.headers["content-type"] == "video/mp4"
     assert client.get(f"/projects/{project}/renders/..%2Fproject.edith").status_code == 404
-    assert not list((library / project / "renders").glob("*.partial*"))
+    assert not list((project_dir / "renders").glob("*.partial*"))
 
 
 @needs_ffmpeg
-def test_a_failed_render_leaves_no_partial_file(client: TestClient, library, project):
-    write_wav(library / "mic.wav", np.zeros(44_100))
+def test_a_failed_render_leaves_no_partial_file(client: TestClient, project_dir, project):
+    write_wav(project_dir / "mic.wav", np.zeros(44_100))
     client.post(f"/projects/{project}/media", json={"path": "mic.wav"})
     done = jobs.wait(client.post(f"/projects/{project}/render").json()["id"])
     assert done.state == "error" and "nothing to render" in done.error

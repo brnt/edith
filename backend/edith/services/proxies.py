@@ -13,7 +13,8 @@ _MIME = {".mp4": "video/mp4", ".m4a": "audio/mp4", ".jpg": "image/jpeg"}
 
 
 def cache_dir(project_folder: Path) -> Path:
-    return project_folder / "cache"
+    """Everything derived and rebuildable, kept out of sight in the project folder."""
+    return project_folder / ".edith"
 
 
 def proxy_path(project_folder: Path, item: MediaItem) -> Path:

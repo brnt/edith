@@ -31,7 +31,7 @@ class MediaNotFound(EdithError):
 
 
 class InvalidMediaPath(EdithError):
-    """A path outside the library, absolute, or otherwise not a usable media file."""
+    """A path outside the project folder, absolute, or otherwise not a usable media file."""
 
 
 class MediaError(EdithError):

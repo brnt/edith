@@ -11,19 +11,19 @@ router = APIRouter()
 
 @router.get("/projects/{slug}/edit", response_model=EditRead)
 def get_edit(slug: str, settings: Settings = Depends(get_settings)):
-    edit, needs_upgrade = editing.get_edit(settings.library_dir, slug)
+    edit, needs_upgrade = editing.get_edit(slug)
     return EditRead(edit=edit.model_dump(), needs_upgrade=needs_upgrade)
 
 
 @router.put("/projects/{slug}/edit", response_model=EditRead, dependencies=[Depends(require_token)])
 def put_edit(slug: str, edit: EditList, settings: Settings = Depends(get_settings)):
-    saved = editing.put_edit(settings.library_dir, slug, edit)
+    saved = editing.put_edit(slug, edit)
     return EditRead(edit=saved.model_dump(), needs_upgrade=False)
 
 
 @router.get("/projects/{slug}/plan", response_model=PlanRead)
 def get_plan(slug: str, settings: Settings = Depends(get_settings)):
-    return editing.build_project_plan(settings.library_dir, slug)
+    return editing.build_project_plan(slug)
 
 
 @router.get("/projects/{slug}/silence", response_model=SilenceRead)
@@ -34,7 +34,5 @@ def get_silence(
     pad_s: float = 0.4,
     settings: Settings = Depends(get_settings),
 ):
-    cuts = editing.suggest_silence(
-        settings.library_dir, slug, threshold_db=threshold_db, min_s=min_s, pad_s=pad_s
-    )
+    cuts = editing.suggest_silence(slug, threshold_db=threshold_db, min_s=min_s, pad_s=pad_s)
     return SilenceRead(cuts=[CutRange(start_s=a, end_s=b) for a, b in cuts])

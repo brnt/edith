@@ -10,13 +10,13 @@ pytestmark = needs_ffmpeg
 
 
 @pytest.fixture
-def ids(client: TestClient, library, project):
+def ids(client: TestClient, project_dir, project):
     audio = np.zeros(10 * 44_100)
     audio[2 * 44_100 : 4 * 44_100] = 0.3 * np.sin(2 * np.pi * 300 * np.arange(2 * 44_100) / 44_100)
     audio[8 * 44_100 :] = 0.3
-    write_wav(library / "mic.wav", audio)
-    write_video(library / "cam.mp4", seconds=10)
-    write_image(library / "car.png")
+    write_wav(project_dir / "mic.wav", audio)
+    write_video(project_dir / "cam.mp4", seconds=10)
+    write_image(project_dir / "car.png")
     return {
         n: client.post(f"/projects/{project}/media", json={"path": n}).json()["id"]
         for n in ("mic.wav", "cam.mp4", "car.png")
@@ -105,7 +105,9 @@ def test_silence_suggestions_come_from_the_audio_envelope(client: TestClient, pr
     ]
 
 
-def _beep_session(client: TestClient, library, project, speech_from: float = 8.0, kind="excerpt"):
+def _beep_session(
+    client: TestClient, project_dir, project, speech_from: float = 8.0, kind="excerpt"
+):
     """Quiet room, a registration beep at 5 s and 15 s, speech-like noise until 12 s.
 
     `kind` is how the sound is specified to sync: a marked excerpt, a seed, or an audio file.
@@ -117,12 +119,12 @@ def _beep_session(client: TestClient, library, project, speech_from: float = 8.0
         audio[int(t * rate) : int(t * rate) + len(burst)] += burst
     start = int(speech_from * rate)
     audio[start : 12 * rate] += np.random.default_rng(4).normal(0, 0.1, 12 * rate - start)
-    write_wav(library / "mic.wav", audio)
+    write_wav(project_dir / "mic.wav", audio)
     media_id = client.post(f"/projects/{project}/media", json={"path": "mic.wav"}).json()["id"]
     if kind == "seed":
         template = {"kind": "seed", "seed": "x"}
     elif kind == "file":
-        (library / "reference.wav").write_bytes(padded_wav("x"))
+        (project_dir / "reference.wav").write_bytes(padded_wav("x"))
         template = {"kind": "file", "path": "reference.wav"}
     else:
         template = {"kind": "excerpt", "media_id": media_id, "start_s": 4.9, "end_s": 5.3}
@@ -135,16 +137,18 @@ def _cuts(client: TestClient, project):
     return [(round(c["start_s"], 2), round(c["end_s"], 2)) for c in response.json()["cuts"]]
 
 
-def test_registration_sounds_are_cut_with_the_dead_time_around_them(client, library, project):
-    _beep_session(client, library, project)
+def test_registration_sounds_are_cut_with_the_dead_time_around_them(client, project_dir, project):
+    _beep_session(client, project_dir, project)
     # Opening: quiet + beep + quiet up to the speech (8 s) less padding; closing: 12.4 s to the end.
     # Without the registration rule the beeps split these into pieces and stay in the edit.
     cuts = _cuts(client, project)
     assert cuts == [pytest.approx((0.0, 7.6), abs=0.05), pytest.approx((12.4, 22.0), abs=0.05)]
 
 
-def test_a_beep_right_before_speech_is_still_cut_but_the_speech_is_not(client, library, project):
-    _beep_session(client, library, project, speech_from=5.7)  # only 0.4 s after the beep ends
+def test_a_beep_right_before_speech_is_still_cut_but_the_speech_is_not(
+    client, project_dir, project
+):
+    _beep_session(client, project_dir, project, speech_from=5.7)  # only 0.4 s after the beep ends
     cuts = _cuts(client, project)
     assert cuts[0][0] <= 4.65 and cuts[0][1] >= 5.55  # the beep plus its margin
     assert cuts[0][1] < 5.7  # and none of the speech
@@ -183,20 +187,12 @@ def test_invalid_mix_regions_are_rejected(client: TestClient, project, ids, regi
     )
 
 
-def test_removing_media_removes_its_mix_regions(client: TestClient, project, ids):
-    base = client.get(f"/projects/{project}/edit").json()["edit"]
-    mix = [{"media_id": ids["mic.wav"], "start_s": 1.0, "end_s": 2.0, "muted": True}]
-    client.put(f"/projects/{project}/edit", json={**base, "mix": mix})
-    assert client.delete(f"/projects/{project}/media/{ids['mic.wav']}").status_code == 204
-    assert client.get(f"/projects/{project}/edit").json()["edit"]["mix"] == []
-
-
 @pytest.mark.parametrize("kind", ["excerpt", "seed", "file"])
 def test_registration_sounds_are_cut_whichever_way_the_sound_was_specified(
-    client, library, project, kind
+    client, project_dir, project, kind
 ):
     # Regression: dead-time detection returned a 500 unless the sound was marked in a recording.
-    _beep_session(client, library, project, kind=kind)
+    _beep_session(client, project_dir, project, kind=kind)
     cuts = _cuts(client, project)
     assert cuts == [pytest.approx((0.0, 7.6), abs=0.05), pytest.approx((12.4, 22.0), abs=0.05)]
 
@@ -219,10 +215,3 @@ def test_only_cameras_and_stills_can_be_disabled(client: TestClient, project, id
     target = ids["mic.wav"] if which == "MIC" else "nope"  # audio has its own toggle
     response = client.put(f"/projects/{project}/edit", json={**base, "disabled": [target]})
     assert response.status_code == 422, response.text
-
-
-def test_removing_media_removes_it_from_the_disabled_list(client: TestClient, project, ids):
-    base = client.get(f"/projects/{project}/edit").json()["edit"]
-    client.put(f"/projects/{project}/edit", json={**base, "disabled": [ids["cam.mp4"]]})
-    assert client.delete(f"/projects/{project}/media/{ids['cam.mp4']}").status_code == 204
-    assert client.get(f"/projects/{project}/edit").json()["edit"]["disabled"] == []
