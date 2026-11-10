@@ -220,11 +220,11 @@ export function Timeline(props: Props) {
         {on && canStart && segHandle(seg.index, "start", seg.start)}
         {on && canEnd && segHandle(seg.index + 1, "end", seg.end)}
         {/* Grips inside the extremes say the edges (not the whole segment) can be dragged; they are
-            shifted so the outer column of dots touches the border (the glyph has some padding). */}
+            shifted so the outer column of dots is centred on the 2px side border (the glyph has padding). */}
         {on && canStart && (
           <span
             data-grip="start"
-            class="pointer-events-none absolute inset-y-0 -left-[0.26em] flex items-center text-xs text-white/90"
+            class="pointer-events-none absolute inset-y-0 -left-[0.41em] flex items-center text-xs text-neutral-500/50"
           >
             <Icon icon={Holder} />
           </span>
@@ -232,7 +232,7 @@ export function Timeline(props: Props) {
         {on && canEnd && (
           <span
             data-grip="end"
-            class="pointer-events-none absolute inset-y-0 -right-[0.23em] flex items-center text-xs text-white/90"
+            class="pointer-events-none absolute inset-y-0 -right-[0.38em] flex items-center text-xs text-neutral-500/50"
           >
             <Icon icon={Holder} />
           </span>
