@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     api_token: str = "dev-token"
     # Root folder holding one sub-folder per project (project file + its media).
     library_dir: Path = Path("../.library")
+    # Where the library lives on the user's machine, for file paths written into exports
+    # (inside Docker the library is mounted at a different path). Empty = library_dir.
+    host_library_dir: str = ""
 
 
 @lru_cache

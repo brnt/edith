@@ -60,10 +60,21 @@ def write_video(path: Path, seconds: float = 2.0, rate: int = 30, with_audio: bo
 def write_image(path: Path, size: str = "640x360") -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     subprocess.run(
-        ["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", f"color=c=red:size={size}",
-         "-frames:v", "1", str(path)],
+        [
+            "ffmpeg",
+            "-v",
+            "error",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            f"color=c=red:size={size}",
+            "-frames:v",
+            "1",
+            str(path),
+        ],
         check=True,
-    )  # fmt: skip
+    )
     return path
 
 

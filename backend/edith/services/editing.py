@@ -13,7 +13,11 @@ from edith.services.projects import open_project, project_folder
 
 
 def _media_by_id(project: ProjectFile) -> dict[str, MediaItem]:
-    return {m.doc_id: m.document for m in project.list(MEDIA) if isinstance(m.document, MediaItem)}
+    return {
+        m.doc_id: m.document
+        for m in project.documents_of(MEDIA)
+        if isinstance(m.document, MediaItem)
+    }
 
 
 def _sync(project: ProjectFile) -> SyncState:

@@ -104,7 +104,7 @@ class ProjectFile:
             needs_upgrade=version < kind.current_version,
         )
 
-    def list(self, kind: DocumentKind) -> list[LoadedDocument]:
+    def documents_of(self, kind: DocumentKind) -> list[LoadedDocument]:
         rows = self._conn.execute(
             "SELECT id, schema_version, body FROM documents WHERE kind = ? ORDER BY id",
             (kind.name,),
@@ -126,6 +126,16 @@ class ProjectFile:
             self._conn.execute(
                 "DELETE FROM documents WHERE kind = ? AND id = ?", (kind.name, doc_id)
             )
+
+    def dump_documents(self) -> list[dict]:
+        """Every document as stored (no upcasting), including kinds this app does not know."""
+        rows = self._conn.execute(
+            "SELECT kind, id, schema_version, body FROM documents ORDER BY kind, id"
+        ).fetchall()
+        return [
+            {"kind": kind, "id": doc_id, "schema_version": version, "body": json.loads(body)}
+            for kind, doc_id, version, body in rows
+        ]
 
     def any_older_than_current(self, kinds: Iterable[DocumentKind]) -> bool:
         return any(

@@ -51,7 +51,7 @@ def _template_audio(library: Path, item: MediaItem, template: SyncTemplate) -> n
 
 def run_sync(library: Path, slug: str, template: SyncTemplate, job: Job) -> dict:
     with open_project(library, slug) as project:
-        items = {m.doc_id: m.document for m in project.list(MEDIA)}
+        items = {m.doc_id: m.document for m in project.documents_of(MEDIA)}
     source = items.get(template.media_id)
     if not isinstance(source, MediaItem):
         raise media_items.MediaNotFound(template.media_id)

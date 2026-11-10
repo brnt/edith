@@ -99,7 +99,7 @@ def upgrade_project(library: Path, slug: str) -> ProjectSummary:
     """Rewrite every document at the current version. Only ever called on explicit request."""
     with open_project(library, slug, writable=True) as project:
         for kind in KINDS.values():
-            for loaded in project.list(kind):
+            for loaded in project.documents_of(kind):
                 project.put(kind, loaded.doc_id, loaded.document)
     log.info("project_upgraded", slug=slug)
     return get_project(library, slug)

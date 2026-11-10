@@ -5,6 +5,8 @@ services:
       ENVIRONMENT: production
       API_TOKEN: ${API_TOKEN:-dev-token}
       LIBRARY_DIR: /library
+      # Where the library lives on the host, so exported XML/EDL point at the real files.
+      HOST_LIBRARY_DIR: ${HOST_LIBRARY_DIR:-}
     ports:
       - "8000:8000"
     # Host-owned bind mount: the app user (uid 1000) can write project files. Point

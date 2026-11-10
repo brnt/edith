@@ -41,7 +41,7 @@ fmt:
 # upcast old document versions on read (docs/adr/0001).
 up:
     mkdir -p "${LIBRARY_DIR:-.library}"
-    docker compose up --build
+    HOST_LIBRARY_DIR="$(cd "${LIBRARY_DIR:-.library}" && pwd -P)" docker compose up --build
 
 # Exactly what CI runs.
 ci: lint test

@@ -56,7 +56,7 @@ def add_media(library: Path, slug: str, rel_path: str) -> MediaRecord:
 def list_media(library: Path, slug: str) -> list[MediaRecord]:
     folder = project_folder(library, slug)
     with open_project(library, slug) as project:
-        items = [loaded.document for loaded in project.list(MEDIA)]
+        items = [loaded.document for loaded in project.documents_of(MEDIA)]
     return [
         MediaRecord(i, proxy_path(folder, i).is_file()) for i in items if isinstance(i, MediaItem)
     ]
