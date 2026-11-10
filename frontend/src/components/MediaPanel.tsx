@@ -435,10 +435,10 @@ function MediaCard({
   const notes = formatNotes(m, projectFps);
   const syncable = included && !m.missing && m.kind !== "image";
   const colour = channelStyle(m.kind === "image" ? "image" : "video").chip.split(" ")[0];
-  // Icon chips: one fixed square, centred by grid (the same whether it is a button, a label or a
+  // Icon chips (18px, with the same 4px gap in both rows and clear space between the rows): one square, centred by grid (the same whether it is a button, a label or a
   // span, which browsers centre differently), with no line height.
   const iconButton =
-    "grid h-5 w-5 shrink-0 place-items-center rounded bg-black/60 p-0 text-sm leading-none text-neutral-200 hover:bg-black/80 hover:text-white";
+    "grid h-[18px] w-[18px] shrink-0 place-items-center rounded bg-black/60 p-0 text-[13px] leading-none text-neutral-200 hover:bg-black/80 hover:text-white";
   const kind = KIND[m.kind];
 
   return (
@@ -483,7 +483,7 @@ function MediaCard({
           new
         </span>
       )}
-      <div class="absolute right-1 top-1 flex gap-0.5">
+      <div class="absolute right-1 top-1 flex gap-1">
         <button
           type="button"
           class={iconButton}

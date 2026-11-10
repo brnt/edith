@@ -1150,7 +1150,7 @@ describe("the media cards", () => {
     )!;
     const chip = within(card).getByRole("img", { name: "Sync: synced" });
     expect(chip.querySelector('[data-icon="check-circle"]')).not.toBeNull();
-    expect(chip.className).toContain("h-5 w-5"); // the same square as the info and checkbox chips
+    expect(chip.className).toContain("h-[18px] w-[18px]"); // the same square as the info and checkbox chips
     expect(chip.className).toContain("text-emerald");
   });
 });
