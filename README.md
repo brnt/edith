@@ -78,17 +78,19 @@ comes next.
      Cuts ripple.
    - **Selecting on the timeline:** click a channel's **segment** (a blue or teal block: one
      stretch where that channel is on screen) or a **cut** to select it (white outline).
-     Clicking anywhere else still moves the playhead; `Esc` deselects. A selected item can be
-     **dragged by its edges** (grip marks inside a selected segment's ends show which can move) (the playhead follows the edge and the preview shows the edit as it would be
-     if you dropped it now. At a boundary between two **videos** the grid steps aside and the two
-     are shown side by side, in timeline order: the last frame before the boundary on the left, the
-     first frame after it on the right. Between a **video and a still**, the video is shown (its
-     frame at the boundary); between two **stills**, the one being resized. A readout shows the
-     time; one drag is one undo step) or removed
-     with `Delete`. Moving a segment's edge moves the neighbouring segment's edge with it, and
-     it can't pass the next one. Deleting a segment lets the one before it carry on. A cut's
-     edges set where it starts and ends (the first and last cuts set the start and end of the
-     final clip).
+     Clicking anywhere else still moves the playhead; `Esc` deselects.
+     - **Resize:** drag a selected item's edges. Grip marks inside a segment's ends show which
+       edges can move. Moving a segment's edge moves the neighbouring segment's edge with it, and
+       it can't pass the next one. A cut's edges set where it starts and ends (the first and last
+       cuts set the start and end of the final clip).
+     - **While you drag,** the playhead follows the edge and the preview shows the edit as it
+       would be if you dropped it now. At a boundary between two **videos** the grid steps aside
+       and the two are shown side by side, in timeline order: the last frame before the boundary
+       on the left, the first frame after it on the right. Between a **video and a still**, the
+       video is shown (its frame at the boundary); between two **stills**, the one being resized.
+       A readout shows the time, and one drag is one undo step.
+     - **Delete:** `Delete` removes the selected item. Deleting a segment lets the one before it
+       carry on.
    - **Stills:** a still is a channel: cut to it from the grid or its number key, and cut away
      again the same way. The audio always continues.
    - **Audio:** each included file gets a track on the timeline with an overall gain slider. To
