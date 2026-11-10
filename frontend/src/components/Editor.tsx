@@ -19,6 +19,7 @@ import {
 } from "../lib/editOps";
 import {
   cutRanges,
+  fitPxPerSec,
   formatTime,
   keepIntervals,
   mediaOffsets,
@@ -55,7 +56,22 @@ export function Editor({ slug, media, sync, edit, peaks, onEdit, onError }: Prop
   const [t, setT] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [selection, setSelection] = useState<Range | null>(null);
-  const [pxPerSec, setPxPerSec] = useState(20);
+  // null = fit the window width (and keep fitting on resize) until the user zooms.
+  const [zoom, setZoom] = useState<number | null>(null);
+  const [width, setWidth] = useState(0);
+  const timelineBox = useRef<HTMLDivElement>(null);
+  const fitPx = fitPxPerSec(width, end);
+  const pxPerSec = zoom ?? fitPx;
+
+  useEffect(() => {
+    const el = timelineBox.current;
+    if (!el) return;
+    setWidth(el.clientWidth);
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => setWidth(el.clientWidth));
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
   const [suggestions, setSuggestions] = useState<Range[]>([]);
   const [silence, setSilence] = useState({ threshold: -50, minS: 2, pad: 0.4 });
   const [stillId, setStillId] = useState("");
@@ -241,28 +257,33 @@ export function Editor({ slug, media, sync, edit, peaks, onEdit, onError }: Prop
       </div>
 
       <div class="flex items-center gap-2 text-sm">
-        <Button onClick={() => setPxPerSec((v) => Math.min(v * 1.5, 400))}>Zoom in</Button>
-        <Button onClick={() => setPxPerSec((v) => Math.max(v / 1.5, 1))}>Zoom out</Button>
+        <Button onClick={() => setZoom(Math.min(pxPerSec * 1.5, 400))}>Zoom in</Button>
+        <Button onClick={() => setZoom(Math.max(pxPerSec / 1.5, 1))}>Zoom out</Button>
+        <Button disabled={zoom === null} onClick={() => setZoom(null)}>
+          Fit
+        </Button>
         <span class="text-neutral-500">
           Click to place the playhead, drag to select. Output length {formatTime(outputLength, 1)}.
         </span>
       </div>
 
-      <Timeline
-        media={media}
-        offsets={offsets}
-        edit={edit}
-        peaks={peaks}
-        playhead={t}
-        end={end}
-        pxPerSec={pxPerSec}
-        selection={selection}
-        suggestions={suggestions}
-        onSeek={setT}
-        onSelect={setSelection}
-        onCamera={cutTo}
-        onTrack={(id, patch) => onEdit(setTrack(edit, media, id, patch))}
-      />
+      <div ref={timelineBox}>
+        <Timeline
+          media={media}
+          offsets={offsets}
+          edit={edit}
+          peaks={peaks}
+          playhead={t}
+          end={end}
+          pxPerSec={pxPerSec}
+          selection={selection}
+          suggestions={suggestions}
+          onSeek={setT}
+          onSelect={setSelection}
+          onCamera={cutTo}
+          onTrack={(id, patch) => onEdit(setTrack(edit, media, id, patch))}
+        />
+      </div>
 
       <div class="rounded border border-neutral-800 p-3 text-sm">
         <div class="mb-2 flex flex-wrap items-center gap-2">
