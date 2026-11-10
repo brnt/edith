@@ -6,11 +6,11 @@ import {
   defaultCamera,
   effectiveTracks,
   formatTime,
+  TIMELINE_LABEL_W as LABEL_W,
   type Range,
 } from "../lib/timeline";
 import { MAX_CANVAS_PX, Waveform } from "./Waveform";
 
-const LABEL_W = 176;
 const ROW = { ruler: 24, video: 34, still: 28, audio: 56 };
 
 interface Props {

@@ -7,6 +7,7 @@ import {
   activeCamera,
   cameraSpans,
   effectiveTracks,
+  fitPxPerSec,
   formatTime,
   frameState,
   keepIntervals,
@@ -213,6 +214,19 @@ describe("edit operations", () => {
         (t) => t.media_id,
       ),
     ).toEqual(["camA"]);
+  });
+});
+
+describe("fitting the timeline to the window", () => {
+  test("the lanes (window minus borders and the label column) span the whole timeline", () => {
+    expect(fitPxPerSec(1178, 100)).toBe(10);
+    expect(fitPxPerSec(1178, 50)).toBe(20);
+  });
+
+  test("falls back to a sane default before the width or length is known", () => {
+    expect(fitPxPerSec(0, 100)).toBe(20);
+    expect(fitPxPerSec(1178, 0)).toBe(20);
+    expect(fitPxPerSec(100, 100)).toBe(20); // narrower than the label column
   });
 });
 

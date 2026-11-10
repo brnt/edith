@@ -2,6 +2,15 @@
 import type { CameraSwitch, Cut, EditList, MediaItem, Still, SyncState } from "./api";
 
 export const EPS = 1e-6;
+export const TIMELINE_LABEL_W = 176;
+const DEFAULT_PX_PER_SEC = 20;
+const TIMELINE_BORDER = 2; // the timeline box's own left and right borders
+
+/** Pixels per second that make a timeline of `end` seconds fill `containerWidth`. */
+export function fitPxPerSec(containerWidth: number, end: number): number {
+  if (containerWidth <= TIMELINE_LABEL_W || end <= 0) return DEFAULT_PX_PER_SEC;
+  return (containerWidth - TIMELINE_BORDER - TIMELINE_LABEL_W) / end;
+}
 export type Range = [number, number];
 
 export function mergeRanges(ranges: Range[]): Range[] {
