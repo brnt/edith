@@ -19,6 +19,7 @@ import {
   activeChannel,
   advancePlayhead,
   boundaryPreview,
+  timelineBoxHeight,
   movedSwitches,
   segments,
   channelsOf,
@@ -424,6 +425,18 @@ describe("boundaryPreview", () => {
 
   test("one camera on both sides has nothing to compare: it shows the one being resized", () => {
     expect(at("camA", "camA", "before")).toEqual({ t: 10 - f, compare: null });
+  });
+});
+
+describe("timelineBoxHeight", () => {
+  test("it takes all its content when there is room, and shrinks to the room otherwise", () => {
+    expect(timelineBoxHeight(300, 500)).toBe(300); // few rows: as tall as they need
+    expect(timelineBoxHeight(500, 300)).toBe(300); // many rows: scrolls inside
+  });
+
+  test("it never goes below about four rows, even with no room", () => {
+    expect(timelineBoxHeight(500, 100)).toBe(168);
+    expect(timelineBoxHeight(100, 500)).toBe(168); // and a short one still has a usable height
   });
 });
 

@@ -88,10 +88,12 @@ Root `justfile` delegates to both; Compose runs `api` (:8000) and `web` (:8080).
   after the boundary, or one frame earlier to show the last frame before it.
 - **A selected segment or cut is marked by a faint stripe texture** (`stripes()` in `Timeline.tsx`),
   not an outline or glow: both looked heavy on the cut blocks. Don't add borders back.
-- **Stage layout is a vertical split decided in CSS** (`Stage.tsx`): the timeline box is content-sized
-  with `min-height` (about four rows) and a `max-height` that leaves the view its minimum; the view's
-  row is `flex: 1` with `container-type: size`, and the view's height is `--player-h` in `cqh`/`cqw`
-  units, so it fills whatever the timeline leaves. Don't size the view from `vh` again.
+- **Stage layout is a vertical split** (`Stage.tsx`): the view's row is `flex: 1` with
+  `container-type: size`, and the view's height is `--player-h` in `cqh`/`cqw` units, so it fills
+  whatever the timeline leaves (don't size it from `vh`). The timeline box's height is **measured in
+  script** (`timelineBoxHeight`, a ResizeObserver on the stage and the timeline content), not set
+  with CSS percentages: a `max-height: calc(100% - …)` version resolved differently in the user's
+  browser and left the timeline at its minimum with room to spare.
 - **Clicking a tile or pressing a number while a range is selected is a cutaway** (`showOver` in
   `lib/editOps.ts`, via `cutTo` in `useEditor`): the channel is shown over the range, then the edit
   returns to what was showing at its end, and the selection clears. No selection: switch at the playhead.

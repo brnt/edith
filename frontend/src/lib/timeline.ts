@@ -336,3 +336,15 @@ export function formatTime(seconds: number, frac = 1): string {
   const rest = (s - m * 60).toFixed(frac).padStart(frac ? 3 + frac : 2, "0");
   return `${m}:${rest}`;
 }
+
+/** The timeline never gets shorter than this (its ruler and about four rows), however little room there is. */
+export const TIMELINE_MIN_PX = 168;
+
+/**
+ * How tall the timeline box should be: all of its content if there is room (what is left after the
+ * view's minimum row), else as much as there is, but never less than {@link TIMELINE_MIN_PX}.
+ * Measured in pixels, not CSS percentages, so every browser agrees.
+ */
+export function timelineBoxHeight(contentPx: number, roomPx: number): number {
+  return Math.max(TIMELINE_MIN_PX, Math.min(contentPx, roomPx));
+}
