@@ -339,24 +339,41 @@ export function formatTime(seconds: number, frac = 1): string {
 
 /** The timeline never gets shorter than this (its ruler and about four rows), however little room there is. */
 export const TIMELINE_MIN_PX = 168;
+/** The view's height limits, and the widest it may be (two thirds of the stage's width). */
+export const PLAYER_MIN_PX = 140;
+export const PLAYER_MAX_PX = 900;
+export const PLAYER_MAX_WIDTH_SHARE = 2 / 3;
 
-/** The most of the stage's height the timeline takes before it scrolls inside itself. */
-export const TIMELINE_MAX_SHARE = 0.4;
-
-/**
- * Room for the timeline out of `usablePx` (the stage's height less its padding and gap): a share of
- * it, so a long list of rows scrolls instead of squeezing the view, and never so much that the
- * view drops below `viewMinPx`.
- */
-export function timelineRoom(usablePx: number, viewMinPx: number): number {
-  return Math.min(TIMELINE_MAX_SHARE * usablePx, usablePx - viewMinPx);
-}
+const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
 /**
- * How tall the timeline box should be: all of its content if there is room (what is left after the
- * view's minimum row), else as much as there is, but never less than {@link TIMELINE_MIN_PX}.
- * Measured in pixels, not CSS percentages, so every browser agrees.
+ * How the stage's height is divided between the active view and the timeline.
+ *
+ * The view is greedy: it takes as much as it can use (up to two thirds of the width, in 16:9),
+ * and the timeline gets what is left, scrolling inside itself when its rows don't fit but never
+ * shorter than about four rows. So adding rows never shrinks a view that is at full size, and
+ * removing them lets the view grow back. Computed in pixels (not CSS percentages or container
+ * units) so every browser agrees and both heights come from one place.
  */
-export function timelineBoxHeight(contentPx: number, roomPx: number): number {
-  return Math.max(TIMELINE_MIN_PX, Math.min(contentPx, roomPx));
+export function stageLayout(a: {
+  stageW: number;
+  stageH: number;
+  /** Padding and gap the stage spends itself, and the room under the view for the time and buttons. */
+  padX: number;
+  padY: number;
+  gap: number;
+  below: number;
+  /** The timeline's height if nothing made it scroll. */
+  naturalTimeline: number;
+}): { boxH: number; playerH: number } {
+  const usableH = a.stageH - a.padY - a.gap;
+  const fullView = clamp(
+    (a.stageW - a.padX) * PLAYER_MAX_WIDTH_SHARE * (9 / 16),
+    PLAYER_MIN_PX,
+    PLAYER_MAX_PX,
+  );
+  const room = usableH - (fullView + a.below);
+  const boxH = Math.max(TIMELINE_MIN_PX, Math.min(a.naturalTimeline, room));
+  const playerH = clamp(Math.min(usableH - boxH - a.below, fullView), PLAYER_MIN_PX, PLAYER_MAX_PX);
+  return { boxH, playerH };
 }

@@ -91,16 +91,15 @@ Root `justfile` delegates to both; Compose runs `api` (:8000) and `web` (:8080).
 - **Don't reserve spare room under the view** (`BELOW_PLAYER_REM` in `Stage.tsx` is just the gap plus
   the time/buttons row, about 47px): any spare room is dead space the view shrinks to leave. The
   preview warning is an overlay on the view's bottom edge for the same reason.
-- **Stage layout is a vertical split** (`Stage.tsx`): the view's row is `flex: 1` with
-  `container-type: size`, and the view's height is `--player-h` in `cqh`/`cqw` units, so it fills
-  whatever the timeline leaves (don't size it from `vh`). The timeline box's height is **measured in
-  script** (`timelineBoxHeight`/`timelineRoom`: content-sized up to `TIMELINE_MAX_SHARE` of the
-  stage, so many rows scroll instead of shrinking the view; a ResizeObserver on the stage and the timeline content), not set
-  with CSS percentages: a `max-height: calc(100% - …)` version resolved differently in the user's
-  browser and left the timeline at its minimum with room to spare.
-  The `Timeline` root is the one scroller (both axes): the ruler and label column are `sticky`. Keep
-  every row's content inside its fixed height (1px of overflow is enough to make it scroll), and
-  re-measure after every render too: a hidden page delivers no ResizeObserver callbacks.
+- **Stage layout: the view first, then the timeline, both computed in script** (`stageLayout` in
+  `lib/timeline.ts`, driven by `Stage.tsx`): the view takes what it can use (up to 2/3 of the
+  width in 16:9), the timeline gets the rest and scrolls inside itself (min about four rows). Don't
+  size either from `vh`, CSS percentages or container-query units: percentages and `cqh`
+  resolved differently in the user's browser (the timeline stuck at its minimum; the view not
+  growing back). A ResizeObserver on the stage and the timeline content re-measures, and so does
+  every render (a hidden page delivers no observer callbacks).
+- **The timeline is one scroller (both axes)**: the ruler and label column are `sticky`. Keep every
+  row's content inside its fixed height (1px of overflow is enough to make it scroll).
 - **Clicking a tile or pressing a number while a range is selected is a cutaway** (`showOver` in
   `lib/editOps.ts`, via `cutTo` in `useEditor`): the channel is shown over the range, then the edit
   returns to what was showing at its end, and the selection clears. No selection: switch at the playhead.
