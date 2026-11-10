@@ -1,6 +1,14 @@
+import { useEffect, useRef, useState } from "preact/hooks";
+
 import type { Peaks } from "../lib/api";
 import { setTrack } from "../lib/editOps";
-import { formatTime, frameState, timelineToOutput } from "../lib/timeline";
+import {
+  formatTime,
+  frameState,
+  TIMELINE_MIN_PX,
+  timelineBoxHeight,
+  timelineToOutput,
+} from "../lib/timeline";
 import type { EditorApi } from "../lib/useEditor";
 import { ChannelTiles } from "./ChannelTiles";
 import { Icon } from "./Icon";
@@ -14,7 +22,8 @@ import { Button } from "./ui";
 // rows. The active view gets everything else, up to two thirds of the window's width (37.5 * 16/9).
 const BELOW_PLAYER = "5.5rem"; // under the view: the time, the buttons, and one line of warning
 const PLAYER_MIN = "max(140px, 27vh)"; // the smallest the view is squeezed to
-const TIMELINE_MIN = "10.5rem"; // the ruler and four rows
+const STAGE_PADDING_PX = 24; // p-3 top and bottom
+const STAGE_GAP_PX = 8; // gap-2 between the view's row and the timeline
 // The view's height, measured against its own row (container query units): it fills the row, so it
 // grows when the timeline is short.
 const PLAYER_H = `clamp(140px, min(calc(100cqh - ${BELOW_PLAYER}), 37.5cqw), 900px)`;
@@ -34,6 +43,28 @@ export function Stage({
   // While an edge is being dragged, show the result of dropping it now, not the old edit.
   const shown = ed.preview?.edit ?? ed.edit;
   const compare = ed.preview?.compare ?? null;
+  const stage = useRef<HTMLDivElement>(null);
+  // The timeline box's height, measured: all its rows if the view can spare the room, else what is
+  // left. (Done in script, not CSS percentages, which browsers resolve differently in flex layouts.)
+  const [boxH, setBoxH] = useState<number | null>(null);
+  useEffect(() => {
+    const root = stage.current;
+    const box = ed.timelineBox.current;
+    const content = box?.firstElementChild as HTMLElement | null | undefined;
+    if (!root || !content || typeof ResizeObserver === "undefined") return;
+    const measure = () => {
+      const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+      const viewMin = Math.max(140, 0.27 * window.innerHeight) + 5.5 * rem;
+      const room = root.clientHeight - STAGE_PADDING_PX - STAGE_GAP_PX - viewMin;
+      setBoxH(timelineBoxHeight(content.offsetHeight, room));
+    };
+    const observer = new ResizeObserver(measure);
+    observer.observe(root);
+    observer.observe(content);
+    measure();
+    return () => observer.disconnect();
+  }, []);
+
   const frame = frameState(ed.t, shown, ed.media, ed.offsets);
 
   const zoom = (
@@ -67,7 +98,7 @@ export function Stage({
   );
 
   return (
-    <div class="flex min-h-0 flex-1 flex-col gap-2 p-3">
+    <div ref={stage} class="flex min-h-0 flex-1 flex-col gap-2 p-3">
       <div
         class="flex min-h-0 flex-1 gap-3 [container-type:size]"
         style={{ minHeight: `calc(${PLAYER_MIN} + ${BELOW_PLAYER})`, "--player-h": PLAYER_H }}
@@ -138,10 +169,7 @@ export function Stage({
       <div
         ref={ed.timelineBox}
         class="shrink-0 overflow-y-auto"
-        style={{
-          minHeight: TIMELINE_MIN,
-          maxHeight: `calc(100% - ${PLAYER_MIN} - ${BELOW_PLAYER} - 0.5rem)`,
-        }}
+        style={{ height: boxH ?? undefined, minHeight: `${TIMELINE_MIN_PX}px` }}
       >
         <Timeline
           media={ed.media}
