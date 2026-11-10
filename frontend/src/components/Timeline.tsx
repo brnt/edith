@@ -48,6 +48,8 @@ interface Props {
   onSegmentEdge?: (switchIndex: number, at_s: number) => void;
   /** While an edge is dragged, the playhead follows it so the frame at the edge can be checked. */
   onScrub?: (t: number) => void;
+  /** The edit as it would be if the dragged edge were dropped now (null when no drag). */
+  onPreview?: (edit: EditList | null) => void;
 }
 
 const MIN_CUT_S = 0.1; // a dragged edge cannot squeeze a cut below this
@@ -67,6 +69,8 @@ export function Timeline(props: Props) {
     edge: "start" | "end";
     value: number;
   } | null>(null);
+  // One frame: the playhead sits on the *last* frame of the thing whose end edge is dragged.
+  const frameS = edit.fps_den / edit.fps_num;
   const [segDrag, setSegDrag] = useState<{ index: number; value: number } | null>(null);
   const { picked } = props;
 
@@ -152,14 +156,18 @@ export function Timeline(props: Props) {
         e.stopPropagation();
         (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
         setSegDrag({ index: switchIndex, value: at });
-        props.onScrub?.(at);
+        props.onScrub?.(edge === "end" ? Math.max(0, at - frameS) : at);
       }}
       onPointerMove={(e) => {
         if (segDrag?.index !== switchIndex) return;
         e.stopPropagation();
         const value = timeAt(e.clientX);
         setSegDrag({ index: switchIndex, value });
-        props.onScrub?.(movedSwitches(edit.switches, switchIndex, value, end)[switchIndex].at_s);
+        const moved = movedSwitches(edit.switches, switchIndex, value, end);
+        const at_s = moved[switchIndex].at_s;
+        // Show the segment being resized: its first frame at a start edge, its last at an end edge.
+        props.onScrub?.(edge === "end" ? Math.max(0, at_s - frameS) : at_s);
+        props.onPreview?.({ ...edit, switches: moved });
       }}
       onPointerUp={(e) => {
         if (segDrag?.index !== switchIndex) return;
@@ -168,6 +176,7 @@ export function Timeline(props: Props) {
           .at_s;
         props.onSegmentEdge?.(switchIndex, at_s);
         setSegDrag(null);
+        props.onPreview?.(null);
       }}
     />
   );
@@ -395,7 +404,7 @@ export function Timeline(props: Props) {
                   (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
                   const at = edge === "start" ? c.start_s : c.end_s;
                   setEdgeDrag({ index: i, edge, value: at });
-                  props.onScrub?.(at);
+                  props.onScrub?.(edge === "end" ? Math.max(0, at - frameS) : at);
                 }}
                 onPointerMove={(e) => {
                   if (edgeDrag?.index !== i || edgeDrag.edge !== edge) return;
@@ -407,7 +416,7 @@ export function Timeline(props: Props) {
                       : Math.max(t, c.start_s + MIN_CUT_S);
                   const clamped = Math.max(0, Math.min(end, value));
                   setEdgeDrag({ index: i, edge, value: clamped });
-                  props.onScrub?.(clamped);
+                  props.onScrub?.(edge === "end" ? Math.max(0, clamped - frameS) : clamped);
                 }}
                 onPointerUp={(e) => {
                   if (edgeDrag?.index !== i || edgeDrag.edge !== edge) return;

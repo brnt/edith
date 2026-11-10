@@ -68,6 +68,7 @@ function setup(opts: { edit?: Partial<EditList>; picked?: Picked | null } = {}) 
     onPick: vi.fn(),
     onSegmentEdge: vi.fn(),
     onScrub: vi.fn(),
+    onPreview: vi.fn(),
   };
   render(
     <Timeline
@@ -194,12 +195,18 @@ test("dragging an edge (segment or cut) moves the playhead with it", () => {
   drag(start, 300, 350, 380);
   expect(h.onScrub).toHaveBeenNthCalledWith(1, 30); // grabbing it
   expect(h.onScrub).toHaveBeenLastCalledWith(38);
+  // The preview is the edit as it would be if dropped now: the switch has moved to 38.
+  expect(h.onPreview).toHaveBeenLastCalledWith(
+    expect.objectContaining({ switches: [expect.objectContaining({ at_s: 38 }), SWITCHES[1]] }),
+  );
   fireEvent.pointerUp(start, { clientX: 380, pointerId: 1 });
+  expect(h.onPreview).toHaveBeenLastCalledWith(null);
 
   const c = setup({ picked: { kind: "cut", index: 0 } });
   const end = screen.getAllByRole("separator", { name: "Drag the end of the cut" })[0];
   drag(end, 200, 260);
-  expect(c.onScrub).toHaveBeenLastCalledWith(26);
+  // At an end edge the playhead sits on the last frame of what is being resized.
+  expect(c.onScrub).toHaveBeenLastCalledWith(expect.closeTo(26 - 1001 / 30000, 5));
 });
 
 test("an unselected segment has no drag handles", () => {

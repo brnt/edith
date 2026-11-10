@@ -28,7 +28,9 @@ export function Stage({
   peaks: Record<string, Peaks>;
   warnings: string[];
 }) {
-  const frame = frameState(ed.t, ed.edit, ed.media, ed.offsets);
+  // While an edge is being dragged, show the result of dropping it now, not the old edit.
+  const shown = ed.preview ?? ed.edit;
+  const frame = frameState(ed.t, shown, ed.media, ed.offsets);
 
   const zoom = (
     <>
@@ -72,7 +74,7 @@ export function Stage({
               slug={slug}
               media={ed.media}
               offsets={ed.offsets}
-              edit={ed.edit}
+              edit={shown}
               t={ed.t}
               playing={ed.playing}
               elements={ed.mediaElements}
@@ -142,6 +144,7 @@ export function Stage({
           onPick={ed.pick}
           onSegmentEdge={ed.changeSegmentEdge}
           onScrub={ed.scrub}
+          onPreview={ed.setPreview}
           onCutChange={ed.changeCut}
         />
       </div>

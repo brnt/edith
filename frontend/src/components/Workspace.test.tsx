@@ -694,6 +694,41 @@ describe("the other cameras beside the active view", () => {
     );
   });
 
+  test("while a segment's edge is dragged the preview shows the edit as it would be dropped", async () => {
+    render(<Workspace slug="show" />);
+    const tiles = await screen.findByTestId("channel-tiles");
+    const timeline = screen.getByTestId("timeline");
+    await within(tiles).findByRole("button", { name: "Preview of camera 2: switch to it" });
+    await screen.findByText("synced");
+    fireEvent.keyDown(window, { key: "ArrowRight" });
+    await waitFor(() => expect(screen.getByText("0:01.00")).toBeInTheDocument());
+    fireEvent.click(
+      within(tiles).getByRole("button", { name: "Preview of camera 2: switch to it" }),
+    ); // camera 2 from 1.0 s on
+
+    const lanes = timeline.querySelector(".cursor-crosshair") as HTMLElement;
+    const seg = within(timeline).getAllByTestId("segment")[1]; // camera 2's
+    fireEvent.pointerDown(seg, { clientX: 30, pointerId: 1 });
+    fireEvent.pointerUp(lanes, { clientX: 30, pointerId: 1 });
+
+    const handle = within(timeline).getByRole("separator", {
+      name: "Drag the start of the segment",
+    });
+    fireEvent.pointerDown(handle, { clientX: 20, pointerId: 1 });
+    fireEvent.pointerMove(handle, { clientX: 10, pointerId: 1 }); // earlier than the old start (1.0 s)
+    // The old edit would still show camera 1 at 0.5 s; the preview shows the segment being resized.
+    expect(screen.getAllByText("0:00.50").length).toBeGreaterThan(0); // playhead + drag readout
+    expect(within(tiles).getByTestId("tile-active")).toHaveAttribute(
+      "aria-label",
+      "Camera 2 is on screen",
+    );
+    fireEvent.pointerUp(handle, { clientX: 10, pointerId: 1 });
+    expect(within(tiles).getByTestId("tile-active")).toHaveAttribute(
+      "aria-label",
+      "Camera 2 is on screen",
+    );
+  });
+
   test("the transport sits under the active view and the zoom controls moved to the timeline", async () => {
     render(<Workspace slug="show" />);
     const timeline = await screen.findByTestId("timeline");
