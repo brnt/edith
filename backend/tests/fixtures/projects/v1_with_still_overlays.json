@@ -1,0 +1,118 @@
+{
+  "description": "A project as Edith saved it at schema v1: still overlays in the edit, kept so old projects stay openable.",
+  "documents": [
+    {
+      "kind": "project_info",
+      "id": "project",
+      "schema_version": 1,
+      "body": {
+        "name": "Old Show",
+        "created_at": "2026-11-01T12:00:00Z"
+      }
+    },
+    {
+      "kind": "media",
+      "id": "camA",
+      "schema_version": 1,
+      "body": {
+        "id": "camA",
+        "path": "m/a.mp4",
+        "kind": "video",
+        "label": "Cam A",
+        "duration_s": 60.0,
+        "width": 1920,
+        "height": 1080,
+        "fps": 29.97,
+        "has_audio": true
+      }
+    },
+    {
+      "kind": "media",
+      "id": "camB",
+      "schema_version": 1,
+      "body": {
+        "id": "camB",
+        "path": "m/b.mp4",
+        "kind": "video",
+        "label": "Cam B",
+        "duration_s": 60.0,
+        "width": 1920,
+        "height": 1080,
+        "fps": 29.97,
+        "has_audio": true
+      }
+    },
+    {
+      "kind": "media",
+      "id": "car",
+      "schema_version": 1,
+      "body": {
+        "id": "car",
+        "path": "m/car.jpg",
+        "kind": "image",
+        "label": "car.jpg",
+        "width": 3000,
+        "height": 1688,
+        "has_audio": false
+      }
+    },
+    {
+      "kind": "media",
+      "id": "mic",
+      "schema_version": 1,
+      "body": {
+        "id": "mic",
+        "path": "m/mic.wav",
+        "kind": "audio",
+        "label": "mic.wav",
+        "duration_s": 60.0,
+        "has_audio": true
+      }
+    },
+    {
+      "kind": "edit",
+      "id": "edit",
+      "schema_version": 1,
+      "body": {
+        "switches": [
+          {
+            "at_s": 5.0,
+            "media_id": "camB"
+          },
+          {
+            "at_s": 12.0,
+            "media_id": "camA"
+          }
+        ],
+        "cuts": [
+          {
+            "start_s": 20.0,
+            "end_s": 22.0
+          }
+        ],
+        "stills": [
+          {
+            "id": "s1",
+            "media_id": "car",
+            "start_s": 10.0,
+            "end_s": 14.0
+          }
+        ],
+        "tracks": [
+          {
+            "media_id": "mic",
+            "gain_db": -3.0,
+            "muted": false
+          }
+        ],
+        "range_in_s": 0.0,
+        "range_out_s": 30.0,
+        "fps_num": 30000,
+        "fps_den": 1001,
+        "width": 1920,
+        "height": 1080,
+        "a_field_from_the_future": 7
+      }
+    }
+  ]
+}

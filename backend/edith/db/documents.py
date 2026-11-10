@@ -103,18 +103,13 @@ class SyncState(Document):
 
 
 class CameraSwitch(Part):
-    at_s: float  # shared-timeline seconds; the camera stays active until the next switch
-    media_id: str
+    """From `at_s` on, the output shows this channel: a camera (video) or a still (image)."""
+
+    at_s: float  # shared-timeline seconds; the channel stays active until the next switch
+    media_id: str | None  # None = the default camera (the earliest-started video)
 
 
 class Cut(Part):
-    start_s: float
-    end_s: float
-
-
-class Still(Part):
-    id: str
-    media_id: str  # an image; takes over the video channel, audio continues underneath
     start_s: float
     end_s: float
 
@@ -126,11 +121,13 @@ class TrackSetting(Part):
 
 
 class EditList(Document):
-    """The non-destructive edit. All times are shared-timeline seconds (before cuts)."""
+    """The non-destructive edit. All times are shared-timeline seconds (before cuts).
+
+    v2: stills are channels like cameras (a switch to an image), not separate overlays.
+    """
 
     switches: list[CameraSwitch] = []
     cuts: list[Cut] = []
-    stills: list[Still] = []
     tracks: list[TrackSetting] = []  # audio that goes into the output; others are ignored
     range_in_s: float | None = None
     range_out_s: float | None = None
@@ -143,7 +140,38 @@ class EditList(Document):
 MEDIA = DocumentKind("media", 1, MediaItem)
 SYNC = DocumentKind("sync", 1, SyncState)
 SYNC_ID = "sync"
-EDIT = DocumentKind("edit", 1, EditList)
+
+
+def _edit_v1_to_v2(body: dict[str, Any]) -> dict[str, Any]:
+    """v1 stills were time-ranged overlays on top of the camera switches; v2 has only switches.
+
+    Each still becomes a switch to it at its start and a switch back, at its end, to whichever
+    channel v1 would have shown there (None = the default camera). Camera switches that sat
+    hidden underneath a still are dropped, since they no longer need to be overridden.
+    """
+    stills = sorted(body.get("stills", []), key=lambda s: s["start_s"])
+    original = sorted(body.get("switches", []), key=lambda s: s["at_s"])
+
+    def underneath(t: float) -> str | None:
+        current = None
+        for switch in original:
+            if switch["at_s"] <= t:
+                current = switch["media_id"]
+        return current
+
+    hidden = lambda t: any(s["start_s"] < t < s["end_s"] for s in stills)  # noqa: E731
+    switches = [sw for sw in original if not hidden(sw["at_s"])]
+    for still in stills:
+        switches.append({"at_s": still["start_s"], "media_id": still["media_id"]})
+        switches.append({"at_s": still["end_s"], "media_id": underneath(still["end_s"])})
+    # Where two switches land on the same instant, the one added last (the still's) wins.
+    by_time = {round(sw["at_s"], 6): sw for sw in switches}
+    upgraded = {k: v for k, v in body.items() if k != "stills"}
+    upgraded["switches"] = [by_time[t] for t in sorted(by_time)]
+    return upgraded
+
+
+EDIT = DocumentKind("edit", 2, EditList, upcasters={1: _edit_v1_to_v2})
 EDIT_ID = "edit"
 
 KINDS: dict[str, DocumentKind] = {k.name: k for k in (PROJECT_INFO, MEDIA, SYNC, EDIT)}

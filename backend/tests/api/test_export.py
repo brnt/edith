@@ -21,7 +21,10 @@ def edited(client: TestClient, library, project):
     }
     edit = client.get(f"/projects/{project}/edit").json()["edit"]
     edit["cuts"] = [{"start_s": 3.0, "end_s": 5.0}]
-    edit["stills"] = [{"id": "s", "media_id": ids["car.png"], "start_s": 6.0, "end_s": 7.0}]
+    edit["switches"] = [
+        {"at_s": 6.0, "media_id": ids["car.png"]},
+        {"at_s": 7.0, "media_id": ids["cam.mp4"]},
+    ]
     assert client.put(f"/projects/{project}/edit", json=edit).status_code == 200
     return ids
 
@@ -53,7 +56,8 @@ def test_json_export_contains_every_document_with_its_version(client: TestClient
     bundle = json.loads(client.get(f"/projects/{project}/export/json").text)
     kinds = sorted({d["kind"] for d in bundle["documents"]})
     assert kinds == ["edit", "media", "project_info"]
-    assert all(d["schema_version"] == 1 for d in bundle["documents"])
+    expected = {"edit": 2}  # every other kind is still at v1
+    assert all(d["schema_version"] == expected.get(d["kind"], 1) for d in bundle["documents"])
 
 
 def test_unknown_format_is_rejected(client: TestClient, project):

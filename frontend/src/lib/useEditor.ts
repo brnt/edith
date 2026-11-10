@@ -4,7 +4,9 @@ import { fetchSilence, type EditList, type MediaItem, type SyncState } from "./a
 import { addCuts, setCamera, setRange } from "./editOps";
 import {
   advancePlayhead,
+  channelsOf,
   cutRanges,
+  defaultCamera,
   fitPxPerSec,
   keepIntervals,
   mediaOffsets,
@@ -46,7 +48,8 @@ export function useEditor({ slug, media, sync, edit, onEdit, onError }: Args) {
   const [silence, setSilence] = useState({ threshold: -50, minS: 2, pad: 0.4 });
   const [stillId, setStillId] = useState("");
 
-  const cameras = media.filter((m) => m.kind === "video");
+  const channels = useMemo(() => channelsOf(media), [media]);
+  const fallback = defaultCamera(media, offsets);
   const images = media.filter((m) => m.kind === "image");
   const fitPx = fitPxPerSec(width, end);
   const pxPerSec = zoom ?? fitPx;
@@ -95,7 +98,7 @@ export function useEditor({ slug, media, sync, edit, onEdit, onError }: Args) {
     setPlaying(true);
   };
 
-  const cutTo = (mediaId: string) =>
+  const cutTo = (mediaId: string | null) =>
     onEdit(setCamera(state.current.edit, state.current.t, mediaId));
 
   const cutSelection = () => {
@@ -115,14 +118,14 @@ export function useEditor({ slug, media, sync, edit, onEdit, onError }: Args) {
       else if (e.key === "x") cutSelection();
       else if (e.key === "i") onEdit(setRange(cur.edit, cur.t, cur.edit.range_out_s));
       else if (e.key === "o") onEdit(setRange(cur.edit, cur.edit.range_in_s, cur.t));
-      else if (/^[1-9]$/.test(e.key) && cameras[Number(e.key) - 1])
-        cutTo(cameras[Number(e.key) - 1].id);
+      else if (/^[1-9]$/.test(e.key) && channels.find((c) => c.number === Number(e.key)))
+        cutTo(channels.find((c) => c.number === Number(e.key))!.item.id);
       else return;
       e.preventDefault();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [cameras.length, end]);
+  }, [channels.length, end]);
 
   const findDeadTime = async () => {
     try {
@@ -159,7 +162,8 @@ export function useEditor({ slug, media, sync, edit, onEdit, onError }: Args) {
     findDeadTime,
     stillId,
     setStillId,
-    cameras,
+    channels,
+    fallback,
     images,
     cutTo,
     cutSelection,

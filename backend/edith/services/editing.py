@@ -36,13 +36,10 @@ def get_edit(library: Path, slug: str) -> tuple[EditList, bool]:
 
 def validate(edit: EditList, media: dict[str, MediaItem]) -> None:
     for switch in edit.switches:
-        if media.get(switch.media_id) is None or media[switch.media_id].kind != "video":
-            raise InvalidEdit(f"camera switch refers to unknown video {switch.media_id}")
-    for still in edit.stills:
-        if media.get(still.media_id) is None or media[still.media_id].kind != "image":
-            raise InvalidEdit(f"still refers to unknown image {still.media_id}")
-        if still.end_s <= still.start_s:
-            raise InvalidEdit("a still must end after it starts")
+        if switch.media_id is not None and (
+            switch.media_id not in media or media[switch.media_id].kind == "audio"
+        ):
+            raise InvalidEdit(f"switch refers to unknown camera or still {switch.media_id}")
     for cut in edit.cuts:
         if cut.end_s <= cut.start_s:
             raise InvalidEdit("a cut must end after it starts")

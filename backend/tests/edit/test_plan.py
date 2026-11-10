@@ -5,7 +5,6 @@ from edith.db.documents import (
     Cut,
     EditList,
     MediaItem,
-    Still,
     SyncResult,
     SyncState,
     TrackSetting,
@@ -77,9 +76,14 @@ def test_cuts_ripple_and_split_clips_without_changing_source_continuity():
     assert [(a.rec_in_s, a.dur_s, a.src_in_s) for a in plan.audio] == [(0, 10, 10), (10, 20, 30)]
 
 
-def test_a_still_takes_over_video_while_audio_continues():
+def test_a_still_is_a_channel_that_takes_over_video_while_audio_continues():
     edit = EditList(
-        range_in_s=10, range_out_s=40, stills=[Still(id="s", media_id="car", start_s=20, end_s=25)]
+        range_in_s=10,
+        range_out_s=40,
+        switches=[
+            CameraSwitch(at_s=20, media_id="car"),  # cut to the still ...
+            CameraSwitch(at_s=25, media_id="camA"),  # ... and back to the camera
+        ],
     )
     plan = build_plan(edit, MEDIA, SYNC)
     assert [(s.kind, s.media_id, s.rec_in_s, s.dur_s) for s in plan.video] == [
@@ -90,12 +94,40 @@ def test_a_still_takes_over_video_while_audio_continues():
     assert [(a.rec_in_s, a.dur_s) for a in plan.audio] == [(0, 30)]  # one unbroken audio clip
 
 
+def test_the_output_can_go_from_one_still_straight_to_another_and_stay_on_one():
+    media = {**MEDIA, "bike": item("bike", "image")}
+    edit = EditList(
+        range_in_s=10,
+        range_out_s=30,
+        switches=[
+            CameraSwitch(at_s=12, media_id="car"),
+            CameraSwitch(at_s=16, media_id="bike"),  # no camera in between
+        ],
+    )
+    plan = build_plan(edit, media, SYNC)
+    assert [(s.kind, s.media_id, s.dur_s) for s in plan.video] == [
+        ("camera", "camA", 2),
+        ("still", "car", 4),
+        ("still", "bike", 14),  # stays on the still until the next switch
+    ]
+
+
+def test_a_none_switch_returns_to_the_default_camera():
+    edit = EditList(
+        range_in_s=20,
+        range_out_s=40,
+        switches=[CameraSwitch(at_s=25, media_id="camB"), CameraSwitch(at_s=30, media_id=None)],
+    )
+    plan = build_plan(edit, MEDIA, SYNC)
+    assert [(s.media_id, s.dur_s) for s in plan.video] == [("camA", 5), ("camB", 5), ("camA", 10)]
+
+
 def test_a_still_overlapping_a_cut_is_clipped_to_what_is_kept():
     edit = EditList(
         range_in_s=10,
         range_out_s=40,
         cuts=[Cut(start_s=22, end_s=30)],
-        stills=[Still(id="s", media_id="car", start_s=20, end_s=26)],
+        switches=[CameraSwitch(at_s=20, media_id="car"), CameraSwitch(at_s=26, media_id="camA")],
     )
     plan = build_plan(edit, MEDIA, SYNC)
     stills = [s for s in plan.video if s.kind == "still"]

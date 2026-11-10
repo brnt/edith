@@ -73,7 +73,10 @@ def test_renders_a_real_edit_to_1080p_with_audio(client: TestClient, library, pr
            for n in ("cam.mp4", "mic.wav", "car.jpg")}  # fmt: skip
     edit = client.get(f"/projects/{project}/edit").json()["edit"]
     edit["cuts"] = [{"start_s": 2.0, "end_s": 3.0}]
-    edit["stills"] = [{"id": "s", "media_id": ids["car.jpg"], "start_s": 4.0, "end_s": 5.0}]
+    edit["switches"] = [
+        {"at_s": 4.0, "media_id": ids["car.jpg"]},
+        {"at_s": 5.0, "media_id": ids["cam.mp4"]},
+    ]
     edit["tracks"] = [{"media_id": ids["mic.wav"], "gain_db": -6.0, "muted": False}]
     assert client.put(f"/projects/{project}/edit", json=edit).status_code == 200
 

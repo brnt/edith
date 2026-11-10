@@ -29,9 +29,12 @@ def test_edit_defaults_then_saves_and_round_trips(client: TestClient, project, i
 
     edit = {
         **initial["edit"],
-        "switches": [{"at_s": 1.0, "media_id": ids["cam.mp4"]}],
+        "switches": [
+            {"at_s": 1.0, "media_id": ids["cam.mp4"]},
+            {"at_s": 2.0, "media_id": ids["car.png"]},  # a still is a channel like a camera
+            {"at_s": 3.0, "media_id": None},  # back to the default camera
+        ],
         "cuts": [{"start_s": 4.5, "end_s": 7.5}],
-        "stills": [{"id": "s1", "media_id": ids["car.png"], "start_s": 2.0, "end_s": 3.0}],
         "tracks": [{"media_id": ids["mic.wav"], "gain_db": -3.0, "muted": False}],
     }
     saved = client.put(f"/projects/{project}/edit", json=edit)
@@ -45,7 +48,6 @@ def test_edit_defaults_then_saves_and_round_trips(client: TestClient, project, i
     [
         {"switches": [{"at_s": 1, "media_id": "nope"}]},
         {"cuts": [{"start_s": 5, "end_s": 5}]},
-        {"stills": [{"id": "s", "media_id": "nope", "start_s": 1, "end_s": 2}]},
         {"range_in_s": 5, "range_out_s": 2},
         {"fps_num": 0},
     ],
@@ -55,18 +57,14 @@ def test_invalid_edits_are_rejected(client: TestClient, project, ids, patch):
     assert client.put(f"/projects/{project}/edit", json={**base, **patch}).status_code == 422
 
 
-def test_a_still_must_be_an_image_and_a_switch_a_video(client: TestClient, project, ids):
+def test_a_switch_must_name_a_camera_or_a_still_not_audio(client: TestClient, project, ids):
     base = client.get(f"/projects/{project}/edit").json()["edit"]
-    wrong_still = {"id": "s", "media_id": ids["mic.wav"], "start_s": 1, "end_s": 2}
-    assert (
-        client.put(f"/projects/{project}/edit", json={**base, "stills": [wrong_still]}).status_code
-        == 422
-    )
-    wrong_cam = {"at_s": 1, "media_id": ids["car.png"]}
-    assert (
-        client.put(f"/projects/{project}/edit", json={**base, "switches": [wrong_cam]}).status_code
-        == 422
-    )
+    for ok in (ids["cam.mp4"], ids["car.png"], None):
+        body = {**base, "switches": [{"at_s": 1, "media_id": ok}]}
+        assert client.put(f"/projects/{project}/edit", json=body).status_code == 200
+    for bad in (ids["mic.wav"], "nope"):
+        body = {**base, "switches": [{"at_s": 1, "media_id": bad}]}
+        assert client.put(f"/projects/{project}/edit", json=body).status_code == 422
 
 
 def test_saving_requires_the_token(client: TestClient, project):
@@ -82,7 +80,10 @@ def test_plan_reflects_the_saved_edit(client: TestClient, project, ids):
     edit = {
         **base,
         "cuts": [{"start_s": 4.0, "end_s": 8.0}],
-        "stills": [{"id": "s", "media_id": ids["car.png"], "start_s": 1.0, "end_s": 2.0}],
+        "switches": [
+            {"at_s": 1.0, "media_id": ids["car.png"]},
+            {"at_s": 2.0, "media_id": ids["cam.mp4"]},
+        ],
     }
     client.put(f"/projects/{project}/edit", json=edit)
     plan = client.get(f"/projects/{project}/plan").json()
