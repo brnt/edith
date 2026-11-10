@@ -75,6 +75,29 @@ def build_project_plan(library: Path, slug: str) -> planning.RenderPlan:
     return planning.build_plan(edit, media, sync)
 
 
+# Air kept off both sides of a registration sound (its tail, the room's reverb).
+REGISTRATION_MARGIN_S = 0.25
+
+
+def registration_windows(
+    sync: SyncState, offsets: dict[str, float], margin_s: float = REGISTRATION_MARGIN_S
+) -> list[tuple[float, float]]:
+    """Where the registration sounds are on the shared timeline, merged across files.
+
+    These are sync marks, not content, so they are cut from the edit.
+    """
+    length = (sync.template.end_s - sync.template.start_s) if sync.template else 0.2
+    windows: list[tuple[float, float]] = []
+    for media_id, result in sync.results.items():
+        if result.status == "unsynced" or media_id not in offsets:
+            continue
+        for tone_s in (result.tone_start_s, result.tone_end_s):
+            if tone_s is not None:
+                at = offsets[media_id] + tone_s
+                windows.append((at - margin_s, at + length + margin_s))
+    return planning.merge_ranges(windows)
+
+
 def suggest_silence(
     library: Path, slug: str, *, threshold_db: float, min_s: float, pad_s: float
 ) -> list[tuple[float, float]]:
@@ -89,13 +112,20 @@ def suggest_silence(
         item = media[media_id]
         data = peaks.get_peaks(folder, item, lib.media_file(library, item.path))
         envelopes.append((offsets.get(media_id, 0.0), data.db()))
-    return silence.suggest_cuts(
+    lo = max(0.0, edit.range_in_s or 0.0)
+    hi = edit.range_out_s if edit.range_out_s is not None else planning.timeline_end(media, offsets)
+    marks = registration_windows(sync, offsets)
+    dead = silence.suggest_cuts(
         envelopes,
         threshold_db=threshold_db,
         min_s=min_s,
         pad_s=pad_s,
-        lo_s=max(0.0, edit.range_in_s or 0.0),
-        hi_s=edit.range_out_s
-        if edit.range_out_s is not None
-        else planning.timeline_end(media, offsets),
+        lo_s=lo,
+        hi_s=hi,
+        ignore=marks,
     )
+    # A registration sound is cut even when speech starts right after it (no long silence).
+    clipped = [(max(a, lo), min(b, hi)) for a, b in marks if b > lo and a < hi]
+    return [
+        (round(float(a), 3), round(float(b), 3)) for a, b in planning.merge_ranges(dead + clipped)
+    ]

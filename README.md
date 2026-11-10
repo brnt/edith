@@ -44,8 +44,10 @@ Media is referenced in place and never modified or copied.
    each audio track's waveform.
    - **Camera:** put the playhead where you want the switch and press the camera's number
      (or click its button). It stays active until the next switch.
-   - **Dead time:** *Find dead time* outlines silent stretches (all output tracks quiet);
-     *Cut all*, or drag-select and press `x` to cut by hand. Cuts ripple.
+   - **Dead time:** *Find dead time* outlines silent stretches (all output tracks quiet) and
+     always includes the registration sounds, which are sync marks and not content (it cuts
+     them even when speech follows right after). *Cut all*, or drag-select and press `x` to cut
+     by hand. Cuts ripple.
    - **Stills:** drag-select a range, pick an image, *Show still*. The photo takes over the
      video; audio continues.
    - **Audio:** per-track gain and mute. By default every audio-only file is used; camera audio

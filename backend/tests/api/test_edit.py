@@ -2,6 +2,8 @@ import numpy as np
 import pytest
 from fastapi.testclient import TestClient
 
+from edith.services.jobs import jobs
+from edith.sync.registration import registration_burst
 from tests.conftest import needs_ffmpeg, write_image, write_video, write_wav
 
 pytestmark = needs_ffmpeg
@@ -100,3 +102,39 @@ def test_silence_suggestions_come_from_the_audio_envelope(client: TestClient, pr
         (0.0, 1.8),
         (4.2, 7.8),
     ]
+
+
+def _beep_session(client: TestClient, library, project, speech_from: float = 8.0):
+    """Quiet room, a registration beep at 5 s and 15 s, speech-like noise until 12 s."""
+    rate = 44_100
+    audio = np.random.default_rng(3).normal(0, 0.0003, 22 * rate)
+    burst = registration_burst("x") * 0.1
+    for t in (5.0, 15.0):
+        audio[int(t * rate) : int(t * rate) + len(burst)] += burst
+    start = int(speech_from * rate)
+    audio[start : 12 * rate] += np.random.default_rng(4).normal(0, 0.1, 12 * rate - start)
+    write_wav(library / "mic.wav", audio)
+    media_id = client.post(f"/projects/{project}/media", json={"path": "mic.wav"}).json()["id"]
+    template = {"media_id": media_id, "start_s": 4.9, "end_s": 5.3}
+    job = client.post(f"/projects/{project}/sync", json={"template": template}).json()
+    assert jobs.wait(job["id"]).state == "done"
+
+
+def _cuts(client: TestClient, project):
+    response = client.get(f"/projects/{project}/silence", params={"min_s": 1.5, "pad_s": 0.4})
+    return [(round(c["start_s"], 2), round(c["end_s"], 2)) for c in response.json()["cuts"]]
+
+
+def test_registration_sounds_are_cut_with_the_dead_time_around_them(client, library, project):
+    _beep_session(client, library, project)
+    # Opening: quiet + beep + quiet up to the speech (8 s) less padding; closing: 12.4 s to the end.
+    # Without the registration rule the beeps split these into pieces and stay in the edit.
+    cuts = _cuts(client, project)
+    assert cuts == [pytest.approx((0.0, 7.6), abs=0.05), pytest.approx((12.4, 22.0), abs=0.05)]
+
+
+def test_a_beep_right_before_speech_is_still_cut_but_the_speech_is_not(client, library, project):
+    _beep_session(client, library, project, speech_from=5.7)  # only 0.4 s after the beep ends
+    cuts = _cuts(client, project)
+    assert cuts[0][0] <= 4.65 and cuts[0][1] >= 5.55  # the beep plus its margin
+    assert cuts[0][1] < 5.7  # and none of the speech
