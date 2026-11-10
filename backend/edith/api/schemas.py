@@ -21,6 +21,10 @@ class MediaAdd(BaseModel):
     path: str  # relative to the library root
 
 
+class MediaRelink(BaseModel):
+    path: str  # the file to use instead, relative to the library root
+
+
 class MediaRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

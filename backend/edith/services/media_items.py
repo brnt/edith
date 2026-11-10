@@ -4,7 +4,7 @@ from pathlib import Path
 
 import structlog
 
-from edith.core.errors import MediaNotFound
+from edith.core.errors import MediaError, MediaNotFound
 from edith.db.documents import EDIT, EDIT_ID, MEDIA, SYNC, SYNC_ID, EditList, MediaItem, SyncState
 from edith.db.project_file import ProjectFile
 from edith.services import discovery
@@ -122,6 +122,55 @@ def get_item(project: ProjectFile, media_id_: str) -> MediaItem:
         raise MediaNotFound(media_id_)
     assert isinstance(loaded.document, MediaItem)
     return loaded.document
+
+
+def _rename_references(project: ProjectFile, old: str, new: str) -> None:
+    """Point everything in the edit and the sync results that names `old` at `new`."""
+    if (edit := project.get(EDIT, EDIT_ID)) and isinstance(edit.document, EditList):
+        doc = edit.document
+        for s in doc.switches:
+            if s.media_id == old:
+                s.media_id = new
+        for t in doc.tracks:
+            if t.media_id == old:
+                t.media_id = new
+        for m in doc.mix:
+            if m.media_id == old:
+                m.media_id = new
+        doc.disabled = [new if d == old else d for d in doc.disabled]
+        project.put(EDIT, EDIT_ID, doc)
+    if (sync := project.get(SYNC, SYNC_ID)) and isinstance(sync.document, SyncState):
+        state = sync.document
+        if old in state.results:
+            state.results[new] = state.results.pop(old)
+        if old in state.nudges:
+            state.nudges[new] = state.nudges.pop(old)
+        if state.template and state.template.media_id == old:
+            state.template.media_id = new
+        project.put(SYNC, SYNC_ID, state)
+
+
+def relink_media(library: Path, slug: str, media_id_: str, new_rel_path: str) -> MediaRecord:
+    """Point a project media item at a different file (it moved, or came back from another drive).
+
+    Media ids come from paths, so the item gets a new id and every reference to the old one in the
+    edit and the sync results follows it. The new file must be the same kind of media.
+    """
+    with open_project(library, slug) as project:
+        old = get_item(project, media_id_)
+    new = build_item(library, new_rel_path)
+    if new.kind != old.kind:
+        raise MediaError(f"{new.label} is {new.kind} media, but {old.label} is {old.kind}")
+    if new.id == old.id:
+        return _record(library, slug, old, included=True)
+    with open_project(library, slug, writable=True) as project:
+        if project.get(MEDIA, new.id) is not None:
+            raise MediaError(f"{new.label} is already in this project")
+        project.put(MEDIA, new.id, new)
+        _rename_references(project, old.id, new.id)
+        project.delete(MEDIA, old.id)
+    log.info("media_relinked", slug=slug, old=old.id, new=new.id)
+    return _record(library, slug, new, included=True)
 
 
 def remove_media(library: Path, slug: str, media_id_: str) -> None:

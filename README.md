@@ -54,6 +54,19 @@ comes next.
    - **Details (i):** codec, resolution, frame rate (flagged when variable or different from the
      project's), colour depth, bit rate, audio format, size; also *Remove from project* (the
      file itself is never touched).
+   - **Folders:** the cards are grouped by folder, and a folder's header can be folded away,
+     **Include all** its new files, or **Hide all / Show all** its files at once. A **Show**
+     filter narrows the cards to cameras, audio, stills, new files, or files the sync hasn't
+     placed.
+   - **Heads-up marks:** an amber warning on a card means a frame rate that differs from the
+     project's, or a portrait (vertical) picture; the details say which. They also say how many
+     segments of the edit show a camera or still.
+   - **Missing files:** if a file goes missing (moved, or its drive unplugged) its card says so
+     and it stays in the project. If a file with the same name and length turns up in the folder,
+     **Use found file** relinks to it in one click (or choose **Relink…**): every reference in
+     the edit and the sync results follows, and it isn't counted as a change.
+   - **Registration sound:** an audio file's details have **Use as the registration sound**, the
+     same as the Sync tab's "An audio file".
    - **Build proxies** makes low-res copies the browser can scrub (originals are untouched); a
      bolt on a card means its proxy isn't built yet. A file that goes missing (moved, or its
      drive unplugged) is marked on its card and stays in the project.

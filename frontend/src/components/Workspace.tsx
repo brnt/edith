@@ -16,6 +16,7 @@ import {
   type Project,
   type SyncState,
 } from "../lib/api";
+import { renameMedia } from "../lib/editOps";
 import * as history from "../lib/history";
 import { sortMedia } from "../lib/timeline";
 import { Studio } from "./Studio";
@@ -128,6 +129,18 @@ export function Workspace({ slug }: { slug: string }) {
       loadPeaks(m.id);
     }
   }, [available, slug]);
+
+  // A media item was relinked to another file (and so another id): the edit follows it, in the
+  // saved copy and in every undo step, without counting as a change of its own.
+  const onRelinked = useCallback((from: string, to: string) => {
+    const memo = new Map<EditList, EditList>();
+    const rename = (e: EditList) => {
+      if (!memo.has(e)) memo.set(e, renameMedia(e, from, to));
+      return memo.get(e)!;
+    };
+    setSaved((s) => (s ? rename(s) : s));
+    setHist((h) => (h ? history.mapAll(h, rename) : h));
+  }, []);
 
   const onEdit = useCallback(
     (next: EditList) => setHist((h) => (h ? history.push(h, next) : h)),
@@ -256,6 +269,7 @@ export function Workspace({ slug }: { slug: string }) {
           dirty={dirty}
           ready={ready}
           onEdit={onEdit}
+          onRelinked={onRelinked}
           onMediaChange={() => {
             void refreshMedia();
             void refreshSync();

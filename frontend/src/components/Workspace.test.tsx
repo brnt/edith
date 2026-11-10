@@ -103,6 +103,7 @@ let media = baseMedia;
 let savedEdit: Record<string, unknown> = baseEdit;
 let puts: unknown[] = [];
 let mediaPosts: { path: string }[] = [];
+let relinks: { from: string; path: string }[] = [];
 let syncPosts: { template: Record<string, unknown> }[] = [];
 
 function respond(body: unknown, status = 200) {
@@ -119,6 +120,7 @@ beforeEach(() => {
   savedEdit = baseEdit;
   puts = [];
   mediaPosts = [];
+  relinks = [];
   syncPosts = [];
   vi.stubGlobal(
     "fetch",
@@ -187,6 +189,16 @@ beforeEach(() => {
             { name: "cam.mp4", path: "cam.mp4", is_dir: false, kind: "video", size: 1000 },
           ],
         });
+      if (init?.method === "POST" && path.endsWith("/relink")) {
+        const body = JSON.parse(init.body as string) as { path: string };
+        const from = path.split("/media/")[1].split("/")[0];
+        relinks.push({ from, path: body.path });
+        const target = media.find((m) => m.path === body.path)!;
+        media = media
+          .filter((m) => m.id !== from)
+          .map((m) => (m.id === target.id ? { ...m, included: true } : m));
+        return respond(media.find((m) => m.id === target.id));
+      }
       if (init?.method === "POST" && path.endsWith("/media")) {
         const body = JSON.parse(init.body as string) as { path: string };
         mediaPosts.push(body);
@@ -930,6 +942,32 @@ describe("the media cards", () => {
     render(<Workspace slug="show" />);
     fireEvent.click(await screen.findByRole("tab", { name: /Media/ }));
     expect(await screen.findByText("Can't read this file")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Relink…" })).toBeInTheDocument(); // nothing found
+  });
+
+  test("a file that turned up with the missing one's name and length is offered, and relinking keeps the edit's references", async () => {
+    media = [
+      { ...baseMedia[0], missing: true },
+      ...baseMedia.slice(1),
+      found({ id: "camA2", path: "show/a.mp4", label: "Cam A", duration_s: 60, folder: "" }),
+    ];
+    savedEdit = { ...baseEdit, switches: [{ at_s: 10, media_id: "camA" }] };
+    render(<Workspace slug="show" />);
+    fireEvent.click(await screen.findByRole("tab", { name: /Media/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "Use found file" }));
+    await waitFor(() => expect(relinks).toEqual([{ from: "camA", path: "show/a.mp4" }]));
+    // The edit now points at the new id, though nothing was saved or changed by hand.
+    expect(screen.queryByText("unsaved changes")).toBeNull();
+    // Make a change and save: the saved edit names the new id, never the old one.
+    const tiles = await screen.findByTestId("channel-tiles");
+    fireEvent.click(await within(tiles).findByRole("button", { name: /Preview of camera 2/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(puts).toHaveLength(1));
+    const ids = (puts[0] as { switches: { media_id: string | null }[] }).switches.map(
+      (sw) => sw.media_id,
+    );
+    expect(ids).toContain("camA2");
+    expect(ids).not.toContain("camA");
   });
 
   test("new files turn up by themselves: the media list is checked again", async () => {
@@ -945,5 +983,84 @@ describe("the media cards", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  test("filter the cards by kind, new files, or what is not synced yet", async () => {
+    media = [...baseMedia, found({})];
+    render(<Workspace slug="show" />);
+    fireEvent.click(await screen.findByRole("tab", { name: /Media/ }));
+    await screen.findByText("synced"); // the sync results have loaded
+    const filter = await screen.findByRole("combobox", { name: "Show" });
+    const labels = () =>
+      screen
+        .getAllByTestId("media-card")
+        .map((c) => within(c).getByTitle(/\.(mp4|wav|png)/).textContent);
+    expect(labels()).toHaveLength(5);
+    fireEvent.change(filter, { target: { value: "new" } });
+    expect(labels()).toEqual(["c.mp4"]);
+    fireEvent.change(filter, { target: { value: "audio" } });
+    expect(labels()).toEqual(["mic.wav"]);
+    fireEvent.change(filter, { target: { value: "image" } });
+    expect(labels()).toEqual(["car.png"]);
+    // Every file in the project is synced in these fixtures, and new files are not in the project.
+    fireEvent.change(filter, { target: { value: "unsynced" } });
+    expect(await screen.findByText("Nothing matches this filter.")).toBeInTheDocument();
+  });
+
+  test("a folder's header includes all its new files, or shows and hides all its files at once", async () => {
+    media = [
+      ...baseMedia,
+      found({ id: "n1", path: "show/b/1.mp4", label: "1.mp4", folder: "b" }),
+      found({ id: "n2", path: "show/b/2.mp4", label: "2.mp4", folder: "b" }),
+    ];
+    render(<Workspace slug="show" />);
+    fireEvent.click(await screen.findByRole("tab", { name: /Media/ }));
+    const [root, folderB] = await screen.findAllByTestId("media-folder");
+    // The project folder: hide everything, then show it again (an edit, saved later).
+    fireEvent.click(within(root).getByRole("button", { name: "Hide all" }));
+    expect(screen.getByText("unsaved changes")).toBeInTheDocument();
+    expect(within(root).getByRole("button", { name: "Show all" })).toBeInTheDocument();
+    // A folder of new files: one click includes them all.
+    fireEvent.click(within(folderB).getByRole("button", { name: "Include all" }));
+    await waitFor(() =>
+      expect(mediaPosts.map((p) => p.path)).toEqual(["show/b/1.mp4", "show/b/2.mp4"]),
+    );
+  });
+
+  test("a frame rate that differs from the project's is flagged on the card and in the details", async () => {
+    render(<Workspace slug="show" />);
+    fireEvent.click(await screen.findByRole("tab", { name: /Media/ }));
+    // The project is 29.97 fps: Cam A (59.94) is flagged, Cam B (29.97) is not.
+    const cardOf = (name: string) =>
+      screen.getAllByTestId("media-card").find((c) => within(c).queryByText(name))!;
+    expect(
+      within(cardOf("Cam A")).getByRole("img", { name: /59.94 fps, but the project is 29.97/ }),
+    ).toBeInTheDocument();
+    expect(within(cardOf("Cam B")).queryByRole("img", { name: /fps, but/ })).toBeNull();
+  });
+
+  test("the details say how many segments of the edit show a camera", async () => {
+    savedEdit = { ...baseEdit, switches: [{ at_s: 10, media_id: "camB" }] };
+    render(<Workspace slug="show" />);
+    fireEvent.click(await screen.findByRole("tab", { name: /Media/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "Details for Cam B" }));
+    const dialog = await screen.findByRole("dialog", { name: "Details for Cam B" });
+    expect(within(dialog).getByText("in 1 segment")).toBeInTheDocument();
+    fireEvent.keyDown(document, { key: "Escape" });
+    fireEvent.click(await screen.findByRole("button", { name: "Details for mic.wav" }));
+    expect(await screen.findByRole("dialog", { name: "Details for mic.wav" })).toBeInTheDocument();
+  });
+
+  test("an audio file can be made the registration sound from its details", async () => {
+    render(<Workspace slug="show" />);
+    fireEvent.click(await screen.findByRole("tab", { name: /Media/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "Details for mic.wav" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Use as the registration sound" }));
+    await waitFor(() => expect(syncPosts).toHaveLength(1));
+    expect(syncPosts[0].template).toEqual({ kind: "file", path: "m/mic.wav" });
+    // Cameras have no such action.
+    fireEvent.click(await screen.findByRole("button", { name: "Details for Cam A" }));
+    await screen.findByRole("dialog", { name: "Details for Cam A" });
+    expect(screen.queryByRole("button", { name: "Use as the registration sound" })).toBeNull();
   });
 });

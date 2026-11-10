@@ -137,3 +137,49 @@ def test_proxies_are_only_built_for_included_media(client: TestClient, library: 
     _age(write_video(library / project / "cam.mp4"))
     started = client.post(f"/projects/{project}/proxies")
     assert started.status_code == 202  # nothing included: nothing to build, and no error
+
+
+def test_relinking_a_missing_file_carries_every_reference_to_the_new_one(
+    client: TestClient, library: Path, project: str
+):
+    _age(write_video(library / "old" / "cam.mp4"))
+    _age(write_video(library / "new" / "cam.mp4"))
+    old = client.post(f"/projects/{project}/media", json={"path": "old/cam.mp4"}).json()
+    other = client.post(f"/projects/{project}/media", json={"path": "new/cam.mp4"}).json()
+    client.delete(f"/projects/{project}/media/{other['id']}")  # only the old one is in the project
+    client.put(
+        f"/projects/{project}/edit",
+        json={
+            "switches": [{"at_s": 5, "media_id": old["id"]}],
+            "tracks": [{"media_id": old["id"], "gain_db": -3, "muted": False}],
+            "mix": [{"media_id": old["id"], "start_s": 1, "end_s": 2, "gain_db": 0, "muted": True}],
+            "disabled": [old["id"]],
+        },
+    )
+    (library / "old" / "cam.mp4").unlink()  # the drive went away
+    assert _media(client, project)["cam.mp4"]["missing"] is True
+
+    moved = client.post(
+        f"/projects/{project}/media/{old['id']}/relink", json={"path": "new/cam.mp4"}
+    )
+    assert moved.status_code == 200, moved.text
+    new_id = moved.json()["id"]
+    assert new_id != old["id"] and moved.json()["missing"] is False
+    listed = client.get(f"/projects/{project}/media").json()
+    assert [m["id"] for m in listed if m["included"]] == [new_id]  # the old one is gone
+    edit = client.get(f"/projects/{project}/edit").json()["edit"]
+    assert edit["switches"] == [{"at_s": 5, "media_id": new_id}]
+    assert edit["tracks"][0]["media_id"] == new_id and edit["mix"][0]["media_id"] == new_id
+    assert edit["disabled"] == [new_id]
+
+
+def test_relinking_to_a_different_kind_of_file_is_refused(
+    client: TestClient, library: Path, project: str
+):
+    write_video(library / "m" / "cam.mp4")
+    write_wav(library / "m" / "mic.wav", np.zeros(44_100))
+    cam = client.post(f"/projects/{project}/media", json={"path": "m/cam.mp4"}).json()
+    refused = client.post(
+        f"/projects/{project}/media/{cam['id']}/relink", json={"path": "m/mic.wav"}
+    )
+    assert refused.status_code == 422 and "audio media" in refused.json()["message"]

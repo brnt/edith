@@ -8,6 +8,8 @@ import {
   setAudioIncluded,
   deleteSegment,
   moveSegmentEdge,
+  renameMedia,
+  setAllEnabled,
   setCamera,
   showOver,
   setCut,
@@ -513,6 +515,45 @@ describe("stageLayout", () => {
     const l = stageLayout({ ...base, stageH: 300, naturalTimeline: 500 });
     expect(l.boxH).toBe(168);
     expect(l.playerH).toBe(140);
+  });
+});
+
+describe("renameMedia", () => {
+  test("every reference to a relinked file follows it to the new id", () => {
+    const e = edit({
+      switches: [
+        { at_s: 5, media_id: "old" },
+        { at_s: 9, media_id: null },
+      ],
+      tracks: [{ media_id: "old", gain_db: -3, muted: false }],
+      mix: [{ media_id: "old", start_s: 1, end_s: 2, gain_db: 0, muted: true }],
+      disabled: ["old", "other"],
+    });
+    const r = renameMedia(e, "old", "new");
+    expect(r.switches.map((s) => s.media_id)).toEqual(["new", null]);
+    expect(r.tracks[0].media_id).toBe("new");
+    expect(r.mix[0].media_id).toBe("new");
+    expect(r.disabled).toEqual(["new", "other"]);
+  });
+
+  test("an edit that doesn't mention it comes back as the very same object", () => {
+    const e = edit();
+    expect(renameMedia(e, "old", "new")).toBe(e);
+  });
+});
+
+describe("setAllEnabled", () => {
+  const cam = (id: string, kind: "video" | "audio" | "image" = "video") =>
+    ({ id, kind, label: id, has_audio: kind === "audio" }) as MediaItem;
+
+  test("shows or hides a set of cameras and stills at once, and uses or drops audio", () => {
+    const items = [cam("a"), cam("car", "image"), cam("mic", "audio")];
+    const off = setAllEnabled(edit(), items, items, false);
+    expect(off.disabled.sort()).toEqual(["a", "car"]);
+    expect(off.tracks.find((t) => t.media_id === "mic")?.muted).toBe(true); // audio is on by default
+    const on = setAllEnabled(off, items, items, true);
+    expect(on.disabled).toEqual([]);
+    expect(on.tracks.find((t) => t.media_id === "mic")?.muted).toBe(false);
   });
 });
 

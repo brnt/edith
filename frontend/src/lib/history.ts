@@ -25,3 +25,8 @@ export function redo<T>(h: History<T>): History<T> {
   if (!h.future.length) return h;
   return { past: [...h.past, h.present], present: h.future[0], future: h.future.slice(1) };
 }
+
+/** Apply a change to every state in the stack (not an undo step of its own). */
+export function mapAll<T>(h: History<T>, f: (state: T) => T): History<T> {
+  return { past: h.past.map(f), present: f(h.present), future: h.future.map(f) };
+}

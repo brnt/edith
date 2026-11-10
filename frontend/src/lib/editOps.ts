@@ -135,6 +135,47 @@ export function setEnabled(edit: EditList, media_id: string, enabled: boolean): 
   return { ...edit, disabled: enabled ? rest : [...rest, media_id] };
 }
 
+/**
+ * Turn a whole set of the project's media on or off at once (a folder's worth): cameras and stills
+ * are shown or hidden, audio files are used in the output or left out.
+ */
+export function setAllEnabled(
+  edit: EditList,
+  media: MediaItem[],
+  items: MediaItem[],
+  enabled: boolean,
+): EditList {
+  let next = edit;
+  for (const m of items) {
+    next =
+      m.kind === "audio"
+        ? setAudioIncluded(next, media, m.id, enabled)
+        : setEnabled(next, m.id, enabled);
+  }
+  return next;
+}
+
+/**
+ * Point every reference to a media item at another id (it was relinked to a different file). Returns
+ * the same edit when nothing refers to it, so unsaved-changes checks by identity keep working.
+ */
+export function renameMedia(edit: EditList, from: string, to: string): EditList {
+  const uses =
+    edit.switches.some((s) => s.media_id === from) ||
+    edit.tracks.some((t) => t.media_id === from) ||
+    edit.mix.some((m) => m.media_id === from) ||
+    edit.disabled.includes(from);
+  if (!uses) return edit;
+  const swap = (id: string | null) => (id === from ? to : id);
+  return {
+    ...edit,
+    switches: edit.switches.map((s) => ({ ...s, media_id: swap(s.media_id) })),
+    tracks: edit.tracks.map((t) => ({ ...t, media_id: t.media_id === from ? to : t.media_id })),
+    mix: edit.mix.map((m) => ({ ...m, media_id: m.media_id === from ? to : m.media_id })),
+    disabled: edit.disabled.map((d) => (d === from ? to : d)),
+  };
+}
+
 export function removeMix(edit: EditList, index: number): EditList {
   return { ...edit, mix: edit.mix.filter((_, i) => i !== index) };
 }

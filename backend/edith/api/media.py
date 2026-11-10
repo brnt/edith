@@ -7,6 +7,7 @@ from edith.api.schemas import (
     MediaAdd,
     MediaDetailsRead,
     MediaRead,
+    MediaRelink,
     PeaksRead,
 )
 from edith.core.auth import require_token
@@ -53,6 +54,17 @@ def get_media(slug: str, settings: Settings = Depends(get_settings)):
 )
 def post_media(slug: str, payload: MediaAdd, settings: Settings = Depends(get_settings)):
     return _media_read(media_items.add_media(settings.library_dir, slug, payload.path))
+
+
+@router.post(
+    "/projects/{slug}/media/{media_id}/relink",
+    response_model=MediaRead,
+    dependencies=[Depends(require_token)],
+)
+def post_relink(
+    slug: str, media_id: str, payload: MediaRelink, settings: Settings = Depends(get_settings)
+):
+    return _media_read(media_items.relink_media(settings.library_dir, slug, media_id, payload.path))
 
 
 @router.delete(
