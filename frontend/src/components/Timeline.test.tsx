@@ -35,6 +35,7 @@ const edit: EditList = {
   switches: [],
   cuts: [{ start_s: 10, end_s: 20 }],
   tracks: [],
+  mix: [],
   range_in_s: null,
   range_out_s: null,
   fps_num: 30000,

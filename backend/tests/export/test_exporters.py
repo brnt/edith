@@ -169,3 +169,24 @@ def test_json_bundle_round_trips_stored_documents():
     bundle = json.loads(to_bundle("ep1", FakeProject()))
     assert bundle["format"] == FORMAT and bundle["project"] == "ep1"
     assert bundle["documents"][0]["schema_version"] == 1
+
+
+def test_fcpxml_and_xmeml_carry_a_level_per_audio_piece():
+    audio = [AudioSeg("mic", 0.0, 8.0, 3.0, -3.0), AudioSeg("mic", 8.0, 4.0, 11.0, -9.0)]
+    plan = RenderPlan(
+        duration_s=12.0, video=[VideoSeg("camA", "camera", 0.0, 12.0, 5.0)], audio=audio,
+        fps_num=30000, fps_den=1001, width=1920, height=1080,
+    )  # fmt: skip
+    data = ExportInput("Ep", plan, MEDIA, lambda item: Path("/Volumes/SSD") / item.path)
+
+    fcp = ET.fromstring(to_fcpxml(data).split("\n", 2)[2])
+    gains = [
+        c.find("adjust-volume").get("amount")
+        for c in fcp.iter("asset-clip")
+        if c.get("name") == "mic.wav"
+    ]
+    assert gains == ["-3dB", "-9dB"]
+
+    xml = ET.fromstring(to_xmeml(data).split("\n", 2)[2])
+    levels = [e.text for e in xml.findall(".//media/audio//clipitem/filter/effect/parameter/value")]
+    assert levels == [f"{10 ** (-3 / 20):.4f}", f"{10 ** (-9 / 20):.4f}"]

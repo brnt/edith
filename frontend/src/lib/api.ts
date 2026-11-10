@@ -65,10 +65,20 @@ export interface TrackSetting {
   muted: boolean;
 }
 
+/** A stretch of one audio track at a different level: a gain change (added to the track) or a mute. */
+export interface MixRegion {
+  media_id: string;
+  start_s: number;
+  end_s: number;
+  gain_db: number;
+  muted: boolean;
+}
+
 export interface EditList {
   switches: CameraSwitch[];
   cuts: Cut[];
   tracks: TrackSetting[];
+  mix: MixRegion[];
   range_in_s: number | null;
   range_out_s: number | null;
   fps_num: number;

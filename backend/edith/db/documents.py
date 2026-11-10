@@ -127,6 +127,16 @@ class TrackSetting(Part):
     muted: bool = False
 
 
+class MixRegion(Part):
+    """A stretch of one audio track whose level differs from the rest: a gain change or a mute."""
+
+    media_id: str
+    start_s: float  # shared-timeline seconds
+    end_s: float
+    gain_db: float = 0.0  # added to the track's own gain
+    muted: bool = False
+
+
 class EditList(Document):
     """The non-destructive edit. All times are shared-timeline seconds (before cuts).
 
@@ -136,6 +146,7 @@ class EditList(Document):
     switches: list[CameraSwitch] = []
     cuts: list[Cut] = []
     tracks: list[TrackSetting] = []  # audio that goes into the output; others are ignored
+    mix: list[MixRegion] = []  # per-track level changes over time (later regions win)
     range_in_s: float | None = None
     range_out_s: float | None = None
     fps_num: int = 30000

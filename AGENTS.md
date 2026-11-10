@@ -60,6 +60,10 @@ Root `justfile` delegates to both; Compose runs `api` (:8000) and `web` (:8080).
   fixture project + test. Saving writes the *current* version; reading never writes.
   **Edit is at v2** (stills became switches; `_edit_v1_to_v2`); the v1 fixture lives in
   `backend/tests/fixtures/projects/` and is exercised by `tests/api/test_old_projects.py`.
+- **Audio level at time t** = the track's gain + the *last* mix region covering t (a muted region
+  is silence); `gain_pieces` in `edit/plan.py` splits audio at region edges and `trackGainDb` in
+  `lib/timeline.ts` mirrors it for the preview. Whether a file's audio is in the output is
+  `EditList.tracks` (muted = excluded); the Media tab owns that, not the timeline.
 - **Channels are numbered cameras-first, then stills, by name, only 1-9** (`channelsOf` in
   `lib/timeline.ts`): this numbering drives the number keys, the ribbon buttons, the timeline row
   badges and the switch list, so change it in one place.
@@ -79,8 +83,8 @@ Root `justfile` delegates to both; Compose runs `api` (:8000) and `web` (:8080).
   (its bit-verifying detector fails on recorded audio; don't port it).
 - Sample session for real-data checks: `EDITH_SAMPLE_MEDIA=/Volumes/BRENTexp/media uv run pytest
   tests/sync/test_real_media.py` (skipped when unset; the media is ~1.9 GB, never commit it).
-- Not built yet: applying measured drift to clip placement, vertical/9:16 reframing, segment-level
-  audio gain, and a room-audio sync fallback. Add a fixture project for every future version bump.
+- Not built yet: applying measured drift to clip placement, vertical/9:16 reframing, volume
+  envelopes (the mix is stepwise regions: `EditList.mix`), and a room-audio sync fallback. Add a fixture project for every future version bump.
 
 **Local use:** `LIBRARY_DIR` (root `.env`) is the host folder bind-mounted as the library; point
 it at a folder on the external SSD.

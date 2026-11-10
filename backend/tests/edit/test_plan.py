@@ -5,6 +5,7 @@ from edith.db.documents import (
     Cut,
     EditList,
     MediaItem,
+    MixRegion,
     SyncResult,
     SyncState,
     TrackSetting,
@@ -170,3 +171,70 @@ def test_unsynced_media_is_reported_and_nudges_apply():
 def test_empty_project_or_range_gives_an_empty_plan():
     assert build_plan(EditList(), {}, SyncState()).duration_s == 0
     assert build_plan(EditList(range_in_s=50, range_out_s=40), MEDIA, SYNC).video == []
+
+
+def region(start, end, gain_db=0.0, muted=False, media_id="mic"):
+    return MixRegion(media_id=media_id, start_s=start, end_s=end, gain_db=gain_db, muted=muted)
+
+
+def audio_pieces(plan):
+    return [(a.rec_in_s, a.dur_s, a.src_in_s, a.gain_db) for a in plan.audio]
+
+
+def test_a_gain_region_splits_the_track_and_adds_to_the_track_gain():
+    edit = EditList(
+        range_in_s=10,
+        range_out_s=40,
+        tracks=[TrackSetting(media_id="mic", gain_db=-3)],
+        mix=[region(20, 25, gain_db=-6)],
+    )
+    plan = build_plan(edit, MEDIA, SYNC)
+    assert audio_pieces(plan) == [(0, 10, 10, -3), (10, 5, 20, -9), (15, 15, 25, -3)]
+
+
+def test_a_muted_region_leaves_a_gap_in_that_track_only():
+    media = {**MEDIA, "mic2": item("mic2", "audio")}
+    sync = synced(mic=0.0, mic2=0.0, camA=0.0, camB=0.0)
+    edit = EditList(range_in_s=0, range_out_s=30, mix=[region(10, 20, muted=True)])
+    plan = build_plan(edit, media, sync)
+    mic = [a for a in plan.audio if a.media_id == "mic"]
+    other = [a for a in plan.audio if a.media_id == "mic2"]
+    assert [(a.rec_in_s, a.dur_s) for a in mic] == [(0, 10), (20, 10)]
+    assert [(a.rec_in_s, a.dur_s) for a in other] == [(0, 30)]  # the other mic is untouched
+
+
+def test_where_regions_overlap_the_later_one_wins():
+    edit = EditList(
+        range_in_s=0,
+        range_out_s=30,
+        mix=[region(5, 20, gain_db=-10), region(10, 15, gain_db=4)],
+    )
+    plan = build_plan(edit, MEDIA, SYNC)
+    assert audio_pieces(plan) == [
+        (0, 5, 0, 0),
+        (5, 5, 5, -10),
+        (10, 5, 10, 4),
+        (15, 5, 15, -10),
+        (20, 10, 20, 0),
+    ]
+
+
+def test_regions_follow_the_timeline_through_cuts():
+    # The region spans a cut: the part inside the cut is gone, the rest keeps its level.
+    edit = EditList(
+        range_in_s=0,
+        range_out_s=40,
+        cuts=[Cut(start_s=18, end_s=22)],
+        mix=[region(15, 30, gain_db=-6)],
+    )
+    plan = build_plan(edit, MEDIA, SYNC)
+    assert audio_pieces(plan) == [(0, 15, 0, 0), (15, 3, 15, -6), (18, 8, 22, -6), (26, 10, 30, 0)]
+
+
+def test_a_region_on_another_track_or_outside_the_range_changes_nothing():
+    edit = EditList(
+        range_in_s=10,
+        range_out_s=20,
+        mix=[region(25, 30, muted=True), region(12, 14, muted=True, media_id="elsewhere")],
+    )
+    assert audio_pieces(build_plan(edit, MEDIA, SYNC)) == [(0, 10, 10, 0)]

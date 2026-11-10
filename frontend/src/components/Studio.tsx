@@ -84,6 +84,8 @@ export function Studio(props: Props) {
           <MediaPanel
             slug={slug}
             media={media}
+            edit={edit}
+            onEdit={props.onEdit}
             onChange={props.onMediaChange}
             onError={props.onError}
           />

@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "preact/hooks";
 
 import { proxyUrl, type EditList, type MediaItem } from "../lib/api";
-import { effectiveTracks, frameState } from "../lib/timeline";
+import { effectiveTracks, frameState, trackGainDb } from "../lib/timeline";
 
 interface Props {
   slug: string;
@@ -47,15 +47,22 @@ export function Player({ slug, media, offsets, edit, t, playing }: Props) {
     }
   }, [t, playing, playable.length]);
 
+  // Levels follow the playhead: a track's own gain plus any mix region at this moment, or silence.
   useEffect(() => {
     const Ctx = typeof AudioContext === "undefined" ? null : AudioContext;
     for (const m of playable) {
       const el = elements.current[m.id];
       if (!el) continue;
-      const track = tracks.find((tr) => tr.media_id === m.id);
-      const linear = track && !track.muted ? 10 ** (track.gain_db / 20) : 0;
-      el.muted = !track || track.muted;
-      if (!Ctx || !track) continue;
+      const inOutput = tracks.some((tr) => tr.media_id === m.id);
+      const level = trackGainDb(edit, media, m.id, t);
+      const linear = level === null ? 0 : 10 ** (level / 20);
+      if (!Ctx || !inOutput) {
+        // No Web Audio (or not an output track): the element's own mute and volume (max 1).
+        el.muted = !inOutput || level === null;
+        el.volume = Math.min(1, linear);
+        continue;
+      }
+      el.muted = false;
       if (!audio.current) audio.current = { ctx: new Ctx(), gains: new Map() };
       if (!audio.current.gains.has(m.id)) {
         const gain = audio.current.ctx.createGain();
@@ -68,7 +75,7 @@ export function Player({ slug, media, offsets, edit, t, playing }: Props) {
       audio.current.gains.get(m.id)!.gain.value = linear;
     }
     if (playing) void audio.current?.ctx.resume();
-  }, [playing, edit.tracks, playable.length]);
+  }, [t, playing, edit.tracks, edit.mix, playable.length]);
 
   if (playable.length === 0) {
     return (
