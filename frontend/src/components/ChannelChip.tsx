@@ -20,7 +20,7 @@ export function ChannelChip({
   return (
     <button
       type="button"
-      class={`rounded ${channelStyle(kind).chip} ${size === "md" ? "min-w-8 px-3 py-1 text-sm" : "min-w-5 px-1.5"}`}
+      class={`rounded ${channelStyle(kind).chip} ${size === "md" ? "min-w-7 px-2 py-1 text-sm" : "min-w-5 px-1.5"}`}
       title={title}
       aria-label={ariaLabel}
       onClick={onClick}

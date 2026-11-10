@@ -1,0 +1,36 @@
+// The Ant Design icons the app uses (outlined theme), named without the "Outlined" suffix.
+// Add new ones here so every import of the icon set lives in one place.
+export { default as ArrowLeft } from "@ant-design/icons-svg/es/asn/ArrowLeftOutlined";
+export { default as ArrowUp } from "@ant-design/icons-svg/es/asn/ArrowUpOutlined";
+export { default as AudioMuted } from "@ant-design/icons-svg/es/asn/AudioMutedOutlined";
+export { default as CaretDown } from "@ant-design/icons-svg/es/asn/CaretDownOutlined";
+export { default as CaretRight } from "@ant-design/icons-svg/es/asn/CaretRightOutlined";
+export { default as Check } from "@ant-design/icons-svg/es/asn/CheckOutlined";
+export { default as CheckCircle } from "@ant-design/icons-svg/es/asn/CheckCircleOutlined";
+export { default as Clear } from "@ant-design/icons-svg/es/asn/ClearOutlined";
+export { default as Close } from "@ant-design/icons-svg/es/asn/CloseOutlined";
+export { default as CloseCircle } from "@ant-design/icons-svg/es/asn/CloseCircleOutlined";
+export { default as ColumnWidth } from "@ant-design/icons-svg/es/asn/ColumnWidthOutlined";
+export { default as CustomerService } from "@ant-design/icons-svg/es/asn/CustomerServiceOutlined";
+export { default as Down } from "@ant-design/icons-svg/es/asn/DownOutlined";
+export { default as Download } from "@ant-design/icons-svg/es/asn/DownloadOutlined";
+export { default as Export } from "@ant-design/icons-svg/es/asn/ExportOutlined";
+export { default as Folder } from "@ant-design/icons-svg/es/asn/FolderOutlined";
+export { default as FolderOpen } from "@ant-design/icons-svg/es/asn/FolderOpenOutlined";
+export { default as Pause } from "@ant-design/icons-svg/es/asn/PauseOutlined";
+export { default as Picture } from "@ant-design/icons-svg/es/asn/PictureOutlined";
+export { default as PlayCircle } from "@ant-design/icons-svg/es/asn/PlayCircleOutlined";
+export { default as Plus } from "@ant-design/icons-svg/es/asn/PlusOutlined";
+export { default as Redo } from "@ant-design/icons-svg/es/asn/RedoOutlined";
+export { default as Save } from "@ant-design/icons-svg/es/asn/SaveOutlined";
+export { default as Scissor } from "@ant-design/icons-svg/es/asn/ScissorOutlined";
+export { default as Search } from "@ant-design/icons-svg/es/asn/SearchOutlined";
+export { default as Sound } from "@ant-design/icons-svg/es/asn/SoundOutlined";
+export { default as StepBackward } from "@ant-design/icons-svg/es/asn/StepBackwardOutlined";
+export { default as Sync } from "@ant-design/icons-svg/es/asn/SyncOutlined";
+export { default as Thunderbolt } from "@ant-design/icons-svg/es/asn/ThunderboltOutlined";
+export { default as Undo } from "@ant-design/icons-svg/es/asn/UndoOutlined";
+export { default as VideoCamera } from "@ant-design/icons-svg/es/asn/VideoCameraOutlined";
+export { default as Warning } from "@ant-design/icons-svg/es/asn/WarningOutlined";
+export { default as ZoomIn } from "@ant-design/icons-svg/es/asn/ZoomInOutlined";
+export { default as ZoomOut } from "@ant-design/icons-svg/es/asn/ZoomOutOutlined";

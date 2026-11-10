@@ -504,3 +504,32 @@ test("channel buttons share one palette in the ribbon and on the timeline", asyn
     expect(chip.className).not.toMatch(/neutral|fuchsia|purple|violet/);
   }
 });
+
+describe("icons", () => {
+  // Characters that used to stand in for icons: they must not creep back into any tab.
+  const STAND_INS = /[▾▸✕⚠📁🔊♪↑←⏮]/u;
+
+  test("every tab uses icons, not text glyphs, and every button still has a name", async () => {
+    const { container } = render(<Workspace slug="show" />);
+    await screen.findByTestId("timeline");
+    for (const tab of [/Media/, /Sync/, /Edit/, /Export/]) {
+      fireEvent.click(screen.getByRole("tab", { name: tab }));
+      await screen.findByRole("tabpanel");
+      expect(container.textContent).not.toMatch(STAND_INS);
+      for (const button of screen.getAllByRole("button")) expect(button).toHaveAccessibleName();
+    }
+    // The tabs themselves carry icons.
+    for (const tab of screen.getAllByRole("tab")) expect(tab.querySelector("svg")).not.toBeNull();
+  });
+
+  test("the controls people press most carry icons", async () => {
+    render(<Workspace slug="show" />);
+    await screen.findByTestId("timeline");
+    for (const name of ["Undo", "Redo", "Save", "Play (space)", "Zoom in", "Start"]) {
+      const button = screen.getAllByRole("button", {
+        name: new RegExp(name.replace(/[()]/g, "\\$&")),
+      })[0];
+      expect(button.querySelector("svg"), name).not.toBeNull();
+    }
+  });
+});

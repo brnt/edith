@@ -14,6 +14,8 @@ import { effectiveTracks, formatTime, type Range } from "../lib/timeline";
 import type { EditorApi } from "../lib/useEditor";
 import { ChannelChip } from "./ChannelChip";
 import { Button, Dropdown } from "./ui";
+import { Icon } from "./Icon";
+import { AudioMuted, Check, Clear, Close, Picture, Scissor, Search, Sound } from "./icons";
 
 /** A ribbon group: controls wrap within `width`, with the group's name underneath. */
 function Group({
@@ -54,7 +56,7 @@ interface Item {
   onRemove: () => void;
 }
 
-/** A menu of edit decisions: click one to jump to it, ✕ to remove it. */
+/** A menu of edit decisions: click one to jump to it, the cross to remove it. */
 function ItemsMenu({ name, empty, items }: { name: string; empty: string; items: Item[] }) {
   return (
     <Dropdown label={`${name} (${items.length})`}>
@@ -76,7 +78,7 @@ function ItemsMenu({ name, empty, items }: { name: string; empty: string; items:
                 aria-label={`Remove ${item.text}`}
                 onClick={item.onRemove}
               >
-                ✕
+                <Icon icon={Close} />
               </button>
             </li>
           ))}
@@ -123,7 +125,7 @@ export function EditTools({ ed }: { ed: EditorApi }) {
     <input
       type="number"
       step={step}
-      class="w-14 rounded bg-neutral-900 px-1 py-0.5"
+      class="w-11 rounded bg-neutral-900 px-1 py-0.5"
       value={silence[key]}
       aria-label={key}
       onChange={(e) => ed.setSilence({ ...silence, [key]: Number(e.currentTarget.value) })}
@@ -154,10 +156,12 @@ export function EditTools({ ed }: { ed: EditorApi }) {
       </Group>
 
       <Group title={`Selection: ${selectionText}`} width="w-52">
-        <Button disabled={!selection} onClick={ed.cutSelection}>
+        <Button size="sm" icon={Scissor} disabled={!selection} onClick={ed.cutSelection}>
           Cut (x)
         </Button>
         <Button
+          size="sm"
+          icon={Check}
           disabled={!selection}
           onClick={() => {
             if (!selection) return;
@@ -181,6 +185,8 @@ export function EditTools({ ed }: { ed: EditorApi }) {
           ))}
         </select>
         <Button
+          size="sm"
+          icon={Picture}
           disabled={!selection || !ed.stillId}
           onClick={() => {
             if (!selection) return;
@@ -193,9 +199,18 @@ export function EditTools({ ed }: { ed: EditorApi }) {
       </Group>
 
       <Group title="Range" width="w-28">
-        <Button onClick={() => onEdit(setRange(edit, ed.t, edit.range_out_s))}>In (i)</Button>
-        <Button onClick={() => onEdit(setRange(edit, edit.range_in_s, ed.t))}>Out (o)</Button>
-        <Button variant="ghost" onClick={() => onEdit(setRange(edit, null, null))}>
+        <Button size="sm" onClick={() => onEdit(setRange(edit, ed.t, edit.range_out_s))}>
+          In (i)
+        </Button>
+        <Button size="sm" onClick={() => onEdit(setRange(edit, edit.range_in_s, ed.t))}>
+          Out (o)
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          icon={Clear}
+          onClick={() => onEdit(setRange(edit, null, null))}
+        >
           Clear
         </Button>
       </Group>
@@ -223,10 +238,20 @@ export function EditTools({ ed }: { ed: EditorApi }) {
           onChange={(e) => setMixGain(Number(e.currentTarget.value))}
         />
         <span>dB</span>
-        <Button disabled={!selection || !mixTrack} onClick={() => mixOver(false)}>
+        <Button
+          size="sm"
+          icon={Sound}
+          disabled={!selection || !mixTrack}
+          onClick={() => mixOver(false)}
+        >
           Set
         </Button>
-        <Button disabled={!selection || !mixTrack} onClick={() => mixOver(true)}>
+        <Button
+          size="sm"
+          icon={AudioMuted}
+          disabled={!selection || !mixTrack}
+          onClick={() => mixOver(true)}
+        >
           Mute
         </Button>
       </Group>
@@ -235,12 +260,15 @@ export function EditTools({ ed }: { ed: EditorApi }) {
         <label>&lt; {num("threshold", 1)} dB</label>
         <label>≥ {num("minS", 0.5)} s</label>
         <label>keep {num("pad", 0.1)} s</label>
-        <Button onClick={ed.findDeadTime}>Find</Button>
+        <Button size="sm" icon={Search} onClick={ed.findDeadTime}>
+          Find
+        </Button>
         {suggestions.length > 0 && (
           <>
-            <span class="text-amber-300">{suggestions.length} found</span>
             <Button
+              size="sm"
               variant="primary"
+              icon={Scissor}
               onClick={() => {
                 onEdit(
                   addCuts(
@@ -251,11 +279,16 @@ export function EditTools({ ed }: { ed: EditorApi }) {
                 ed.setSuggestions([]);
               }}
             >
-              Cut all
+              Cut all ({suggestions.length})
             </Button>
-            <Button variant="ghost" onClick={() => ed.setSuggestions([])}>
-              Dismiss
-            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              icon={Close}
+              aria-label="Dismiss suggestions"
+              title="Dismiss suggestions"
+              onClick={() => ed.setSuggestions([])}
+            />
           </>
         )}
       </Group>

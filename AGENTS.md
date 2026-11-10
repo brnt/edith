@@ -64,6 +64,11 @@ Root `justfile` delegates to both; Compose runs `api` (:8000) and `web` (:8080).
   is silence); `gain_pieces` in `edit/plan.py` splits audio at region edges and `trackGainDb` in
   `lib/timeline.ts` mirrors it for the preview. Whether a file's audio is in the output is
   `EditList.tracks` (muted = excluded); the Media tab owns that, not the timeline.
+- **Icons are Ant Design's** (`@ant-design/icons-svg`, the framework-free icon data, drawn by
+  `components/Icon.tsx`; not the React package, which this Preact app doesn't use). Add an icon by
+  exporting it from `components/icons.ts`, then pass `icon={...}` to `Button`/`Badge` or render
+  `<Icon />`. Always pair an icon with visible text or an `aria-label` (icons are `aria-hidden`);
+  a test fails if text glyphs/emoji stand in for icons. Use `size="sm"` buttons in dense toolbars.
 - **Channels are numbered cameras-first, then stills, by name, only 1-9** (`channelsOf` in
   `lib/timeline.ts`): this numbering drives the number keys, the ribbon buttons, the timeline row
   badges and the switch list, so change it in one place.

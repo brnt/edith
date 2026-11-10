@@ -1,8 +1,16 @@
 import type { ComponentChildren, JSX } from "preact";
+import type { IconDefinition } from "@ant-design/icons-svg/es/types";
 import { useEffect, useRef, useState } from "preact/hooks";
+
+import { Icon } from "./Icon";
+import { Down } from "./icons";
 
 type ButtonProps = JSX.IntrinsicElements["button"] & {
   variant?: "default" | "primary" | "danger" | "ghost";
+  /** An icon shown before the label; the label stays the accessible name. */
+  icon?: IconDefinition;
+  /** `sm` is for dense toolbars (the Edit tab). */
+  size?: "sm" | "md";
 };
 
 const VARIANTS = {
@@ -12,21 +20,33 @@ const VARIANTS = {
   ghost: "bg-transparent hover:bg-neutral-800 text-neutral-300",
 };
 
-export function Button({ variant = "default", class: cls, ...props }: ButtonProps) {
+export function Button({
+  variant = "default",
+  icon,
+  size = "md",
+  class: cls,
+  children,
+  ...props
+}: ButtonProps) {
   return (
     <button
       type="button"
       {...props}
-      class={`rounded px-3 py-1 text-sm disabled:opacity-40 disabled:cursor-not-allowed ${VARIANTS[variant]} ${cls ?? ""}`}
-    />
+      class={`inline-flex items-center rounded disabled:opacity-40 disabled:cursor-not-allowed ${size === "sm" ? "gap-1 px-2 py-0.5 text-[13px]" : "gap-1.5 px-3 py-1 text-sm"} ${VARIANTS[variant]} ${cls ?? ""}`}
+    >
+      {icon && <Icon icon={icon} />}
+      {children}
+    </button>
   );
 }
 
 export function Badge({
   tone = "neutral",
+  icon,
   children,
 }: {
   tone?: "neutral" | "good" | "warn" | "bad";
+  icon?: IconDefinition;
   children: ComponentChildren;
 }) {
   const tones = {
@@ -35,7 +55,12 @@ export function Badge({
     warn: "bg-amber-900 text-amber-200",
     bad: "bg-red-900 text-red-200",
   };
-  return <span class={`rounded px-2 py-0.5 text-xs ${tones[tone]}`}>{children}</span>;
+  return (
+    <span class={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs ${tones[tone]}`}>
+      {icon && <Icon icon={icon} />}
+      {children}
+    </span>
+  );
 }
 
 /** A button that opens a menu over the page. Fixed-positioned, so no ancestor can clip it. */
@@ -73,7 +98,8 @@ export function Dropdown({
   return (
     <div ref={box} class="relative">
       <Button onClick={toggle} aria-expanded={open}>
-        {label} ▾
+        {label}
+        <Icon icon={Down} class="text-xs" />
       </Button>
       {open && (
         <div

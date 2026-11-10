@@ -2,6 +2,8 @@ import { useEffect, useState } from "preact/hooks";
 
 import { listLibrary, type LibraryListing, type MediaKind } from "../lib/api";
 import { Button } from "./ui";
+import { Icon } from "./Icon";
+import { ArrowUp, Check, Close, Folder, Plus } from "./icons";
 
 const KIND_LABEL = { video: "video", audio: "audio", image: "image" } as const;
 
@@ -51,8 +53,12 @@ export function LibraryBrowser({
         <ul class="mt-3 flex-1 space-y-1 overflow-y-auto text-sm">
           {listing?.parent !== null && listing && (
             <li>
-              <button class="text-sky-400" onClick={() => setDir(listing.parent ?? "")}>
-                ↑ up
+              <button
+                class="inline-flex items-center gap-1.5 text-sky-400"
+                onClick={() => setDir(listing.parent ?? "")}
+              >
+                <Icon icon={ArrowUp} />
+                up
               </button>
             </li>
           )}
@@ -61,8 +67,12 @@ export function LibraryBrowser({
             .map((entry) => (
               <li key={entry.path} class="flex items-center gap-2">
                 {entry.is_dir ? (
-                  <button class="text-sky-400" onClick={() => setDir(entry.path)}>
-                    📁 {entry.name}
+                  <button
+                    class="inline-flex items-center gap-1.5 text-sky-400"
+                    onClick={() => setDir(entry.path)}
+                  >
+                    <Icon icon={Folder} />
+                    {entry.name}
                   </button>
                 ) : (
                   <label class="flex items-center gap-2">
@@ -84,11 +94,12 @@ export function LibraryBrowser({
           )}
         </ul>
         <div class="mt-3 flex justify-end gap-2">
-          <Button variant="ghost" onClick={onClose}>
+          <Button variant="ghost" icon={Close} onClick={onClose}>
             Cancel
           </Button>
           <Button
             variant="primary"
+            icon={single ? Check : Plus}
             disabled={selected.size === 0}
             onClick={() => onAdd([...selected])}
           >
