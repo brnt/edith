@@ -67,6 +67,11 @@ export function skipCuts(t: number, keeps: Range[]): number {
   return keeps.length ? keeps[keeps.length - 1][1] : t;
 }
 
+/** The first moment that is kept: where the playhead starts (a leading cut is skipped). */
+export function firstKeptMoment(keeps: Range[], lo: number): number {
+  return keeps.length ? keeps[0][0] : lo;
+}
+
 /** The last moment that is kept: where playback ends (a trailing cut is never played). */
 export function playbackEnd(keeps: Range[]): number {
   return keeps.length ? keeps[keeps.length - 1][1] : 0;

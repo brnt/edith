@@ -7,6 +7,7 @@ import {
   channelsOf,
   cutRanges,
   defaultCamera,
+  firstKeptMoment,
   fitPxPerSec,
   keepIntervals,
   mediaOffsets,
@@ -26,16 +27,19 @@ interface Args {
   edit: EditList;
   onEdit: (edit: EditList) => void;
   onError: (message: string) => void;
+  /** Media and sync have loaded, so cut times and the timeline length are final. */
+  ready: boolean;
 }
 
 /** Playhead, playback, selection, zoom, and dead-time state shared by the stage and the ribbon. */
-export function useEditor({ slug, media, sync, edit, onEdit, onError }: Args) {
+export function useEditor({ slug, media, sync, edit, onEdit, onError, ready }: Args) {
   const offsets = useMemo(() => mediaOffsets(media, sync), [media, sync]);
   const end = timelineEnd(media, offsets);
   const lo = edit.range_in_s ?? 0;
   const hi = edit.range_out_s ?? end;
   const keeps = useMemo(() => keepIntervals(lo, hi, cutRanges(edit.cuts)), [lo, hi, edit.cuts]);
   const outputLength = keeps.reduce((sum, [a, b]) => sum + (b - a), 0);
+  const firstKept = firstKeptMoment(keeps, lo);
 
   const [t, setT] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -66,6 +70,14 @@ export function useEditor({ slug, media, sync, edit, onEdit, onError }: Args) {
     observer.observe(el);
     return () => observer.disconnect();
   }, []);
+
+  // Open on the first moment that is not cut, once, when everything has loaded.
+  const placed = useRef(false);
+  useEffect(() => {
+    if (placed.current || !ready) return;
+    placed.current = true;
+    setT(firstKept);
+  }, [ready, firstKept]);
 
   useEffect(() => {
     if (!stillId && images.length) setStillId(images[0].id);
@@ -143,6 +155,7 @@ export function useEditor({ slug, media, sync, edit, onEdit, onError }: Args) {
     offsets,
     end,
     lo,
+    firstKept,
     keeps,
     outputLength,
     t,
