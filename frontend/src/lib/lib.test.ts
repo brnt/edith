@@ -19,6 +19,8 @@ import {
   activeChannel,
   advancePlayhead,
   boundaryPreview,
+  groupMedia,
+  usedChannelIds,
   stageLayout,
   movedSwitches,
   segments,
@@ -51,6 +53,11 @@ const item = (id: string, kind: MediaItem["kind"], duration = 100): MediaItem =>
   fps: null,
   has_audio: kind !== "image",
   proxy_ready: true,
+  included: true,
+  missing: false,
+  folder: "",
+  external: false,
+  size_bytes: null,
 });
 
 const edit = (patch: Partial<EditList> = {}): EditList => ({
@@ -425,6 +432,52 @@ describe("boundaryPreview", () => {
 
   test("one camera on both sides has nothing to compare: it shows the one being resized", () => {
     expect(at("camA", "camA", "before")).toEqual({ t: 10 - f, compare: null });
+  });
+});
+
+describe("usedChannelIds", () => {
+  test("a channel is used when some segment shows it, the opening default camera included", () => {
+    const used = usedChannelIds([{ at_s: 10, media_id: "camB" }], "camA", 50);
+    expect([...used].sort()).toEqual(["camA", "camB"]);
+    expect(usedChannelIds([], "camA", 50)).toEqual(new Set(["camA"]));
+  });
+
+  test("a switch at the very start leaves no opening segment for the default camera", () => {
+    expect(usedChannelIds([{ at_s: 0, media_id: "car" }], "camA", 50)).toEqual(new Set(["car"]));
+  });
+});
+
+describe("groupMedia", () => {
+  const m = (
+    label: string,
+    folder: string,
+    kind: "video" | "audio" | "image" = "video",
+    external = false,
+  ) => ({ id: label, path: `${folder}/${label}`, label, kind, folder, external }) as MediaItem;
+
+  test("the project folder first, then subfolders in natural order, then elsewhere in the library", () => {
+    const groups = groupMedia([
+      m("z.mp4", "shared", "video", true),
+      m("a.mp4", "day 10"),
+      m("b.mp4", ""),
+      m("c.mp4", "day 2/cam A"),
+    ]);
+    expect(groups.map((g) => g.title)).toEqual(["", "day 2 / cam A", "day 10", "shared"]);
+    expect(groups.map((g) => g.external)).toEqual([false, false, false, true]);
+  });
+
+  test("within a folder: cameras, then audio, then stills, by name", () => {
+    const [group] = groupMedia([
+      m("car.png", "", "image"),
+      m("mic.wav", "", "audio"),
+      m("b.mp4", ""),
+      m("a.mp4", ""),
+    ]);
+    expect(group.items.map((i) => i.label)).toEqual(["a.mp4", "b.mp4", "mic.wav", "car.png"]);
+  });
+
+  test("a folder inside the project and one elsewhere with the same name stay apart", () => {
+    expect(groupMedia([m("a.mp4", "x"), m("b.mp4", "x", "video", true)])).toHaveLength(2);
   });
 });
 

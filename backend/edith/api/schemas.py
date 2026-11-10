@@ -34,6 +34,11 @@ class MediaRead(BaseModel):
     fps: float | None
     has_audio: bool
     proxy_ready: bool
+    included: bool = True
+    missing: bool = False
+    folder: str = ""
+    external: bool = False
+    size_bytes: int | None = None
 
 
 class LibraryEntryRead(BaseModel):
@@ -161,3 +166,37 @@ class SilenceRead(BaseModel):
 class RenderRead(BaseModel):
     name: str
     size: int
+
+
+class VideoDetailsRead(BaseModel):
+    codec: str | None
+    profile: str | None
+    width: int | None
+    height: int | None
+    fps: float | None
+    fps_variable: bool
+    pix_fmt: str | None
+    bit_depth: int | None
+    color_space: str | None
+    color_range: str | None
+    color_transfer: str | None
+    bit_rate: float | None
+
+
+class AudioDetailsRead(BaseModel):
+    codec: str | None
+    sample_rate: float | None
+    channels: int | None
+    channel_layout: str | None
+    bit_rate: float | None
+    bit_depth: int | None
+
+
+class MediaDetailsRead(BaseModel):
+    container: str | None
+    size_bytes: int | None
+    duration_s: float | None
+    bit_rate: float | None
+    created: str | None
+    video: VideoDetailsRead | None
+    audio: AudioDetailsRead | None

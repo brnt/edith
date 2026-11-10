@@ -15,6 +15,11 @@ const cam = (id: string, has_audio = false): MediaItem => ({
   fps: 30,
   has_audio,
   proxy_ready: true,
+  included: true,
+  missing: false,
+  folder: "",
+  external: false,
+  size_bytes: null,
 });
 const mic: MediaItem = { ...cam("mic", true), kind: "audio" };
 

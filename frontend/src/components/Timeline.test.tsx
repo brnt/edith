@@ -17,6 +17,11 @@ const media: MediaItem[] = [
     fps: 30,
     has_audio: true,
     proxy_ready: true,
+    included: true,
+    missing: false,
+    folder: "",
+    external: false,
+    size_bytes: null,
   },
   {
     id: "cam2",
@@ -29,6 +34,11 @@ const media: MediaItem[] = [
     fps: 30,
     has_audio: false,
     proxy_ready: true,
+    included: true,
+    missing: false,
+    folder: "",
+    external: false,
+    size_bytes: null,
   },
   {
     id: "mic",
@@ -41,6 +51,11 @@ const media: MediaItem[] = [
     fps: null,
     has_audio: true,
     proxy_ready: true,
+    included: true,
+    missing: false,
+    folder: "",
+    external: false,
+    size_bytes: null,
   },
 ];
 
@@ -286,7 +301,7 @@ test("the playhead is amber, so it never reads as one of the red cut spans", () 
   expect(playhead.className).not.toContain("red");
 });
 
-test("a disabled camera stays on the timeline but dimmed, with an inert marker instead of a number", () => {
+test("a disabled camera that a segment still shows stays on the timeline, dimmed, with an inert marker instead of a number", () => {
   const withOff = { ...edit, disabled: ["cam"] };
   render(
     <Timeline
@@ -311,4 +326,32 @@ test("a disabled camera stays on the timeline but dimmed, with an inert marker i
   const marker = screen.getByLabelText("Cam is disabled");
   expect(marker).toHaveTextContent("–");
   expect(marker.closest("div")?.className).toContain("opacity-50"); // the row is dimmed
+});
+
+test("a disabled camera that no segment shows is off the timeline; a used one stays", () => {
+  const offTimeline = (id: string, switches: EditList["switches"]) => {
+    cleanup();
+    render(
+      <Timeline
+        media={media}
+        offsets={{ cam: 0, cam2: 0, mic: 0 }}
+        edit={{ ...edit, disabled: [id], switches }}
+        peaks={{}}
+        playhead={0}
+        end={100}
+        pxPerSec={10}
+        selection={null}
+        suggestions={[]}
+        onSeek={vi.fn()}
+        onSelect={vi.fn()}
+        onCamera={vi.fn()}
+        onTrack={vi.fn()}
+        picked={null}
+        onPick={vi.fn()}
+      />,
+    );
+    return screen.queryByText(id === "cam2" ? "Cam 2" : "Cam") === null;
+  };
+  expect(offTimeline("cam2", [])).toBe(true); // nothing shows it
+  expect(offTimeline("cam2", [{ at_s: 10, media_id: "cam2" }])).toBe(false); // a segment does
 });

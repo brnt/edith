@@ -30,7 +30,10 @@ type TabId = "media" | "sync" | "edit" | "export";
 
 interface Props {
   slug: string;
+  /** The project's media. */
   media: MediaItem[];
+  /** Everything in the project folder, included or not (the media tab lists all of it). */
+  available: MediaItem[];
   sync: SyncState | null;
   edit: EditList;
   peaks: Record<string, Peaks>;
@@ -59,6 +62,7 @@ export function Studio(props: Props) {
   const [chosen, setChosen] = useState<TabId | null>(null);
 
   const synced = sync !== null && Object.keys(sync.results).length > 0;
+  const newFiles = props.available.filter((m) => !m.included && !m.missing).length;
   const unsynced = media.filter(
     (m) => m.kind !== "image" && m.has_audio && !sync?.results[m.id],
   ).length;
@@ -78,7 +82,13 @@ export function Studio(props: Props) {
         active={active}
         onSelect={(id) => setChosen(id as TabId)}
         tabs={[
-          { id: "media", label: `Media (${media.length})`, icon: VideoCamera },
+          {
+            id: "media",
+            label: `Media (${media.length})`,
+            icon: VideoCamera,
+            // Files that turned up in the project folder, waiting to be included.
+            badge: newFiles ? <Badge tone="warn">{newFiles} new</Badge> : undefined,
+          },
           {
             id: "sync",
             label: "Sync",
@@ -95,6 +105,9 @@ export function Studio(props: Props) {
           <MediaPanel
             slug={slug}
             media={media}
+            available={props.available}
+            sync={sync}
+            peaks={props.peaks}
             edit={edit}
             onEdit={props.onEdit}
             onChange={props.onMediaChange}

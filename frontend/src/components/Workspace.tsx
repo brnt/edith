@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "preact/hooks";
+import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
 
 import {
   fetchEdit,
@@ -23,9 +23,14 @@ import { Badge, Button } from "./ui";
 import { Icon } from "./Icon";
 import { ArrowLeft, Close, Redo, Save, Sync, Undo } from "./icons";
 
+const MEDIA_POLL_MS = 5000;
+
 export function Workspace({ slug }: { slug: string }) {
   const [project, setProject] = useState<Project | null>(null);
-  const [media, setMedia] = useState<MediaItem[]>([]);
+  // Everything in the project folder, included in the project or not; the editor only sees the
+  // included media.
+  const [available, setAvailable] = useState<MediaItem[]>([]);
+  const media = useMemo(() => available.filter((m) => m.included), [available]);
   const [sync, setSync] = useState<SyncState | null>(null);
   const [hist, setHist] = useState<history.History<EditList> | null>(null);
   const [saved, setSaved] = useState<EditList | null>(null);
@@ -47,7 +52,11 @@ export function Workspace({ slug }: { slug: string }) {
   const refreshMedia = useCallback(
     () =>
       fetchMedia(slug)
-        .then((list) => setMedia(sortMedia(list)))
+        .then((list) => {
+          const next = sortMedia(list);
+          // Polling returns the same list almost every time: keep the old one (and skip a render).
+          setAvailable((prev) => (JSON.stringify(prev) === JSON.stringify(next) ? prev : next));
+        })
         .catch(fail),
     [slug, fail],
   );
@@ -69,6 +78,22 @@ export function Workspace({ slug }: { slug: string }) {
       })
       .catch(fail);
   }, [slug]);
+
+  // New files appear in the media tab on their own: look again every few seconds while the page is
+  // visible, and as soon as the window regains focus (e.g. after copying files in the Finder).
+  useEffect(() => {
+    const look = () => {
+      if (!document.hidden) void refreshMedia();
+    };
+    const timer = window.setInterval(look, MEDIA_POLL_MS);
+    window.addEventListener("focus", look);
+    document.addEventListener("visibilitychange", look);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("focus", look);
+      document.removeEventListener("visibilitychange", look);
+    };
+  }, [refreshMedia]);
 
   // Waveforms for everything that has audio, loaded once per file (again on Retry after a failure).
   const failedPeaks = useRef(new Set<string>());
@@ -98,11 +123,11 @@ export function Workspace({ slug }: { slug: string }) {
     [slug, fail],
   );
   useEffect(() => {
-    for (const m of media) {
-      if (!m.has_audio || m.kind === "image" || requested.current.has(m.id)) continue;
+    for (const m of available) {
+      if (!m.has_audio || m.kind === "image" || m.missing || requested.current.has(m.id)) continue;
       loadPeaks(m.id);
     }
-  }, [media, slug]);
+  }, [available, slug]);
 
   const onEdit = useCallback(
     (next: EditList) => setHist((h) => (h ? history.push(h, next) : h)),
@@ -222,6 +247,7 @@ export function Workspace({ slug }: { slug: string }) {
         <Studio
           slug={slug}
           media={media}
+          available={available}
           sync={sync}
           edit={edit}
           peaks={peaks}

@@ -5,6 +5,7 @@ from edith.api.schemas import (
     JobRead,
     LibraryListingRead,
     MediaAdd,
+    MediaDetailsRead,
     MediaRead,
     PeaksRead,
 )
@@ -14,12 +15,21 @@ from edith.services import library as lib
 from edith.services import media_items, peaks, proxies, thumbnails
 from edith.services.jobs import Job, jobs
 from edith.services.projects import open_project, project_folder
+from edith.sync import media as probing
 
 router = APIRouter()
 
 
 def _media_read(record: media_items.MediaRecord) -> MediaRead:
-    return MediaRead(**record.item.model_dump(), proxy_ready=record.proxy_ready)
+    return MediaRead(
+        **record.item.model_dump(),
+        proxy_ready=record.proxy_ready,
+        included=record.included,
+        missing=record.missing,
+        folder=record.folder,
+        external=record.external,
+        size_bytes=record.size_bytes,
+    )
 
 
 @router.get("/library/files", response_model=LibraryListingRead)
@@ -29,7 +39,10 @@ def library_files(dir: str = "", settings: Settings = Depends(get_settings)):
 
 @router.get("/projects/{slug}/media", response_model=list[MediaRead])
 def get_media(slug: str, settings: Settings = Depends(get_settings)):
-    return [_media_read(r) for r in media_items.list_media(settings.library_dir, slug)]
+    return [
+        _media_read(r)
+        for r in media_items.list_media(settings.library_dir, slug, with_available=True)
+    ]
 
 
 @router.post(
@@ -65,19 +78,23 @@ def get_proxy(slug: str, media_id: str, settings: Settings = Depends(get_setting
 @router.get("/projects/{slug}/media/{media_id}/thumb")
 def get_thumbnail(slug: str, media_id: str, settings: Settings = Depends(get_settings)):
     folder = project_folder(settings.library_dir, slug)
-    with open_project(settings.library_dir, slug) as project:
-        item = media_items.get_item(project, media_id)
+    item = media_items.resolve_item(settings.library_dir, slug, media_id)
     path = thumbnails.build_thumbnail(lib.media_file(settings.library_dir, item.path), item, folder)
     if path is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "audio has no picture")
     return FileResponse(path, media_type="image/jpeg", headers={"Cache-Control": "max-age=3600"})
 
 
+@router.get("/projects/{slug}/media/{media_id}/details", response_model=MediaDetailsRead)
+def get_details(slug: str, media_id: str, settings: Settings = Depends(get_settings)):
+    item = media_items.resolve_item(settings.library_dir, slug, media_id)
+    return probing.details(lib.media_file(settings.library_dir, item.path))
+
+
 @router.get("/projects/{slug}/media/{media_id}/peaks", response_model=PeaksRead)
 def get_peaks(slug: str, media_id: str, settings: Settings = Depends(get_settings)):
     folder = project_folder(settings.library_dir, slug)
-    with open_project(settings.library_dir, slug) as project:
-        item = media_items.get_item(project, media_id)
+    item = media_items.resolve_item(settings.library_dir, slug, media_id)
     source = lib.media_file(settings.library_dir, item.path)
     return peaks.get_peaks(folder, item, source)
 

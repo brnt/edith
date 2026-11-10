@@ -15,6 +15,11 @@ const baseMedia = [
     fps: 59.94,
     has_audio: true,
     proxy_ready: true,
+    included: true,
+    missing: false,
+    folder: "",
+    external: false,
+    size_bytes: null,
   },
   {
     id: "camB",
@@ -27,6 +32,11 @@ const baseMedia = [
     fps: 29.97,
     has_audio: true,
     proxy_ready: true,
+    included: true,
+    missing: false,
+    folder: "",
+    external: false,
+    size_bytes: null,
   },
   {
     id: "mic",
@@ -39,6 +49,11 @@ const baseMedia = [
     fps: null,
     has_audio: true,
     proxy_ready: true,
+    included: true,
+    missing: false,
+    folder: "",
+    external: false,
+    size_bytes: null,
   },
   {
     id: "car",
@@ -51,6 +66,11 @@ const baseMedia = [
     fps: null,
     has_audio: false,
     proxy_ready: true,
+    included: true,
+    missing: false,
+    folder: "",
+    external: false,
+    size_bytes: null,
   },
 ];
 
@@ -82,6 +102,7 @@ const baseEdit = {
 let media = baseMedia;
 let savedEdit: Record<string, unknown> = baseEdit;
 let puts: unknown[] = [];
+let mediaPosts: { path: string }[] = [];
 let syncPosts: { template: Record<string, unknown> }[] = [];
 
 function respond(body: unknown, status = 200) {
@@ -97,6 +118,7 @@ beforeEach(() => {
   media = baseMedia;
   savedEdit = baseEdit;
   puts = [];
+  mediaPosts = [];
   syncPosts = [];
   vi.stubGlobal(
     "fetch",
@@ -164,6 +186,38 @@ beforeEach(() => {
             },
             { name: "cam.mp4", path: "cam.mp4", is_dir: false, kind: "video", size: 1000 },
           ],
+        });
+      if (init?.method === "POST" && path.endsWith("/media")) {
+        const body = JSON.parse(init.body as string) as { path: string };
+        mediaPosts.push(body);
+        media = media.map((m) => (m.path === body.path ? { ...m, included: true } : m));
+        return respond(
+          media.find((m) => m.path === body.path),
+          201,
+        );
+      }
+      if (path.includes("/details"))
+        return respond({
+          container: "QuickTime / MOV",
+          size_bytes: 1_500_000,
+          duration_s: 60,
+          bit_rate: 8_000_000,
+          created: null,
+          video: {
+            codec: "h264",
+            profile: "High",
+            width: 3840,
+            height: 2160,
+            fps: 59.94,
+            fps_variable: false,
+            pix_fmt: "yuv420p",
+            bit_depth: 8,
+            color_space: "bt709",
+            color_range: "tv",
+            color_transfer: null,
+            bit_rate: 7_000_000,
+          },
+          audio: null,
         });
       if (path.endsWith("/media")) return respond(media);
       if (path.endsWith("/sync"))
@@ -349,6 +403,11 @@ const still = (id: string) => ({
   fps: null,
   has_audio: false,
   proxy_ready: true,
+  included: true,
+  missing: false,
+  folder: "",
+  external: false,
+  size_bytes: null,
 });
 
 test("stills are numbered after the cameras; their number key cuts to the still", async () => {
@@ -754,7 +813,8 @@ describe("enabling and disabling assets in the Media tab", () => {
     fireEvent.click(screen.getByRole("tab", { name: /Media/ }));
     const toggle = await screen.findByRole("switch", { name: "Show Cam B in the grid" });
     expect(toggle).toBeChecked();
-    expect(screen.queryByRole("switch", { name: /mic\.wav/ })).toBeNull(); // audio has its own speaker toggle
+    // An audio file has a single control: whether its sound is in the output.
+    expect(screen.getByRole("switch", { name: "Use audio from mic.wav" })).toBeInTheDocument();
 
     fireEvent.click(toggle);
     expect(toggle).not.toBeChecked();
@@ -764,8 +824,8 @@ describe("enabling and disabling assets in the Media tab", () => {
     expect(
       within(tiles).getByRole("button", { name: "Preview of still 2: switch to it" }),
     ).toBeInTheDocument();
-    // On the timeline it is still there, dimmed, with no number.
-    expect(within(timeline).getByLabelText("Cam B is disabled")).toBeInTheDocument();
+    // Nothing in the edit shows Cam B, so a disabled Cam B is off the timeline too.
+    expect(within(timeline).queryByText("Cam B")).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(puts).toHaveLength(1));
@@ -791,5 +851,99 @@ describe("enabling and disabling assets in the Media tab", () => {
     fireEvent.keyDown(window, { key: "2" }); // now the still, since Cam B is off
     fireEvent.click(await screen.findByRole("button", { name: /Switches \(1\)/ }));
     expect(screen.getByText(/→ Still 2 · car\.png/)).toBeInTheDocument();
+  });
+});
+
+describe("the media cards", () => {
+  const found = (patch: Record<string, unknown>) => ({
+    ...baseMedia[0],
+    id: "newcam",
+    path: "show/day 1/cam C/c.mp4",
+    label: "c.mp4",
+    included: false,
+    proxy_ready: false,
+    folder: "day 1/cam C",
+    ...patch,
+  });
+
+  test("every file of the project folder is a card, grouped by folder, and new ones say so", async () => {
+    media = [...baseMedia, found({})];
+    render(<Workspace slug="show" />);
+    fireEvent.click(await screen.findByRole("tab", { name: /Media/ }));
+    const folders = await screen.findAllByTestId("media-folder");
+    expect(folders.map((f) => f.getAttribute("aria-label"))).toEqual([
+      "Project folder",
+      "day 1 / cam C",
+    ]);
+    const cards = within(folders[1]).getAllByTestId("media-card");
+    expect(cards).toHaveLength(1);
+    expect(cards[0]).toHaveAttribute("data-included", "false");
+    expect(within(cards[0]).getByText("new")).toBeInTheDocument();
+    expect(within(cards[0]).getByText("c.mp4")).toBeInTheDocument();
+    // The Media tab says how many are waiting, and only included media count as the project's.
+    expect(screen.getByRole("tab", { name: /Media \(4\)/ })).toHaveTextContent("1 new");
+  });
+
+  test("found files are not part of the editor until included, and including is the write", async () => {
+    media = [...baseMedia, found({})];
+    render(<Workspace slug="show" />);
+    const tiles = await screen.findByTestId("channel-tiles");
+    await within(tiles).findByRole("button", { name: "Preview of camera 2: switch to it" });
+    expect(within(tiles).queryByText("c.mp4")).toBeNull(); // not in the grid
+    expect(within(screen.getByTestId("timeline")).queryByText("c.mp4")).toBeNull();
+    expect(mediaPosts).toEqual([]); // looking wrote nothing
+
+    fireEvent.click(screen.getByRole("tab", { name: /Media/ }));
+    fireEvent.click(await screen.findByRole("switch", { name: "Include c.mp4 in the project" }));
+    await waitFor(() => expect(mediaPosts).toEqual([{ path: "show/day 1/cam C/c.mp4" }]));
+    // Included now: it takes part (the grid has a tile for it).
+    expect(
+      await within(tiles).findByRole("button", { name: /Preview of camera 3/ }),
+    ).toBeInTheDocument();
+  });
+
+  test("a folder can be folded away", async () => {
+    media = [...baseMedia, found({})];
+    render(<Workspace slug="show" />);
+    fireEvent.click(await screen.findByRole("tab", { name: /Media/ }));
+    const folder = (await screen.findAllByTestId("media-folder"))[1];
+    fireEvent.click(within(folder).getByRole("button", { name: /day 1 \/ cam C/ }));
+    expect(within(folder).queryByTestId("media-card")).toBeNull();
+    fireEvent.click(within(folder).getByRole("button", { name: /day 1 \/ cam C/ }));
+    expect(within(folder).getAllByTestId("media-card")).toHaveLength(1);
+  });
+
+  test("the details pop-up shows the technical details of a file", async () => {
+    render(<Workspace slug="show" />);
+    fireEvent.click(await screen.findByRole("tab", { name: /Media/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "Details for Cam A" }));
+    const dialog = await screen.findByRole("dialog", { name: "Details for Cam A" });
+    expect(await within(dialog).findByText("3840×2160")).toBeInTheDocument();
+    expect(within(dialog).getByText("h264 · High")).toBeInTheDocument();
+    expect(within(dialog).getByText("8-bit · yuv420p · bt709 · tv")).toBeInTheDocument();
+    fireEvent.keyDown(document, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+
+  test("a file that is missing says so on its card", async () => {
+    media = [{ ...baseMedia[0], missing: true }, ...baseMedia.slice(1)];
+    render(<Workspace slug="show" />);
+    fireEvent.click(await screen.findByRole("tab", { name: /Media/ }));
+    expect(await screen.findByText("Can't read this file")).toBeInTheDocument();
+  });
+
+  test("new files turn up by themselves: the media list is checked again", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      render(<Workspace slug="show" />);
+      fireEvent.click(await screen.findByRole("tab", { name: /Media/ }));
+      await screen.findAllByTestId("media-card");
+      expect(screen.queryByText("c.mp4")).toBeNull();
+      media = [...baseMedia, found({})]; // someone drops a file into the folder
+      await vi.advanceTimersByTimeAsync(5500);
+      expect(await screen.findByText("c.mp4")).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

@@ -16,6 +16,11 @@ const cam = (id: string, label: string, proxy_ready = true): MediaItem => ({
   fps: 30,
   has_audio: true,
   proxy_ready,
+  included: true,
+  missing: false,
+  folder: "",
+  external: false,
+  size_bytes: null,
 });
 const still: MediaItem = {
   ...cam("car", "car.png"),

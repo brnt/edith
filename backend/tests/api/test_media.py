@@ -127,7 +127,7 @@ def test_thumbnails_for_video_and_images_but_not_audio(client: TestClient, libra
         assert response.status_code == 200, response.text
         assert response.headers["content-type"] == "image/jpeg"
         assert response.content[:2] == b"\xff\xd8"  # a real JPEG
-        assert (library / project / "cache" / "thumbs" / f"{ids[name]}.jpg").is_file()
+        assert (library / project / "cache" / "thumbs-144" / f"{ids[name]}.jpg").is_file()
     assert client.get(f"/projects/{project}/media/{ids['mic.wav']}/thumb").status_code == 404
     assert client.get(f"/projects/{project}/media/nope/thumb").status_code == 404
 
