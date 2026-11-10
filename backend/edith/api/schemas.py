@@ -141,3 +141,8 @@ class CutRange(BaseModel):
 
 class SilenceRead(BaseModel):
     cuts: list[CutRange]
+
+
+class RenderRead(BaseModel):
+    name: str
+    size: int
