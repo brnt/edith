@@ -100,3 +100,44 @@ class SyncRead(BaseModel):
 
 class NudgesIn(BaseModel):
     nudges: dict[str, float]
+
+
+class EditRead(BaseModel):
+    edit: dict
+    needs_upgrade: bool
+
+
+class VideoSegRead(BaseModel):
+    media_id: str
+    kind: str
+    rec_in_s: float
+    dur_s: float
+    src_in_s: float
+
+
+class AudioSegRead(BaseModel):
+    media_id: str
+    rec_in_s: float
+    dur_s: float
+    src_in_s: float
+    gain_db: float
+
+
+class PlanRead(BaseModel):
+    duration_s: float
+    video: list[VideoSegRead]
+    audio: list[AudioSegRead]
+    fps_num: int
+    fps_den: int
+    width: int
+    height: int
+    warnings: list[str]
+
+
+class CutRange(BaseModel):
+    start_s: float
+    end_s: float
+
+
+class SilenceRead(BaseModel):
+    cuts: list[CutRange]

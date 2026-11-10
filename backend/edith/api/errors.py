@@ -18,6 +18,7 @@ _STATUS: dict[type[errors.EdithError], int] = {
     errors.InvalidMediaPath: _UNPROCESSABLE,
     errors.MediaError: _UNPROCESSABLE,
     errors.InvalidTemplate: _UNPROCESSABLE,
+    errors.InvalidEdit: _UNPROCESSABLE,
 }
 
 

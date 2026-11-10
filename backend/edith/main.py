@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 import structlog
 from fastapi import FastAPI
 
+from edith.api.edit import router as edit_router
 from edith.api.errors import register_error_handlers
 from edith.api.media import router as media_router
 from edith.api.routes import router
@@ -30,6 +31,7 @@ def create_app() -> FastAPI:
     app.include_router(router)
     app.include_router(media_router)
     app.include_router(sync_router)
+    app.include_router(edit_router)
     register_error_handlers(app)
     return app
 

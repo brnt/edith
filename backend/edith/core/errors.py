@@ -40,3 +40,7 @@ class MediaError(EdithError):
 
 class InvalidTemplate(EdithError):
     """The registration-sound excerpt is empty, too long, or silent."""
+
+
+class InvalidEdit(EdithError):
+    """The edit refers to unknown media or has an impossible range."""
