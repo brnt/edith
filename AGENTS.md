@@ -73,8 +73,8 @@ Root `justfile` delegates to both; Compose runs `api` (:8000) and `web` (:8080).
   registry the Player fills; `CameraTile` copies frames to a small canvas on each render and on
   `seeked`). Never give a tile its own `<video>`: that would decode every camera twice. Stills are
   plain `<img>` tiles. Every channel keeps a fixed slot (cameras by number, then stills); the
-  active one is a placeholder so the grid never reorders. (A live copy in the active slot would
-  cost ~0.01 ms/frame, measured, so the placeholder is a design choice, not a performance one.)
+  active one is the same tile, highlighted and inert (`TileShell`), so the grid never reorders.
+  Painting a live copy costs ~0.01 ms/frame, measured.
 - **Channels are numbered cameras-first, then stills, by name, only 1-9** (`channelsOf` in
   `lib/timeline.ts`): this numbering drives the number keys, the ribbon buttons, the timeline row
   badges and the switch list, so change it in one place. Channels in `EditList.disabled` (the Media
