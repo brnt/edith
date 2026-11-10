@@ -17,6 +17,7 @@ _STATUS: dict[type[errors.EdithError], int] = {
     errors.MediaNotFound: status.HTTP_404_NOT_FOUND,
     errors.InvalidMediaPath: _UNPROCESSABLE,
     errors.MediaError: _UNPROCESSABLE,
+    errors.InvalidTemplate: _UNPROCESSABLE,
 }
 
 

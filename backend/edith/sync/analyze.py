@@ -1,3 +1,4 @@
+from collections.abc import Callable, Mapping
 from pathlib import Path
 
 import numpy as np
@@ -52,10 +53,22 @@ def tone_candidates(
 
 
 def sync_files(
-    paths: list[Path], template: np.ndarray, window_s: float = DEFAULT_WINDOW_S
+    paths: Mapping[str, Path] | list[Path],
+    template: np.ndarray,
+    window_s: float = DEFAULT_WINDOW_S,
+    *,
+    on_progress: Callable[[str, float], None] | None = None,
 ) -> dict[str, FileSync]:
-    """Place every file on one timeline using its start and end registration sounds."""
-    candidates = {p.name: tone_candidates(p, template, window_s) for p in paths}
+    """Place every file on one timeline using its start and end registration sounds.
+
+    `paths` is {key: path} (results are keyed the same way) or a list of paths keyed by name.
+    """
+    named = paths if isinstance(paths, Mapping) else {p.name: p for p in paths}
+    candidates: dict[str, list[Candidate]] = {}
+    for i, (key, path) in enumerate(named.items()):
+        if on_progress:
+            on_progress(key, i / len(named))
+        candidates[key] = tone_candidates(path, template, window_s)
     result = solve(candidates)
     for sync in result.values():
         log.info("sync_result", file=sync.name, status=sync.status, start_s=sync.start_s)
