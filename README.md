@@ -27,7 +27,7 @@ just up
 
 Open http://localhost:8080 (API docs: http://localhost:8000/docs).
 
-**A project is a folder**, anywhere on your machine: the media you shoot, its `.edith` file (`project.edith` for new projects; any single `*.edith` file in the folder opens),
+**A project is a `.edith` file in a folder**, anywhere on your machine, next to the media you shoot (`project.edith` for the first project in a folder, then `<name>.edith`),
 `renders/`, and a hidden `.edith/` cache (proxies, thumbnails). Nothing else holds project state, so
 you can move or copy the folder to another drive or computer and open it there
 ([ADR 0004](docs/adr/0004-projects-are-self-contained-folders.md)). Media is never modified or
@@ -44,8 +44,9 @@ comes next.
 
 1. **Start.** The start page lists your recent projects and has **New project…** and **Open
    project…**. To create one, pick the folder that holds the media (or a new folder inside it) and
-   name it. To open one, select the folder that contains its `.edith` file (click to select,
-   double-click or the arrow to go inside) and press Open. A project whose folder can't be
+   name it. To open one, select its `.edith` file, or the folder that has just one (click to
+   select, double-click or the arrow to go inside) and press Open. A folder can hold several
+   projects (say two cuts of one shoot): they share the media, and each is its own `.edith` file. A project whose folder can't be
    found right now (an unplugged drive) stays on the list, marked, until you forget it.
 2. **Media.** Put the camera, audio and still-image files in the project folder (subfolders are
    fine: the media view keeps your folder hierarchy) and they turn up in the **Media** tab by
@@ -83,8 +84,9 @@ comes next.
      the edit and the sync results follows, and it isn't counted as a change.
    - **Registration sound:** an audio file's details have **Use as the registration sound**, the
      same as the Sync tab's "An audio file".
-   - **Build proxies** makes low-res copies the browser can scrub (originals are untouched); a
-     bolt on a card means its proxy isn't built yet. A file that goes missing (moved, or its
+   - **Previews** (low-res copies the browser can scrub; originals are untouched) are made in the
+     background as soon as media is found, the project's own media first: a spinner on a card and
+     "Preparing previews" in the tab show progress. There is nothing to build by hand. A file that goes missing (moved, or its
      drive unplugged) is marked on its card and stays in the project.
 3. **Sync.** Every device should have recorded a registration sound once shortly after it started
    and once shortly before it stopped. Tell Edith what it sounds like, then **Find the sound in

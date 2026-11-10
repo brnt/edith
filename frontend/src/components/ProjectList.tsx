@@ -93,6 +93,11 @@ export function ProjectList() {
                 </span>
               )}
               <FolderPath path={project.folder} />
+              {project.file.split("/").pop() !== "project.edith" && (
+                <div class="font-mono text-[11px] text-neutral-500">
+                  {project.file.split("/").pop()}
+                </div>
+              )}
               {!project.available && (
                 <div class="mt-0.5 flex items-center gap-1 text-xs text-amber-300">
                   <Icon icon={Warning} />
@@ -136,7 +141,7 @@ export function ProjectList() {
       {dialog === "open" && (
         <FolderBrowser
           mode="open"
-          title="Open a project: select the folder that contains its .edith file"
+          title="Open a project: select its .edith file (or the folder that has it)"
           confirmLabel="Open this project"
           onChoose={open}
           onClose={() => setDialog(null)}

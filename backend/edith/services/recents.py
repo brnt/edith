@@ -1,8 +1,8 @@
 """The list of recently opened projects: Edith's only state outside the projects themselves.
 
-Projects are self-contained folders anywhere on disk, so there is nothing to scan for: you create
-one or open one, and it goes on this list. An entry whose folder has gone (a drive unplugged) stays
-until you forget it, so it is there when the drive comes back.
+A project is a `.edith` file (in a folder with its media) anywhere on disk, so there is nothing
+to scan for: you create or open one, and it goes on this list by the file's absolute path. One
+whose file has gone (a drive unplugged) stays until you forget it, so it is back with the drive.
 """
 
 import json
@@ -17,7 +17,7 @@ _FILE = "recent-projects.json"
 
 @dataclass
 class Recent:
-    folder: str  # absolute path of the project's folder
+    file: str  # absolute path of the project's .edith file
     name: str
     last_opened: str  # ISO time
 
@@ -26,11 +26,21 @@ def _path(state_dir: Path) -> Path:
     return state_dir / _FILE
 
 
+def _upgraded(raw: dict) -> Recent:
+    """One stored entry. The first version of the list stored the project's folder, not its file."""
+    if "file" in raw:
+        return Recent(**raw)
+    folder = Path(raw["folder"])
+    found = sorted(folder.glob("*.edith")) if folder.is_dir() else []
+    default = folder / "project.edith"
+    file = default if default.exists() or len(found) != 1 else found[0]
+    return Recent(str(file), raw["name"], raw["last_opened"])
+
+
 def load(state_dir: Path) -> list[Recent]:
     try:
-        raw = json.loads(_path(state_dir).read_text())
-        return [Recent(**r) for r in raw]
-    except (OSError, ValueError, TypeError):
+        return [_upgraded(r) for r in json.loads(_path(state_dir).read_text())]
+    except (OSError, ValueError, TypeError, KeyError):
         return []
 
 
@@ -41,24 +51,24 @@ def _save(state_dir: Path, recents: list[Recent]) -> None:
     os.replace(tmp, _path(state_dir))
 
 
-def remember(state_dir: Path, folder: Path, name: str) -> None:
+def remember(state_dir: Path, file: Path, name: str) -> None:
     """Put a project at the top of the list (adding it, or refreshing its name and time)."""
-    key = str(folder)
-    rest = [r for r in load(state_dir) if r.folder != key]
+    key = str(file)
+    rest = [r for r in load(state_dir) if r.file != key]
     now = datetime.now(UTC).isoformat(timespec="seconds")
     _save(state_dir, [Recent(key, name, now), *rest][:MAX_RECENTS])
 
 
-def forget(state_dir: Path, folder: Path) -> None:
-    key = str(folder)
-    _save(state_dir, [r for r in load(state_dir) if r.folder != key])
+def forget(state_dir: Path, file: Path) -> None:
+    key = str(file)
+    _save(state_dir, [r for r in load(state_dir) if r.file != key])
 
 
-def add_if_missing(state_dir: Path, folder: Path, name: str) -> bool:
+def add_if_missing(state_dir: Path, file: Path, name: str) -> bool:
     """Add a project to the end of the list unless it is on it already (for imports)."""
-    key = str(folder)
+    key = str(file)
     existing = load(state_dir)
-    if any(r.folder == key for r in existing):
+    if any(r.file == key for r in existing):
         return False
     now = datetime.now(UTC).isoformat(timespec="seconds")
     _save(state_dir, [*existing, Recent(key, name, now)][:MAX_RECENTS])

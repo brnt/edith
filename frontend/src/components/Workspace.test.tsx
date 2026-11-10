@@ -15,6 +15,7 @@ const baseMedia = [
     fps: 59.94,
     has_audio: true,
     proxy_ready: true,
+    proxy_building: false,
     included: true,
     missing: false,
     folder: "",
@@ -31,6 +32,7 @@ const baseMedia = [
     fps: 29.97,
     has_audio: true,
     proxy_ready: true,
+    proxy_building: false,
     included: true,
     missing: false,
     folder: "",
@@ -47,6 +49,7 @@ const baseMedia = [
     fps: null,
     has_audio: true,
     proxy_ready: true,
+    proxy_building: false,
     included: true,
     missing: false,
     folder: "",
@@ -63,6 +66,7 @@ const baseMedia = [
     fps: null,
     has_audio: false,
     proxy_ready: true,
+    proxy_building: false,
     included: true,
     missing: false,
     folder: "",
@@ -375,7 +379,7 @@ test("the ribbon opens on the next step, switches tabs, and never changes height
   expect(screen.getByRole("button", { name: /Cut \(x\)/ })).toBeInTheDocument(); // the Edit tools
 
   const tabs: [string, RegExp][] = [
-    ["Media (4)", /Build proxies/],
+    ["Media (4)", /Details for Cam A/],
     ["Sync", /Find the sound in every file/],
     ["Export", /Render MP4/],
     ["Edit", /Cut \(x\)/],
@@ -393,7 +397,7 @@ test("the media tab shows tiny thumbnails for video and images, not audio", asyn
   render(<Workspace slug="show" />);
   await screen.findByTestId("timeline");
   fireEvent.click(screen.getByRole("tab", { name: /Media/ }));
-  await screen.findByRole("button", { name: /Build proxies/ });
+  await screen.findAllByTestId("media-card");
   // Only the ribbon's pictures: the stage has one of its own for the still's tile.
   const sources = [...screen.getByRole("tabpanel").querySelectorAll("img")].map((img) =>
     img.getAttribute("src"),
@@ -414,6 +418,7 @@ const still = (id: string) => ({
   fps: null,
   has_audio: false,
   proxy_ready: true,
+  proxy_building: false,
   included: true,
   missing: false,
   folder: "",
@@ -1163,4 +1168,18 @@ test("the header shows where the project lives, and opening it notes it as recen
   render(<Workspace slug="show" />);
   expect(await screen.findByTitle("/Volumes/SSD/show")).toHaveTextContent("/Volumes/SSD/show");
   expect(touched).toEqual(["/api/projects/show/opened"]);
+});
+
+test("previews are made on their own: the media tab shows progress, and there is no Build proxies", async () => {
+  media = baseMedia.map((m, i) =>
+    i === 0 ? { ...m, proxy_ready: false, proxy_building: true } : m,
+  );
+  render(<Workspace slug="show" />);
+  fireEvent.click(await screen.findByRole("tab", { name: /Media/ }));
+  expect(await screen.findByTestId("preparing")).toHaveTextContent("Preparing previews (1)");
+  expect(screen.queryByRole("button", { name: /Build proxies/ })).toBeNull();
+  const card = screen.getAllByTestId("media-card").find((c) => within(c).queryByText("Cam A"))!;
+  expect(within(card).getByTitle("Preparing the preview…")).toBeInTheDocument();
+  // A file whose preview couldn't be made says so instead of spinning forever.
+  expect(card.querySelector('[data-icon="thunderbolt"]')).toBeNull();
 });

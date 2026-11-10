@@ -159,5 +159,8 @@ def test_converted_projects_are_found_by_slug_and_a_broken_one_does_not_stop_the
     folder = _legacy_project(library, "good", [], template=None)
     done = import_legacy_library(library, get_settings().state_dir)
     assert [c.folder for c in done] == ["good"]
-    assert client.get(f"/projects/{slug_for(folder.resolve())}").json()["name"] == "Good"
+    assert (
+        client.get(f"/projects/{slug_for((folder / 'project.edith').resolve())}").json()["name"]
+        == "Good"
+    )
     assert json.loads((get_settings().state_dir / "recent-projects.json").read_text())

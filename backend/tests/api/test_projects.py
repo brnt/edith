@@ -40,8 +40,9 @@ def test_recent_projects_are_remembered_with_their_absolute_folders(
     listed = client.get("/projects").json()
     assert [p["name"] for p in listed] == ["B", "A"]  # newest first
     assert [p["folder"] for p in listed] == [str(b), str(a)]
+    assert [p["file"] for p in listed] == [str(b / "project.edith"), str(a / "project.edith")]
     stored = json.loads(_recents_file().read_text())
-    assert [r["folder"] for r in stored] == [str(b), str(a)]  # absolute paths on disk too
+    assert [r["file"] for r in stored] == [str(b / "project.edith"), str(a / "project.edith")]
 
 
 def test_opening_a_project_moves_it_to_the_top_and_remembers_one_from_elsewhere(
@@ -55,7 +56,7 @@ def test_opening_a_project_moves_it_to_the_top_and_remembers_one_from_elsewhere(
     # A project that isn't on the list (a folder copied from another machine) is opened by folder.
     client.delete(f"/projects/{a['slug']}/recent")
     assert [p["name"] for p in client.get("/projects").json()] == ["B"]
-    reopened = client.post("/projects/open", json={"folder": str(workspace / "a")})
+    reopened = client.post("/projects/open", json={"path": str(workspace / "a")})
     assert reopened.status_code == 200 and reopened.json()["name"] == "A"
     assert [p["name"] for p in client.get("/projects").json()] == ["A", "B"]
 
@@ -81,16 +82,28 @@ def test_a_project_whose_folder_is_gone_stays_on_the_list_marked_unavailable(
 
 def test_opening_a_folder_without_a_project_is_refused(client: TestClient, workspace: Path):
     (workspace / "empty").mkdir()
-    response = client.post("/projects/open", json={"folder": str(workspace / "empty")})
+    response = client.post("/projects/open", json={"path": str(workspace / "empty")})
     assert response.status_code == 404, response.text
 
 
-def test_projects_cant_nest_or_collide(client: TestClient, workspace: Path):
+def test_a_second_project_can_share_a_folder_but_projects_cant_nest(
+    client: TestClient, workspace: Path
+):
     folder = workspace / "show"
-    assert client.post("/projects", json={"name": "One", "folder": str(folder)}).status_code == 201
-    same = client.post("/projects", json={"name": "Two", "folder": str(folder)})
-    inside = client.post("/projects", json={"name": "Two", "folder": str(folder / "cut2")})
-    assert same.status_code == 409 and inside.status_code == 409
+    first = client.post("/projects", json={"name": "Cut A", "folder": str(folder)})
+    second = client.post("/projects", json={"name": "Cut B", "folder": str(folder)})
+    assert first.status_code == second.status_code == 201
+    assert first.json()["file"] == str(folder / "project.edith")
+    assert second.json()["file"] == str(folder / "Cut B.edith")  # named after the project
+    assert first.json()["folder"] == second.json()["folder"] == str(folder)
+    assert first.json()["slug"] != second.json()["slug"]  # two projects, one folder
+    # The same name again would overwrite a project: refused. And a folder inside a project's
+    # folder (its media) can't hold another project.
+    assert (
+        client.post("/projects", json={"name": "Cut B", "folder": str(folder)}).status_code == 409
+    )
+    inside = client.post("/projects", json={"name": "Deeper", "folder": str(folder / "cut2")})
+    assert inside.status_code == 409
 
 
 def test_create_requires_token(client: TestClient, workspace: Path):
@@ -157,20 +170,49 @@ def test_a_folder_with_an_edith_file_opens_whatever_the_file_is_called(
     client.delete(f"/projects/{made['slug']}/recent")
 
     listing = client.get("/fs/folders", params={"dir": str(workspace)}).json()
-    assert [(e["name"], e["is_project"]) for e in listing["entries"]] == [("ep", True)]
-    opened = client.post("/projects/open", json={"folder": str(workspace / "ep")})
+    assert [(e["name"], e["is_project"], e["edith_files"]) for e in listing["entries"]] == [
+        ("ep", True, 1)
+    ]
+    opened = client.post("/projects/open", json={"path": str(workspace / "ep")})  # by its folder
     assert opened.status_code == 200 and opened.json()["name"] == "Renamed"
-    assert client.get(f"/projects/{made['slug']}/media").status_code == 200  # and it works
+    assert opened.json()["file"] == str(workspace / "ep" / "Miata Day.edith")
+    assert client.get(f"/projects/{opened.json()['slug']}/media").status_code == 200  # and it works
 
 
-def test_two_edith_files_are_ambiguous_but_project_edith_wins_and_shadow_files_are_ignored(
+def test_with_several_edith_files_you_choose_one_and_shadow_files_are_ignored(
     client: TestClient, workspace: Path
 ):
     folder = workspace / "two"
-    client.post("/projects", json={"name": "Two", "folder": str(folder)})
-    (folder / "project.edith").rename(folder / "a.edith")
-    (folder / "b.edith").write_bytes((folder / "a.edith").read_bytes())
-    (folder / "._a.edith").write_bytes(b"AppleDouble shadow")
-    assert client.post("/projects/open", json={"folder": str(folder)}).status_code == 404
-    (folder / "b.edith").rename(folder / "project.edith")  # the default name settles it
-    assert client.post("/projects/open", json={"folder": str(folder)}).status_code == 200
+    client.post("/projects", json={"name": "Cut A", "folder": str(folder)})
+    client.post("/projects", json={"name": "Cut B", "folder": str(folder)})
+    (folder / "._Cut B.edith").write_bytes(b"AppleDouble shadow")  # macOS junk on external drives
+
+    listing = client.get("/fs/folders", params={"dir": str(folder)}).json()
+    assert [f["name"] for f in listing["files"]] == ["Cut B.edith", "project.edith"]
+    assert listing["is_project"] is True
+    # project.edith wins when a folder is opened without choosing...
+    assert client.post("/projects/open", json={"path": str(folder)}).json()["name"] == "Cut A"
+    # ...and with no project.edith it's ambiguous, but naming the file is always unambiguous.
+    (folder / "project.edith").rename(folder / "Cut A.edith")
+    ambiguous = client.post("/projects/open", json={"path": str(folder)})
+    assert ambiguous.status_code == 409 and "choose one" in ambiguous.json()["message"]
+    chosen = client.post("/projects/open", json={"path": str(folder / "Cut B.edith")})
+    assert chosen.status_code == 200 and chosen.json()["name"] == "Cut B"
+
+
+def test_a_recent_list_from_before_files_were_the_identity_still_loads(
+    client: TestClient, workspace: Path
+):
+    made = client.post(
+        "/projects", json={"name": "Old list", "folder": str(workspace / "o")}
+    ).json()
+    # The first version of the list stored the folder (not the file) under "folder".
+    _recents_file().write_text(
+        json.dumps(
+            [{"folder": str(workspace / "o"), "name": "Old list", "last_opened": "2026-11-10"}]
+        )
+    )
+    (listed,) = client.get("/projects").json()
+    assert listed["slug"] == made["slug"] and listed["file"] == str(
+        workspace / "o" / "project.edith"
+    )

@@ -37,8 +37,8 @@ def post_project(payload: ProjectCreate, settings: Settings = Depends(get_settin
 
 @router.post("/projects/open", response_model=ProjectRead, dependencies=[Depends(require_token)])
 def post_open(payload: ProjectOpen, settings: Settings = Depends(get_settings)):
-    """Open the project in a folder and put it on the recent list."""
-    return project_service.open_folder(settings.state_dir, payload.folder)
+    """Open a project (a .edith file, or a folder with one) and put it on the recent list."""
+    return project_service.open_path(settings.state_dir, payload.path)
 
 
 @router.post(

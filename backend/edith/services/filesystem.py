@@ -9,14 +9,24 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from edith.core.errors import InvalidMediaPath
-from edith.services.projects import project_file_in
+from edith.services.projects import edith_files
 
 
 @dataclass(frozen=True)
 class FolderEntry:
     name: str
     path: str  # absolute
-    is_project: bool  # holds a project already
+    edith_files: int  # how many projects (.edith files) it holds
+
+    @property
+    def is_project(self) -> bool:
+        return self.edith_files > 0
+
+
+@dataclass(frozen=True)
+class FileEntry:
+    name: str
+    path: str  # absolute
 
 
 @dataclass(frozen=True)
@@ -24,7 +34,11 @@ class FolderListing:
     dir: str  # absolute
     parent: str | None
     entries: list[FolderEntry]
-    is_project: bool  # the listed folder itself holds a project
+    files: list[FileEntry]  # the .edith project files in the listed folder
+
+    @property
+    def is_project(self) -> bool:
+        return bool(self.files)
 
 
 @dataclass(frozen=True)
@@ -47,7 +61,7 @@ def places() -> list[Place]:
 
 
 def list_folders(directory: str = "") -> FolderListing:
-    """The sub-folders of `directory` (an absolute path; empty = the home folder)."""
+    """The folders and project files in `directory` (absolute; empty = the home folder)."""
     folder = Path(directory).expanduser() if directory else Path.home()
     if not folder.is_absolute() or "\0" in str(folder):
         raise InvalidMediaPath(directory)
@@ -62,6 +76,7 @@ def list_folders(directory: str = "") -> FolderListing:
         if child.name.startswith(".") or not child.is_dir(follow_symlinks=True):
             continue
         path = Path(child.path)
-        entries.append(FolderEntry(child.name, str(path), project_file_in(path) is not None))
+        entries.append(FolderEntry(child.name, str(path), len(edith_files(path))))
     parent = None if folder.parent == folder else str(folder.parent)
-    return FolderListing(str(folder), parent, entries, project_file_in(folder) is not None)
+    files = [FileEntry(f.name, str(f)) for f in edith_files(folder)]
+    return FolderListing(str(folder), parent, entries, files)

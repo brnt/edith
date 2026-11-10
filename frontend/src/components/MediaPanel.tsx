@@ -6,7 +6,6 @@ import {
   includeMedia,
   relinkMedia,
   startSync,
-  startProxies,
   thumbUrl,
   type EditList,
   type Job,
@@ -41,6 +40,7 @@ import {
   ExclamationCircle,
   Folder,
   InfoCircle,
+  Loading,
   Picture,
   Sound,
   Sync,
@@ -97,7 +97,7 @@ export function MediaPanel(props: Props) {
   const [job, setJob] = useState<Job | null>(null);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [open, setOpen] = useState<{ item: MediaItem; rect: DOMRect } | null>(null);
-  const noProxy = media.filter((m) => !m.proxy_ready && !m.missing).length;
+  const preparing = available.filter((m) => m.proxy_building).length;
   const numbers = useMemo(
     () => new Map(channelsOf(media, edit.disabled).map((c) => [c.item.id, c.number])),
     [media, edit.disabled],
@@ -174,19 +174,6 @@ export function MediaPanel(props: Props) {
     onChange();
   };
 
-  const buildProxies = async () => {
-    try {
-      const started = await startProxies(slug);
-      setJob(started);
-      const done = await waitForJob(started.id, setJob);
-      if (done.state === "error") onError(done.error ?? "proxy build failed");
-    } catch (e) {
-      fail(e);
-    }
-    setJob(null);
-    onChange();
-  };
-
   const toggleFolder = (key: string) =>
     setCollapsed((prev) => {
       const next = new Set(prev);
@@ -204,9 +191,16 @@ export function MediaPanel(props: Props) {
           <Icon icon={Folder} class="shrink-0" />
           <span class="truncate">{folder.split("/").filter(Boolean).pop()}</span>
         </p>
-        <Button icon={Thunderbolt} disabled={noProxy === 0 || job !== null} onClick={buildProxies}>
-          Build proxies{noProxy ? ` (${noProxy})` : ""}
-        </Button>
+        {preparing > 0 && (
+          <p
+            class="flex items-center gap-1 text-[11px] leading-4 text-neutral-400"
+            title="Low-resolution previews are made in the background as media is found"
+            data-testid="preparing"
+          >
+            <Icon icon={Loading} class="animate-spin" />
+            Preparing previews ({preparing})
+          </p>
+        )}
         {job && <Progress value={job.progress} label={job.message} />}
         {available.length > 0 && (
           <select
@@ -441,9 +435,10 @@ function MediaCard({
   const notes = formatNotes(m, projectFps);
   const syncable = included && !m.missing && m.kind !== "image";
   const colour = channelStyle(m.kind === "image" ? "image" : "video").chip.split(" ")[0];
-  // Icon chips: a fixed square with no line height, so the icon sits centred with no spare space.
+  // Icon chips: one fixed square, centred by grid (the same whether it is a button, a label or a
+  // span, which browsers centre differently), with no line height.
   const iconButton =
-    "inline-flex h-5 w-5 items-center justify-center rounded bg-black/60 text-sm leading-none text-neutral-200 hover:bg-black/80 hover:text-white";
+    "grid h-5 w-5 shrink-0 place-items-center rounded bg-black/60 p-0 text-sm leading-none text-neutral-200 hover:bg-black/80 hover:text-white";
   const kind = KIND[m.kind];
 
   return (
@@ -545,8 +540,13 @@ function MediaCard({
             <Icon icon={Warning} />
           </button>
         )}
-        {included && !m.proxy_ready && !m.missing && m.kind !== "image" && (
-          <span class={`${iconButton} text-amber-400`} title="No proxy yet: Build proxies">
+        {m.proxy_building && (
+          <span class={`${iconButton} text-sky-300`} title="Preparing the preview…">
+            <Icon icon={Loading} class="animate-spin" />
+          </span>
+        )}
+        {!m.proxy_building && !m.proxy_ready && !m.missing && m.kind !== "image" && (
+          <span class={`${iconButton} text-amber-400`} title="The preview couldn't be made">
             <Icon icon={Thunderbolt} />
           </span>
         )}
