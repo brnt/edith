@@ -70,6 +70,7 @@ const baseEdit = {
   stills: [],
   tracks: [],
   mix: [],
+  disabled: [],
   range_in_s: null,
   range_out_s: null,
   fps_num: 30000,
@@ -207,7 +208,7 @@ test("switching camera marks the edit unsaved; saving sends it and clears the ma
   await screen.findByTestId("timeline");
   expect(screen.queryByText("unsaved changes")).toBeNull();
 
-  fireEvent.click(await screen.findByRole("button", { name: "Switch to camera 2" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Preview of camera 2: switch to it" }));
   expect(screen.getByText("unsaved changes")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: /Switches \(1\)/ }));
   expect(screen.getByText(/→ Camera 2/)).toBeInTheDocument();
@@ -221,7 +222,7 @@ test("switching camera marks the edit unsaved; saving sends it and clears the ma
 test("undo reverts a change", async () => {
   render(<Workspace slug="show" />);
   await screen.findByTestId("timeline");
-  fireEvent.click(await screen.findByRole("button", { name: "Switch to camera 2" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Preview of camera 2: switch to it" }));
   fireEvent.click(screen.getByRole("button", { name: "Undo" }));
   expect(screen.queryByText("unsaved changes")).toBeNull();
 });
@@ -281,7 +282,7 @@ test("the ribbon opens on the next step, switches tabs, and never changes height
 
   // Synced project: it opens on Edit, and the timeline and player stay on screen throughout.
   expect(screen.getByRole("tab", { name: "Edit" })).toHaveAttribute("aria-selected", "true");
-  expect(screen.getByRole("button", { name: "Switch to camera 1" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /Cut \(x\)/ })).toBeInTheDocument(); // the Edit tools
 
   const tabs: [string, RegExp][] = [
     ["Media (4)", /Add media/],
@@ -329,7 +330,9 @@ test("stills are numbered after the cameras; their number key cuts to the still"
   render(<Workspace slug="show" />);
   await screen.findByTestId("timeline");
   // Cam A = 1, Cam B = 2, car.png = 3
-  expect(await screen.findByRole("button", { name: "Switch to still 3" })).toBeInTheDocument();
+  expect(
+    await screen.findByRole("button", { name: "Preview of still 3: switch to it" }),
+  ).toBeInTheDocument();
 
   fireEvent.keyDown(window, { key: "3" });
   fireEvent.click(await screen.findByRole("button", { name: /Switches \(1\)/ }));
@@ -368,8 +371,14 @@ test("with many stills the group starts collapsed, and only nine channels get nu
   const toggle = await within(timeline).findByRole("button", { name: /Stills \(8\)/ });
   expect(toggle).toHaveAttribute("aria-expanded", "false");
   // 2 cameras + 8 stills: stills 3-9 are numbered, the last one is not.
-  expect(screen.getByRole("button", { name: "Switch to still 9" })).toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: "Switch to still 10" })).toBeNull();
+  expect(
+    screen.getByRole("button", { name: "Preview of still 9: switch to it" }),
+  ).toBeInTheDocument();
+  // ...the 10th channel has no number, so its tile is labelled by name.
+  expect(screen.queryByRole("button", { name: "Preview of still 10: switch to it" })).toBeNull();
+  expect(
+    screen.getByRole("button", { name: "Preview of still s7.jpg: switch to it" }),
+  ).toBeInTheDocument();
 });
 
 describe("choosing the registration sound", () => {
@@ -493,19 +502,32 @@ describe("where the playhead starts", () => {
   });
 });
 
-test("channel buttons share one palette in the ribbon and on the timeline", async () => {
+test("channels share one palette on the grid tiles and on the timeline rows", async () => {
   render(<Workspace slug="show" />);
   const timeline = await screen.findByTestId("timeline");
-  const ribbonCamera = await screen.findByRole("button", { name: "Switch to camera 1" });
-  const ribbonStill = screen.getByRole("button", { name: "Switch to still 3" });
+  const tiles = await screen.findByTestId("channel-tiles");
+  const chipOf = (tile: HTMLElement) => tile.querySelector("span.bottom-1") as HTMLElement; // the label chip
+  const tileCamera = await within(tiles).findByRole("button", {
+    name: "Preview of camera 2: switch to it",
+  });
+  const tileStill = within(tiles).getByRole("button", { name: "Preview of still 3: switch to it" });
   const rowCamera = within(timeline).getByRole("button", { name: "Switch to Cam A" });
   const rowStill = within(timeline).getByRole("button", { name: "Switch to car.png" });
 
-  for (const chip of [ribbonCamera, rowCamera]) expect(chip.className).toContain("bg-sky");
-  for (const chip of [ribbonStill, rowStill]) expect(chip.className).toContain("bg-teal");
-  for (const chip of [ribbonCamera, ribbonStill, rowCamera, rowStill]) {
+  for (const chip of [chipOf(tileCamera), rowCamera]) expect(chip.className).toContain("bg-sky");
+  for (const chip of [chipOf(tileStill), rowStill]) expect(chip.className).toContain("bg-teal");
+  for (const chip of [chipOf(tileCamera), chipOf(tileStill), rowCamera, rowStill]) {
     expect(chip.className).not.toMatch(/neutral|fuchsia|purple|violet/);
   }
+});
+
+test("the Edit tab no longer has its own channel buttons: the grid and the number keys do that job", async () => {
+  render(<Workspace slug="show" />);
+  await screen.findByTestId("timeline");
+  const panel = screen.getByRole("tabpanel");
+  expect(within(panel).queryByRole("button", { name: /^Switch to (camera|still)/ })).toBeNull();
+  expect(panel).not.toHaveTextContent(/number keys/i);
+  expect(within(panel).getByRole("button", { name: /Cut \(x\)/ })).toBeInTheDocument(); // first group now
 });
 
 describe("icons", () => {
@@ -588,5 +610,56 @@ describe("the other cameras beside the active view", () => {
     // Same column as the player: the play button is not inside the camera tiles or the timeline.
     expect(player.closest(".flex-col")?.contains(play)).toBe(true);
     expect(screen.getByTestId("channel-tiles").contains(play)).toBe(false);
+  });
+});
+
+describe("enabling and disabling assets in the Media tab", () => {
+  test("a disabled camera leaves the grid, the numbers close up, and it is saved; enabling restores it", async () => {
+    render(<Workspace slug="show" />);
+    const tiles = await screen.findByTestId("channel-tiles");
+    const timeline = screen.getByTestId("timeline");
+    await within(tiles).findByRole("button", { name: "Preview of camera 2: switch to it" });
+    await screen.findByText("synced"); // loading finished
+
+    fireEvent.click(screen.getByRole("tab", { name: /Media/ }));
+    const toggle = await screen.findByRole("switch", { name: "Show Cam B in the grid" });
+    expect(toggle).toBeChecked();
+    expect(screen.queryByRole("switch", { name: /mic\.wav/ })).toBeNull(); // audio has its own speaker toggle
+
+    fireEvent.click(toggle);
+    expect(toggle).not.toBeChecked();
+    expect(screen.getByText("unsaved changes")).toBeInTheDocument();
+    // Cam B has no slot any more, and the still moved up into number 2.
+    expect(within(tiles).queryByRole("button", { name: /camera 2/ })).toBeNull();
+    expect(
+      within(tiles).getByRole("button", { name: "Preview of still 2: switch to it" }),
+    ).toBeInTheDocument();
+    // On the timeline it is still there, dimmed, with no number.
+    expect(within(timeline).getByLabelText("Cam B is disabled")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(puts).toHaveLength(1));
+    expect((puts[0] as { disabled: string[] }).disabled).toEqual(["camB"]);
+
+    fireEvent.click(toggle); // enable it again
+    expect(toggle).toBeChecked();
+    expect(
+      await within(tiles).findByRole("button", { name: "Preview of camera 2: switch to it" }),
+    ).toBeInTheDocument();
+    expect(
+      within(tiles).getByRole("button", { name: "Preview of still 3: switch to it" }),
+    ).toBeInTheDocument();
+  });
+
+  test("the number keys follow the grid: a disabled camera's number goes to the next channel", async () => {
+    render(<Workspace slug="show" />);
+    await screen.findByText("synced");
+    fireEvent.click(screen.getByRole("tab", { name: /Media/ }));
+    fireEvent.click(await screen.findByRole("switch", { name: "Show Cam B in the grid" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Edit" }));
+
+    fireEvent.keyDown(window, { key: "2" }); // now the still, since Cam B is off
+    fireEvent.click(await screen.findByRole("button", { name: /Switches \(1\)/ }));
+    expect(screen.getByText(/→ Still 2 · car\.png/)).toBeInTheDocument();
   });
 });

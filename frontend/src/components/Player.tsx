@@ -22,9 +22,14 @@ interface Audio {
 /** Keeps one hidden <video>/<audio> per proxy in step with the playhead; shows the active one. */
 export function Player({ slug, media, offsets, edit, t, playing, elements }: Props) {
   const audio = useRef<Audio | null>(null);
-  const playable = media.filter((m) => m.kind !== "image" && m.proxy_ready);
   const tracks = effectiveTracks(edit, media);
   const state = frameState(t, edit, media, offsets);
+  // A camera switched off in the Media tab is not decoded, unless the output needs it right now:
+  // it is the one on screen, or its own audio is in the mix.
+  const off = new Set(edit.disabled);
+  const needed = (m: MediaItem) =>
+    !off.has(m.id) || m.id === state.channel || tracks.some((x) => x.media_id === m.id && !x.muted);
+  const playable = media.filter((m) => m.kind !== "image" && m.proxy_ready && needed(m));
   const shown = media.find((m) => m.id === state.channel);
   const still = shown?.kind === "image" ? shown : null;
 

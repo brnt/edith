@@ -56,7 +56,9 @@ export function Timeline(props: Props) {
     value: number;
   } | null>(null);
 
-  const channels = channelsOf(media);
+  const channels = channelsOf(media, edit.disabled);
+  // A disabled channel stays on the timeline (the edit may use it), but dimmed.
+  const dim = (c: Channel) => (c.enabled ? "" : "opacity-50");
   const cameras = channels.filter((c) => c.item.kind === "video");
   const stills = channels.filter((c) => c.item.kind === "image");
   // Stills sit in a disclosure group; open by default unless there are a lot of them.
@@ -125,7 +127,7 @@ export function Timeline(props: Props) {
           {cameras.map((c) => (
             <div
               key={c.item.id}
-              class="flex items-center gap-2 border-t border-neutral-800 px-2 text-xs"
+              class={`flex items-center gap-2 border-t border-neutral-800 px-2 text-xs ${dim(c)}`}
               style={{ height: ROW.video }}
             >
               <ChannelButton channel={c} onClick={() => props.onCamera(c.item.id)} />
@@ -151,7 +153,7 @@ export function Timeline(props: Props) {
                 stills.map((c) => (
                   <div
                     key={c.item.id}
-                    class="flex items-center gap-2 border-t border-neutral-800 px-2 text-xs"
+                    class={`flex items-center gap-2 border-t border-neutral-800 px-2 text-xs ${dim(c)}`}
                     style={{ height: ROW.still }}
                   >
                     <ChannelButton channel={c} onClick={() => props.onCamera(c.item.id)} />
@@ -210,12 +212,13 @@ export function Timeline(props: Props) {
             ))}
           </div>
 
-          {cameras.map(({ item: m }) => {
+          {cameras.map((c) => {
+            const m = c.item;
             const off = offsets[m.id] ?? 0;
             return (
               <div
                 key={m.id}
-                class="relative border-t border-neutral-800"
+                class={`relative border-t border-neutral-800 ${dim(c)}`}
                 style={{ height: ROW.video }}
               >
                 {band([off, off + (m.duration_s ?? 0)], "bg-neutral-700/60", "avail", 6, "22px")}
@@ -237,13 +240,13 @@ export function Timeline(props: Props) {
                   )}
               </div>
               {stillsOpen &&
-                stills.map(({ item: m }) => (
+                stills.map((c) => (
                   <div
-                    key={m.id}
-                    class="relative border-t border-neutral-800"
+                    key={c.item.id}
+                    class={`relative border-t border-neutral-800 ${dim(c)}`}
                     style={{ height: ROW.still }}
                   >
-                    {channelSpans(edit.switches, m.id, fallback, lo, hi).map((span, i) =>
+                    {channelSpans(edit.switches, c.item.id, fallback, lo, hi).map((span, i) =>
                       band(span, channelStyle("image").span, i, 4, "20px"),
                     )}
                   </div>
@@ -370,6 +373,17 @@ export function Timeline(props: Props) {
 }
 
 function ChannelButton({ channel, onClick }: { channel: Channel; onClick: () => void }) {
+  if (!channel.enabled) {
+    return (
+      <span
+        class="min-w-5 rounded bg-neutral-800 px-1.5 text-center text-neutral-500"
+        title="Disabled in the Media tab: not in the grid and not numbered"
+        aria-label={`${channel.item.label} is disabled`}
+      >
+        –
+      </span>
+    );
+  }
   return (
     <ChannelChip
       kind={channel.item.kind as "video" | "image"}

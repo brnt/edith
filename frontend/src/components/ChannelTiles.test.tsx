@@ -148,7 +148,7 @@ test("clicking a still's tile activates it, like a camera's", () => {
 test("stills are teal and cameras blue, on the tiles and on the placeholder", () => {
   const { rerender } = render(grid("a"));
   const chip = (name: string) =>
-    screen.getByRole("button", { name }).querySelector("span.absolute");
+    screen.getByRole("button", { name }).querySelector("span.bottom-1");
   expect(chip("Preview of camera 2: switch to it")?.className).toContain("bg-sky");
   expect(chip("Preview of still 4: switch to it")?.className).toContain("bg-teal");
   rerender(grid("car"));
@@ -225,4 +225,20 @@ test("a tile does not paint a camera that is not ready, and says so when there i
     />,
   );
   expect(screen.getByText("no proxy")).toBeInTheDocument();
+});
+
+test("a disabled channel has no slot at all, and the rest keep their order", () => {
+  const off = channelsOf([cam("a", "Cam A"), cam("b", "Cam B"), cam("c", "Cam C"), still], ["b"]);
+  render(
+    <ChannelTiles
+      slug="show"
+      channels={off}
+      activeId="a"
+      elements={{ current: {} }}
+      local={{ a: 1, c: 1 }}
+      onActivate={vi.fn()}
+    />,
+  );
+  expect(slots().map((s) => s.slot)).toEqual(["camera 1", "camera 2", "still 3"]); // Cam B is gone; Cam C is now 2
+  expect(screen.getByTestId("channel-tiles")).not.toHaveTextContent("Cam B");
 });

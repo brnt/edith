@@ -79,6 +79,8 @@ export interface EditList {
   cuts: Cut[];
   tracks: TrackSetting[];
   mix: MixRegion[];
+  /** Cameras and stills switched off in the Media tab (hidden from the grid, no number). */
+  disabled: string[];
   range_in_s: number | null;
   range_out_s: number | null;
   fps_num: number;

@@ -50,6 +50,9 @@ def validate(edit: EditList, media: dict[str, MediaItem]) -> None:
             switch.media_id not in media or media[switch.media_id].kind == "audio"
         ):
             raise InvalidEdit(f"switch refers to unknown camera or still {switch.media_id}")
+    for media_id in edit.disabled:
+        if media_id not in media or media[media_id].kind == "audio":
+            raise InvalidEdit(f"only a camera or a still can be disabled, not {media_id}")
     for region in edit.mix:
         if region.media_id not in media or not media[region.media_id].has_audio:
             raise InvalidEdit(f"mix region refers to media without audio {region.media_id}")

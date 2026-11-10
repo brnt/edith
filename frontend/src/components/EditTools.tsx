@@ -12,7 +12,6 @@ import {
 } from "../lib/editOps";
 import { effectiveTracks, formatTime, type Range } from "../lib/timeline";
 import type { EditorApi } from "../lib/useEditor";
-import { ChannelChip } from "./ChannelChip";
 import { Button, Dropdown } from "./ui";
 import { Icon } from "./Icon";
 import { AudioMuted, Check, Clear, Close, Picture, Scissor, Search, Sound } from "./icons";
@@ -138,23 +137,6 @@ export function EditTools({ ed }: { ed: EditorApi }) {
 
   return (
     <div class="flex h-full gap-3">
-      <Group title="Show at playhead (number keys)" width="w-32">
-        {ed.channels
-          .filter((c) => c.number !== null)
-          .map((c) => (
-            <ChannelChip
-              key={c.item.id}
-              kind={c.item.kind as "video" | "image"}
-              number={c.number}
-              size="md"
-              title={c.item.label}
-              ariaLabel={`Switch to ${c.item.kind === "video" ? "camera" : "still"} ${c.number}`}
-              onClick={() => ed.cutTo(c.item.id)}
-            />
-          ))}
-        {ed.channels.length === 0 && <span class="text-neutral-500">No video or stills</span>}
-      </Group>
-
       <Group title={`Selection: ${selectionText}`} width="w-52">
         <Button size="sm" icon={Scissor} disabled={!selection} onClick={ed.cutSelection}>
           Cut (x)

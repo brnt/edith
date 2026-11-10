@@ -199,3 +199,30 @@ def test_registration_sounds_are_cut_whichever_way_the_sound_was_specified(
     _beep_session(client, library, project, kind=kind)
     cuts = _cuts(client, project)
     assert cuts == [pytest.approx((0.0, 7.6), abs=0.05), pytest.approx((12.4, 22.0), abs=0.05)]
+
+
+def test_disabled_assets_are_saved_but_never_change_the_output(client: TestClient, project, ids):
+    base = client.get(f"/projects/{project}/edit").json()["edit"]
+    before = client.get(f"/projects/{project}/plan").json()
+
+    disabled = [ids["cam.mp4"], ids["car.png"]]
+    saved = client.put(f"/projects/{project}/edit", json={**base, "disabled": disabled})
+    assert saved.status_code == 200, saved.text
+    assert client.get(f"/projects/{project}/edit").json()["edit"]["disabled"] == disabled
+    # A working-set setting: the plan (what gets exported and rendered) is identical.
+    assert client.get(f"/projects/{project}/plan").json() == before
+
+
+@pytest.mark.parametrize("which", ["MIC", "nope"])
+def test_only_cameras_and_stills_can_be_disabled(client: TestClient, project, ids, which):
+    base = client.get(f"/projects/{project}/edit").json()["edit"]
+    target = ids["mic.wav"] if which == "MIC" else "nope"  # audio has its own toggle
+    response = client.put(f"/projects/{project}/edit", json={**base, "disabled": [target]})
+    assert response.status_code == 422, response.text
+
+
+def test_removing_media_removes_it_from_the_disabled_list(client: TestClient, project, ids):
+    base = client.get(f"/projects/{project}/edit").json()["edit"]
+    client.put(f"/projects/{project}/edit", json={**base, "disabled": [ids["cam.mp4"]]})
+    assert client.delete(f"/projects/{project}/media/{ids['cam.mp4']}").status_code == 204
+    assert client.get(f"/projects/{project}/edit").json()["edit"]["disabled"] == []

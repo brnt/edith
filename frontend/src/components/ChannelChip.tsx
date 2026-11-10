@@ -7,20 +7,18 @@ export function ChannelChip({
   number,
   title,
   ariaLabel,
-  size = "sm",
   onClick,
 }: {
   kind: Exclude<MediaKind, "audio">;
   number: number | null;
   title: string;
   ariaLabel: string;
-  size?: "sm" | "md";
   onClick: () => void;
 }) {
   return (
     <button
       type="button"
-      class={`rounded ${channelStyle(kind).chip} ${size === "md" ? "min-w-7 px-2 py-1 text-sm" : "min-w-5 px-1.5"}`}
+      class={`min-w-5 rounded px-1.5 ${channelStyle(kind).chip}`}
       title={title}
       aria-label={ariaLabel}
       onClick={onClick}

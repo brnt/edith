@@ -132,18 +132,29 @@ export const MAX_NUMBERED_CHANNELS = 9;
 
 export interface Channel {
   item: MediaItem;
-  /** 1-9 for the first nine channels (the number key), null beyond that. */
+  /** 1-9 for the first nine enabled channels (the number key), null beyond that or when disabled. */
   number: number | null;
+  /** False when switched off in the Media tab: not in the grid, no number, not decoded. */
+  enabled: boolean;
 }
 
-/** Everything the output can show, cameras first and then stills (each by name), numbered 1-9. */
-export function channelsOf(media: MediaItem[]): Channel[] {
+/**
+ * Everything the output can show: cameras first and then stills (each by name). Numbers go to the
+ * first nine *enabled* channels, so they always match what the grid shows.
+ */
+export function channelsOf(media: MediaItem[], disabled: string[] = []): Channel[] {
   const byName = (a: MediaItem, b: MediaItem) => a.label.localeCompare(b.label);
+  const off = new Set(disabled);
   const ordered = [
     ...media.filter((m) => m.kind === "video").sort(byName),
     ...media.filter((m) => m.kind === "image").sort(byName),
   ];
-  return ordered.map((item, i) => ({ item, number: i < MAX_NUMBERED_CHANNELS ? i + 1 : null }));
+  let next = 0;
+  return ordered.map((item) => {
+    const enabled = !off.has(item.id);
+    const number = enabled && next < MAX_NUMBERED_CHANNELS ? ++next : null;
+    return { item, number, enabled };
+  });
 }
 
 /** Audio that reaches the output: explicit track settings, else every audio-only file. */

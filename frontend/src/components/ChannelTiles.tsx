@@ -188,29 +188,31 @@ export function ChannelTiles({
       style={{ gridTemplateColumns: "repeat(auto-fill, minmax(9.5rem, 1fr))" }}
       data-testid="channel-tiles"
     >
-      {channels.map((c) => {
-        if (c.item.id === activeId) return <TilePlaceholder key={c.item.id} channel={c} />;
-        if (c.item.kind === "image") {
+      {channels
+        .filter((c) => c.enabled)
+        .map((c) => {
+          if (c.item.id === activeId) return <TilePlaceholder key={c.item.id} channel={c} />;
+          if (c.item.kind === "image") {
+            return (
+              <StillTile
+                key={c.item.id}
+                channel={c}
+                slug={slug}
+                onActivate={() => onActivate(c.item.id)}
+              />
+            );
+          }
           return (
-            <StillTile
+            <CameraTile
               key={c.item.id}
               channel={c}
-              slug={slug}
+              elements={elements}
+              hasFootage={local[c.item.id] !== null && local[c.item.id] !== undefined}
+              proxyReady={c.item.proxy_ready}
               onActivate={() => onActivate(c.item.id)}
             />
           );
-        }
-        return (
-          <CameraTile
-            key={c.item.id}
-            channel={c}
-            elements={elements}
-            hasFootage={local[c.item.id] !== null && local[c.item.id] !== undefined}
-            proxyReady={c.item.proxy_ready}
-            onActivate={() => onActivate(c.item.id)}
-          />
-        );
-      })}
+        })}
     </div>
   );
 }
