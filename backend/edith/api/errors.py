@@ -14,6 +14,9 @@ _STATUS: dict[type[errors.EdithError], int] = {
     errors.NotAProjectFile: _UNPROCESSABLE,
     errors.UnsupportedVersion: _UNPROCESSABLE,
     errors.ReadOnlyProject: status.HTTP_409_CONFLICT,
+    errors.MediaNotFound: status.HTTP_404_NOT_FOUND,
+    errors.InvalidMediaPath: _UNPROCESSABLE,
+    errors.MediaError: _UNPROCESSABLE,
 }
 
 

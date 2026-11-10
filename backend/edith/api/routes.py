@@ -31,3 +31,13 @@ def get_project(slug: str, settings: Settings = Depends(get_settings)):
 )
 def post_project(payload: ProjectCreate, settings: Settings = Depends(get_settings)):
     return project_service.create_project(settings.library_dir, payload.name)
+
+
+@router.post(
+    "/projects/{slug}/upgrade",
+    response_model=ProjectRead,
+    dependencies=[Depends(require_token)],
+)
+def post_upgrade(slug: str, settings: Settings = Depends(get_settings)):
+    """Save every document in the current format. Opening a project never does this."""
+    return project_service.upgrade_project(settings.library_dir, slug)

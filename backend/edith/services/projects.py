@@ -1,4 +1,6 @@
 import re
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -11,7 +13,7 @@ from edith.core.errors import (
     ProjectNotFound,
     UnsupportedVersion,
 )
-from edith.db.documents import PROJECT_INFO, PROJECT_INFO_ID, ProjectInfo
+from edith.db.documents import KINDS, PROJECT_INFO, PROJECT_INFO_ID, ProjectInfo
 from edith.db.project_file import ProjectFile
 
 log = structlog.get_logger()
@@ -48,7 +50,8 @@ def _summarize(slug: str, project: ProjectFile) -> ProjectSummary:
         raise NotAProjectFile(slug)
     info = loaded.document
     assert isinstance(info, ProjectInfo)
-    return ProjectSummary(slug, info.name, info.created_at, loaded.needs_upgrade)
+    stale = loaded.needs_upgrade or project.any_older_than_current(KINDS.values())
+    return ProjectSummary(slug, info.name, info.created_at, stale)
 
 
 def create_project(library: Path, name: str) -> ProjectSummary:
@@ -80,3 +83,23 @@ def list_projects(library: Path) -> list[ProjectSummary]:
             # One unreadable project must not hide the rest of the library.
             log.warning("project_skipped", slug=folder.name, reason=type(exc).__name__)
     return summaries
+
+
+def project_folder(library: Path, slug: str) -> Path:
+    return _project_file_path(library, slug).parent
+
+
+@contextmanager
+def open_project(library: Path, slug: str, *, writable: bool = False) -> Iterator[ProjectFile]:
+    with ProjectFile.open(_project_file_path(library, slug), writable=writable) as project:
+        yield project
+
+
+def upgrade_project(library: Path, slug: str) -> ProjectSummary:
+    """Rewrite every document at the current version. Only ever called on explicit request."""
+    with open_project(library, slug, writable=True) as project:
+        for kind in KINDS.values():
+            for loaded in project.list(kind):
+                project.put(kind, loaded.doc_id, loaded.document)
+    log.info("project_upgraded", slug=slug)
+    return get_project(library, slug)

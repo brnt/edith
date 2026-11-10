@@ -14,3 +14,58 @@ class ProjectRead(BaseModel):
     name: str
     created_at: datetime
     needs_upgrade: bool
+
+
+class MediaAdd(BaseModel):
+    path: str  # relative to the library root
+
+
+class MediaRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    path: str
+    kind: str
+    label: str
+    duration_s: float | None
+    width: int | None
+    height: int | None
+    fps: float | None
+    has_audio: bool
+    proxy_ready: bool
+
+
+class LibraryEntryRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    name: str
+    path: str
+    is_dir: bool
+    kind: str | None
+    size: int | None
+
+
+class LibraryListingRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    dir: str
+    parent: str | None
+    entries: list[LibraryEntryRead]
+
+
+class JobRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    label: str
+    state: str
+    progress: float
+    message: str
+    error: str | None
+    result: dict | None
+
+
+class PeaksRead(BaseModel):
+    rate: int
+    floor_db: float
+    values: list[int]

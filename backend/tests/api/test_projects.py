@@ -58,3 +58,10 @@ def test_library_listing_skips_unreadable_projects(client: TestClient, library: 
     listed = client.get("/projects")
     assert listed.status_code == 200, listed.text
     assert [p["slug"] for p in listed.json()] == ["good"]
+
+
+def test_upgrade_is_explicit_and_idempotent(client: TestClient):
+    slug = client.post("/projects", json={"name": "Old"}).json()["slug"]
+    upgraded = client.post(f"/projects/{slug}/upgrade")
+    assert upgraded.status_code == 200, upgraded.text
+    assert upgraded.json()["needs_upgrade"] is False
