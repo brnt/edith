@@ -8,6 +8,7 @@ import {
   setAudioIncluded,
   setCamera,
   setCut,
+  setEnabled,
   setTrack,
   showStill,
 } from "./editOps";
@@ -52,6 +53,7 @@ const edit = (patch: Partial<EditList> = {}): EditList => ({
   cuts: [],
   tracks: [],
   mix: [],
+  disabled: [],
   range_in_s: null,
   range_out_s: null,
   fps_num: 30000,
@@ -432,6 +434,43 @@ describe("mixing", () => {
     expect(trackIncluded(muted, media, "mic")).toBe(false);
     expect(muted.tracks).toEqual([{ media_id: "mic", gain_db: 0, muted: true }]);
     expect(setAudioIncluded(edit(), media, "camA", false)).toEqual(edit()); // nothing to turn off
+  });
+});
+
+describe("disabled channels", () => {
+  const cams = [item("a", "video"), item("b", "video"), item("c", "video"), item("car", "image")];
+
+  test("a disabled channel gets no number and the rest renumber, so numbers match the grid", () => {
+    const channels = channelsOf(cams, ["b"]);
+    expect(channels.map((c) => [c.item.id, c.number, c.enabled])).toEqual([
+      ["a", 1, true],
+      ["b", null, false],
+      ["c", 2, true], // moved up into b's number
+      ["car", 3, true],
+    ]);
+  });
+
+  test("the nine-number limit counts enabled channels only", () => {
+    const many = Array.from({ length: 11 }, (_, i) =>
+      item(`cam${String(i).padStart(2, "0")}`, "video"),
+    );
+    const withOff = channelsOf(many, ["cam00", "cam01"]);
+    expect(withOff.filter((c) => c.number !== null)).toHaveLength(9);
+    expect(withOff[2].number).toBe(1); // the first enabled camera is camera 1
+    expect(withOff[0].number).toBeNull();
+  });
+
+  test("nothing disabled changes nothing", () => {
+    expect(channelsOf(cams, []).map((c) => c.number)).toEqual([1, 2, 3, 4]);
+    expect(channelsOf(cams).every((c) => c.enabled)).toBe(true);
+  });
+
+  test("setEnabled turns a channel off and on, without duplicates", () => {
+    const off = setEnabled(edit(), "a", false);
+    expect(off.disabled).toEqual(["a"]);
+    expect(setEnabled(off, "a", false).disabled).toEqual(["a"]);
+    expect(setEnabled(off, "a", true).disabled).toEqual([]);
+    expect(setEnabled(setEnabled(edit(), "a", false), "b", false).disabled).toEqual(["a", "b"]);
   });
 });
 

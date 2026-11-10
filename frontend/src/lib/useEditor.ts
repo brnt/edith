@@ -55,7 +55,7 @@ export function useEditor({ slug, media, sync, edit, onEdit, onError, ready }: A
   const [silence, setSilence] = useState({ threshold: -50, minS: 2, pad: 0.4 });
   const [stillId, setStillId] = useState("");
 
-  const channels = useMemo(() => channelsOf(media), [media]);
+  const channels = useMemo(() => channelsOf(media, edit.disabled), [media, edit.disabled]);
   const fallback = defaultCamera(media, offsets);
   const images = media.filter((m) => m.kind === "image");
   const fitPx = fitPxPerSec(width, end);
@@ -140,7 +140,7 @@ export function useEditor({ slug, media, sync, edit, onEdit, onError, ready }: A
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [channels.length, end]);
+  }, [channels, end]);
 
   const findDeadTime = async () => {
     try {

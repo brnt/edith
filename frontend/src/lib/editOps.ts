@@ -103,6 +103,12 @@ export function addMix(edit: EditList, region: MixRegion): EditList {
   return { ...edit, mix };
 }
 
+/** Show or hide a camera or still in the playback grid (and give or take its channel number). */
+export function setEnabled(edit: EditList, media_id: string, enabled: boolean): EditList {
+  const rest = edit.disabled.filter((d) => d !== media_id);
+  return { ...edit, disabled: enabled ? rest : [...rest, media_id] };
+}
+
 export function removeMix(edit: EditList, index: number): EditList {
   return { ...edit, mix: edit.mix.filter((_, i) => i !== index) };
 }

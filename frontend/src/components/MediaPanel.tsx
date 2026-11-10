@@ -1,6 +1,6 @@
 import { useState } from "preact/hooks";
 
-import { setAudioIncluded } from "../lib/editOps";
+import { setAudioIncluded, setEnabled } from "../lib/editOps";
 import { trackIncluded } from "../lib/timeline";
 import {
   addMedia,
@@ -16,7 +16,17 @@ import { formatTime } from "../lib/timeline";
 import { LibraryBrowser } from "./LibraryBrowser";
 import { Badge, Button, Progress } from "./ui";
 import { Icon } from "./Icon";
-import { Close, CustomerService, Picture, Plus, Sound, Thunderbolt, VideoCamera } from "./icons";
+import {
+  Close,
+  CustomerService,
+  Eye,
+  EyeInvisible,
+  Picture,
+  Plus,
+  Sound,
+  Thunderbolt,
+  VideoCamera,
+} from "./icons";
 
 interface Props {
   slug: string;
@@ -71,9 +81,37 @@ export function MediaPanel({ slug, media, edit, onEdit, onChange, onError }: Pro
           No media yet. Add the camera and audio files from this session; they stay where they are.
         </p>
       ) : (
-        <ul class="grid min-w-0 auto-cols-[22rem] grid-flow-col grid-rows-3 content-start gap-x-4 gap-y-1 text-sm">
+        <ul class="grid min-w-0 auto-cols-[24rem] grid-flow-col grid-rows-3 content-start gap-x-4 gap-y-1 text-sm">
           {media.map((m) => (
-            <li key={m.id} class="flex h-9 items-center gap-2" title={details(m)}>
+            <li
+              key={m.id}
+              class={`flex h-9 items-center gap-2 ${edit.disabled.includes(m.id) ? "opacity-60" : ""}`}
+              title={details(m)}
+            >
+              {m.kind === "audio" ? (
+                // Audio is not in the grid; its own switch is the speaker checkbox below.
+                <span class="w-5 shrink-0" />
+              ) : (
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={!edit.disabled.includes(m.id)}
+                  aria-label={`Show ${m.label} in the grid`}
+                  title={
+                    edit.disabled.includes(m.id)
+                      ? "Disabled: hidden from the playback grid and not numbered (click to enable)"
+                      : "Shown in the playback grid (click to disable)"
+                  }
+                  class={`shrink-0 rounded p-0.5 text-base ${
+                    edit.disabled.includes(m.id)
+                      ? "text-neutral-500 hover:text-neutral-300"
+                      : "text-sky-300 hover:text-sky-200"
+                  }`}
+                  onClick={() => onEdit(setEnabled(edit, m.id, edit.disabled.includes(m.id)))}
+                >
+                  <Icon icon={edit.disabled.includes(m.id) ? EyeInvisible : Eye} />
+                </button>
+              )}
               <Thumb slug={slug} item={m} />
               <Badge icon={KIND_ICON[m.kind]}>{m.kind}</Badge>
               {m.has_audio && m.kind !== "image" ? (

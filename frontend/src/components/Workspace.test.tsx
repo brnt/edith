@@ -70,6 +70,7 @@ const baseEdit = {
   stills: [],
   tracks: [],
   mix: [],
+  disabled: [],
   range_in_s: null,
   range_out_s: null,
   fps_num: 30000,
@@ -609,5 +610,56 @@ describe("the other cameras beside the active view", () => {
     // Same column as the player: the play button is not inside the camera tiles or the timeline.
     expect(player.closest(".flex-col")?.contains(play)).toBe(true);
     expect(screen.getByTestId("channel-tiles").contains(play)).toBe(false);
+  });
+});
+
+describe("enabling and disabling assets in the Media tab", () => {
+  test("a disabled camera leaves the grid, the numbers close up, and it is saved; enabling restores it", async () => {
+    render(<Workspace slug="show" />);
+    const tiles = await screen.findByTestId("channel-tiles");
+    const timeline = screen.getByTestId("timeline");
+    await within(tiles).findByRole("button", { name: "Preview of camera 2: switch to it" });
+    await screen.findByText("synced"); // loading finished
+
+    fireEvent.click(screen.getByRole("tab", { name: /Media/ }));
+    const toggle = await screen.findByRole("switch", { name: "Show Cam B in the grid" });
+    expect(toggle).toBeChecked();
+    expect(screen.queryByRole("switch", { name: /mic\.wav/ })).toBeNull(); // audio has its own speaker toggle
+
+    fireEvent.click(toggle);
+    expect(toggle).not.toBeChecked();
+    expect(screen.getByText("unsaved changes")).toBeInTheDocument();
+    // Cam B has no slot any more, and the still moved up into number 2.
+    expect(within(tiles).queryByRole("button", { name: /camera 2/ })).toBeNull();
+    expect(
+      within(tiles).getByRole("button", { name: "Preview of still 2: switch to it" }),
+    ).toBeInTheDocument();
+    // On the timeline it is still there, dimmed, with no number.
+    expect(within(timeline).getByLabelText("Cam B is disabled")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(puts).toHaveLength(1));
+    expect((puts[0] as { disabled: string[] }).disabled).toEqual(["camB"]);
+
+    fireEvent.click(toggle); // enable it again
+    expect(toggle).toBeChecked();
+    expect(
+      await within(tiles).findByRole("button", { name: "Preview of camera 2: switch to it" }),
+    ).toBeInTheDocument();
+    expect(
+      within(tiles).getByRole("button", { name: "Preview of still 3: switch to it" }),
+    ).toBeInTheDocument();
+  });
+
+  test("the number keys follow the grid: a disabled camera's number goes to the next channel", async () => {
+    render(<Workspace slug="show" />);
+    await screen.findByText("synced");
+    fireEvent.click(screen.getByRole("tab", { name: /Media/ }));
+    fireEvent.click(await screen.findByRole("switch", { name: "Show Cam B in the grid" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Edit" }));
+
+    fireEvent.keyDown(window, { key: "2" }); // now the still, since Cam B is off
+    fireEvent.click(await screen.findByRole("button", { name: /Switches \(1\)/ }));
+    expect(screen.getByText(/→ Still 2 · car\.png/)).toBeInTheDocument();
   });
 });

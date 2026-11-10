@@ -36,6 +36,7 @@ const edit: EditList = {
   cuts: [{ start_s: 10, end_s: 20 }],
   tracks: [],
   mix: [],
+  disabled: [],
   range_in_s: null,
   range_out_s: null,
   fps_num: 30000,
@@ -121,4 +122,29 @@ test("the playhead is amber, so it never reads as one of the red cut spans", () 
   const playhead = screen.getByTestId("playhead");
   expect(playhead.className).toContain("bg-amber-400");
   expect(playhead.className).not.toContain("red");
+});
+
+test("a disabled camera stays on the timeline but dimmed, with an inert marker instead of a number", () => {
+  const withOff = { ...edit, disabled: ["cam"] };
+  render(
+    <Timeline
+      media={media}
+      offsets={{ cam: 0, mic: 0 }}
+      edit={withOff}
+      peaks={{}}
+      playhead={0}
+      end={100}
+      pxPerSec={10}
+      selection={null}
+      suggestions={[]}
+      onSeek={vi.fn()}
+      onSelect={vi.fn()}
+      onCamera={vi.fn()}
+      onTrack={vi.fn()}
+    />,
+  );
+  expect(screen.queryByRole("button", { name: "Switch to Cam" })).toBeNull(); // nothing to click
+  const marker = screen.getByLabelText("Cam is disabled");
+  expect(marker).toHaveTextContent("–");
+  expect(marker.closest("div")?.className).toContain("opacity-50"); // the row is dimmed
 });

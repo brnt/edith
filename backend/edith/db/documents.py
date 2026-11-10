@@ -148,6 +148,9 @@ class EditList(Document):
     cuts: list[Cut] = []
     tracks: list[TrackSetting] = []  # audio that goes into the output; others are ignored
     mix: list[MixRegion] = []  # per-track level changes over time (later regions win)
+    # Cameras and stills switched off in the Media tab: not in the playback grid, no channel number,
+    # not decoded unless on screen. A working-set setting; it never changes the rendered output.
+    disabled: list[str] = []
     range_in_s: float | None = None
     range_out_s: float | None = None
     fps_num: int = 30000

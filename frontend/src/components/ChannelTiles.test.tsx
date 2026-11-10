@@ -226,3 +226,19 @@ test("a tile does not paint a camera that is not ready, and says so when there i
   );
   expect(screen.getByText("no proxy")).toBeInTheDocument();
 });
+
+test("a disabled channel has no slot at all, and the rest keep their order", () => {
+  const off = channelsOf([cam("a", "Cam A"), cam("b", "Cam B"), cam("c", "Cam C"), still], ["b"]);
+  render(
+    <ChannelTiles
+      slug="show"
+      channels={off}
+      activeId="a"
+      elements={{ current: {} }}
+      local={{ a: 1, c: 1 }}
+      onActivate={vi.fn()}
+    />,
+  );
+  expect(slots().map((s) => s.slot)).toEqual(["camera 1", "camera 2", "still 3"]); // Cam B is gone; Cam C is now 2
+  expect(screen.getByTestId("channel-tiles")).not.toHaveTextContent("Cam B");
+});

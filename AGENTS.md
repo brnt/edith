@@ -77,7 +77,10 @@ Root `justfile` delegates to both; Compose runs `api` (:8000) and `web` (:8080).
   cost ~0.01 ms/frame, measured, so the placeholder is a design choice, not a performance one.)
 - **Channels are numbered cameras-first, then stills, by name, only 1-9** (`channelsOf` in
   `lib/timeline.ts`): this numbering drives the number keys, the ribbon buttons, the timeline row
-  badges and the switch list, so change it in one place.
+  badges and the switch list, so change it in one place. Channels in `EditList.disabled` (the Media
+  tab's eye switch) get no number and no tile and are dimmed on the timeline; the Player decodes
+  them only while on screen or when their audio is in the mix. A working-set setting: the plan and
+  exports ignore it.
 - Long work (proxies, sync, render) runs as a job (`services/jobs.py`); the UI polls `/jobs/{id}`.
 - **ffmpeg gotchas learned on real footage:** never loop a still with `-loop 1` as an input inside
   a concat (it stalls); `-ss` before `-i` for every clip; hold stills with the `loop` filter.
