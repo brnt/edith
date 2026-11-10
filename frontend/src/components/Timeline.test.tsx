@@ -115,3 +115,10 @@ test("grabbing an edge does not move the playhead or start a selection", () => {
   expect(h.onSeek).not.toHaveBeenCalled();
   expect(h.onSelect).not.toHaveBeenCalled();
 });
+
+test("the playhead is amber, so it never reads as one of the red cut spans", () => {
+  setup();
+  const playhead = screen.getByTestId("playhead");
+  expect(playhead.className).toContain("bg-amber-400");
+  expect(playhead.className).not.toContain("red");
+});

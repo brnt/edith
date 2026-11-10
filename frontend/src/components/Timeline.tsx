@@ -350,7 +350,7 @@ export function Timeline(props: Props) {
           )}
           {selection && band(selection, "bg-white/20 ring-1 ring-white/60", "sel", 0, "100%")}
           <div
-            class="pointer-events-none absolute top-0 z-10 h-full w-px bg-red-500"
+            class="pointer-events-none absolute top-0 z-10 h-full w-0.5 bg-amber-400"
             style={{ left: x(playhead) }}
             data-testid="playhead"
           />
