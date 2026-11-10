@@ -1,11 +1,17 @@
 const BASE_URL = import.meta.env.VITE_API_URL || "/api";
 const TOKEN = import.meta.env.VITE_API_TOKEN ?? "dev-token";
 
+/** A project is a folder anywhere on disk; Edith remembers the ones you open in a recent list. */
 export interface Project {
   slug: string;
   name: string;
-  created_at: string;
+  /** The project's folder: absolute path. Media are named relative to it. */
+  folder: string;
+  created_at: string | null;
   needs_upgrade: boolean;
+  /** False: the folder can't be found right now (a drive unplugged, a folder moved). */
+  available: boolean;
+  last_opened: string | null;
 }
 
 export type MediaKind = "video" | "audio" | "image";
@@ -25,9 +31,8 @@ export interface MediaItem {
   included: boolean;
   /** The file is no longer where the project says it is (moved, deleted, drive unplugged). */
   missing: boolean;
-  /** Its directory within the project folder (or its own directory if outside it). */
+  /** Its directory within the project folder ("" for the folder itself). */
   folder: string;
-  external: boolean;
   size_bytes: number | null;
 }
 
@@ -152,17 +157,23 @@ export interface Plan {
   warnings: string[];
 }
 
-export interface LibraryEntry {
+export interface FolderEntry {
   name: string;
+  /** Absolute. */
   path: string;
-  is_dir: boolean;
-  kind: MediaKind | null;
-  size: number | null;
+  /** It holds a project already. */
+  is_project: boolean;
 }
-export interface LibraryListing {
+export interface FolderListing {
   dir: string;
   parent: string | null;
-  entries: LibraryEntry[];
+  entries: FolderEntry[];
+  /** The listed folder itself holds a project. */
+  is_project: boolean;
+}
+export interface Place {
+  name: string;
+  path: string;
 }
 
 export type ExportFormat = "json" | "fcpxml" | "xmeml" | "edl";
@@ -199,17 +210,21 @@ const json = (method: string, body?: unknown): RequestInit => ({
 const p = (slug: string) => `/projects/${encodeURIComponent(slug)}`;
 
 export const fetchProjects = () => request<Project[]>("/projects");
-export const createProject = (name: string) =>
-  request<Project>("/projects", json("POST", { name }));
+export const createProject = (name: string, folder: string) =>
+  request<Project>("/projects", json("POST", { name, folder }));
+export const openProject = (folder: string) =>
+  request<Project>("/projects/open", json("POST", { folder }));
+/** Note that a project was just opened (it goes to the top of the recent list). */
+export const touchProject = (slug: string) => request<void>(`${p(slug)}/opened`, json("POST"));
+export const forgetProject = (slug: string) => request<void>(`${p(slug)}/recent`, json("DELETE"));
 export const fetchProject = (slug: string) => request<Project>(p(slug));
 export const upgradeProject = (slug: string) =>
   request<Project>(`${p(slug)}/upgrade`, json("POST"));
 
 export const fetchMedia = (slug: string) => request<MediaItem[]>(`${p(slug)}/media`);
-export const addMedia = (slug: string, path: string) =>
+/** Make a file of the project folder part of the project (the edit that writes it). */
+export const includeMedia = (slug: string, path: string) =>
   request<MediaItem>(`${p(slug)}/media`, json("POST", { path }));
-export const removeMedia = (slug: string, id: string) =>
-  request<void>(`${p(slug)}/media/${id}`, json("DELETE"));
 export const startProxies = (slug: string) => request<Job>(`${p(slug)}/proxies`, json("POST"));
 export const relinkMedia = (slug: string, id: string, path: string) =>
   request<MediaItem>(`${p(slug)}/media/${id}/relink`, json("POST", { path }));
@@ -241,8 +256,9 @@ export const fetchSilence = (slug: string, thresholdDb: number, minS: number, pa
   );
 
 export const fetchJob = (id: string) => request<Job>(`/jobs/${id}`);
-export const listLibrary = (dir = "") =>
-  request<LibraryListing>(`/library/files?dir=${encodeURIComponent(dir)}`);
+export const listFolders = (dir = "") =>
+  request<FolderListing>(`/fs/folders?dir=${encodeURIComponent(dir)}`);
+export const fetchPlaces = () => request<Place[]>("/fs/places");
 export const exportUrl = (slug: string, format: ExportFormat) =>
   `${BASE_URL}${p(slug)}/export/${format}`;
 

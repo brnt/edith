@@ -21,15 +21,20 @@ Compose. `ffmpeg`/`ffprobe` do all media work server-side
 Requires Docker.
 
 ```bash
-cp .env.example .env     # set LIBRARY_DIR to the folder holding your media (e.g. on the SSD)
+cp .env.example .env     # optional: set EDITH_MOUNT (default: your home folder; /Volumes for drives)
 just up
 ```
 
 Open http://localhost:8080 (API docs: http://localhost:8000/docs).
 
-`LIBRARY_DIR` is the folder Edith can see: your media can live anywhere inside it, and each
-project is created as a sub-folder (`<slug>/project.edith` plus a `cache/` and `renders/`).
-Media is referenced in place and never modified or copied.
+**A project is a folder**, anywhere on your machine: the media you shoot, `project.edith`,
+`renders/`, and a hidden `.edith/` cache (proxies, thumbnails). Nothing else holds project state, so
+you can move or copy the folder to another drive or computer and open it there
+([ADR 0004](docs/adr/0004-projects-are-self-contained-folders.md)). Media is never modified or
+copied. Under Docker, `EDITH_MOUNT` is the part of your machine Edith can see; it is mounted at the
+same path as on your machine, so the file paths in exports are your real ones. Edith remembers the
+projects you open in a recent list (`~/.edith`, or the `state` volume in Docker); there is no
+library and nothing to scan.
 
 ## How to use it
 
@@ -37,18 +42,21 @@ The video preview and the timeline are always on screen. The tools live in a fix
 above them with four tabs (**Media**, **Sync**, **Edit**, **Export**); it opens on whichever step
 comes next.
 
-1. **Media.** Every project has a folder (`<library>/<project>/`). Put the camera, audio and
-   still-image files in it (subfolders are fine: the media view keeps your folder hierarchy) and
-   they turn up in the **Media** tab by themselves within a few seconds. Footage that lives
-   elsewhere (an external drive) can be linked into the folder, or added with **Add media…**.
-   Once a project uses a file from another folder (say a shared `media/` folder on the drive),
-   **that folder is watched too** (one level deep): files dropped into it later turn up as new,
-   with no linking and nothing written until you include them.
+1. **Start.** The start page lists your recent projects and has **New project…** and **Open
+   project…**. To create one, pick the folder that holds the media (or a new folder inside it) and
+   name it. To open one, browse to a folder marked *project*. A project whose folder can't be
+   found right now (an unplugged drive) stays on the list, marked, until you forget it.
+2. **Media.** Put the camera, audio and still-image files in the project folder (subfolders are
+   fine: the media view keeps your folder hierarchy) and they turn up in the **Media** tab by
+   themselves within a few seconds. There is no *Add media* and no *Remove*: the folder is the way
+   in and out. Footage kept elsewhere (an external drive) can be linked into the folder. A file
+   that is deleted from the folder and that nothing in the edit uses simply disappears from the
+   list.
    Each file is a card: a thumbnail (a waveform for audio) with its name, the grid number it has,
    a sync icon for video and audio (green check synced, amber exclamation check, red cross not
    found, grey arrows not synced yet), and:
    - **Include:** a file found in the folder is marked *new* and is **not part of the project**
-     until you include it (click its eye). Looking never writes to the project; including is the
+     until you include it (tick its checkbox). Looking never writes to the project; including is the
      edit that does. The tab shows how many are waiting.
    - **The checkbox:** ticked by default. For a camera or still it shows or hides it in the grid
      and the timeline (a hidden one stays on the timeline only while a segment still shows it). For
@@ -59,7 +67,7 @@ comes next.
    - **The speaker (cameras):** whether the camera's own audio is used, independent of the
      checkbox (off until you turn it on, shown as a crossed-out speaker).
    - **Details (i):** codec, resolution, frame rate (flagged when variable or different from the
-     project's), colour depth, bit rate, audio format, size; also *Remove from project* (the
+     project's), colour depth, bit rate, audio format, size (the
      file itself is never touched).
    - **Folders:** the cards are grouped by folder, and a folder's header can be folded away,
      **Include all** its new files, or **Hide all / Show all** its files at once. A **Show**
@@ -77,7 +85,7 @@ comes next.
    - **Build proxies** makes low-res copies the browser can scrub (originals are untouched); a
      bolt on a card means its proxy isn't built yet. A file that goes missing (moved, or its
      drive unplugged) is marked on its card and stays in the project.
-2. **Sync.** Every device should have recorded a registration sound once shortly after it started
+3. **Sync.** Every device should have recorded a registration sound once shortly after it started
    and once shortly before it stopped. Tell Edith what it sounds like, then **Find the sound in
    every file**. Three ways:
    - **Marked in a recording:** pick any recording that contains it and drag across the sound on
@@ -85,15 +93,15 @@ comes next.
      didn't generate.
    - **Generated from text:** type the seed string (e.g. `stickshift`); **Download .wav** gives
      you the sound to play on set. Edith searches every file for that same sound.
-   - **An audio file:** choose a file from the library (silence around the sound is trimmed). It
-     is searched for, not added to the project.
+   - **An audio file:** choose an audio file from the project folder (silence around the sound is
+     trimmed). It is searched for, not added to the project.
 
    Each file gets a start offset, a **Match** score (1.0 = identical; real rooms score lower, e.g.
    0.4-0.6), drift, and a result: *synced*, *check* (weak or inconsistent: review it), or *not
    found*. Compare the Match across files: a different seed or the wrong sound can partly match
    and may land up to ~30 ms off, but scores clearly lower. Nudge any file by hand in
    milliseconds.
-3. **Edit.** The large view plays the synced proxies, with the time and play controls under it. Beside
+4. **Edit.** The large view plays the synced proxies, with the time and play controls under it. Beside
    it is a grid of every camera (live thumbnails, in step with the playhead) and every still (a
    small picture): **click one to cut to it at the current position**. Each channel keeps its own
    slot in the grid (cameras in number order, then stills); the one on screen is a dimmed live copy with an "on screen" overlay
@@ -110,7 +118,7 @@ comes next.
      **With a range selected** (drag on the timeline), clicking a thumbnail or pressing a number
      shows that channel over just the range, then goes back to whatever was showing at its end (a
      cutaway); the selection then clears. `Esc` clears a selection without doing anything.
-     The eye switch beside each file in the **Media** tab hides a camera or still from the grid:
+     The checkbox beside each file in the **Media** tab hides a camera or still from the grid:
      it loses its number (the rest close up), is dimmed on the timeline, and isn't decoded
      unless it is on screen. It only tidies your workspace; the rendered output never changes.
    - **Dead time:** *Find* outlines silent stretches (all output tracks quiet) and always
@@ -145,7 +153,7 @@ comes next.
    - **Edit list:** the Switches and Cuts menus list every decision; click one to jump to it, ✕
      to remove it.
    - **Save** (⌘/Ctrl+S) writes the edit into the project file. Undo/redo with ⌘/Ctrl+Z.
-4. **Export.** FCPXML (DaVinci Resolve, Final Cut), Premiere XML, EDL (video only), the Edith
+5. **Export.** FCPXML (DaVinci Resolve, Final Cut), Premiere XML, EDL (video only), the Edith
    JSON, or **Render MP4 (1080p)**. Exports and renders use the *saved* edit.
 
 Keys: `space` play · `1`–`9` camera or still · `x` cut selection · `i`/`o` range · `←`/`→` step (shift = 10 s).
@@ -165,8 +173,9 @@ just test-live  # HTTP tests against `just up` (skips if the stack is down; not 
 just ci         # lint + test + frontend build
 ```
 
-For local development, point `LIBRARY_DIR` in `backend/.env` at a folder of media. Backend tests
-that need real media generate tiny synthetic files with ffmpeg. To also check the real sample
+For local development, `just run` needs nothing set: create or open projects from the start page.
+(`STATE_DIR` in `backend/.env` moves the recent list; `LEGACY_LIBRARY_DIR` imports projects from
+before they were folders, once.) Backend tests that need real media generate tiny synthetic files with ffmpeg. To also check the real sample
 session: `EDITH_SAMPLE_MEDIA=/path/to/session uv run pytest tests/sync/test_real_media.py`.
 
 The sync engine alone, from the command line:
@@ -179,8 +188,9 @@ uv run python -m edith.sync --template take.wav:13.38:13.62 cam1.mp4 cam2.mp4 ta
 ## Configuration
 
 Backend variables are in `backend/.env.example`, frontend in `frontend/.env.example`, Compose in
-`.env.example`. `API_TOKEN` must match between the API and the web build. `HOST_LIBRARY_DIR` is
-set for you by `just up`; exports use it so file paths point at the real files.
+`.env.example`. `API_TOKEN` must match between the API and the web build. Edith is a local,
+single-user tool: the API can browse and read any folder the server can (that is how you pick a
+project's folder), so keep it on localhost.
 
 ## Architecture
 

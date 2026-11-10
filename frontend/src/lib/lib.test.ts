@@ -58,7 +58,6 @@ const item = (id: string, kind: MediaItem["kind"], duration = 100): MediaItem =>
   included: true,
   missing: false,
   folder: "",
-  external: false,
   size_bytes: null,
 });
 
@@ -450,22 +449,12 @@ describe("usedChannelIds", () => {
 });
 
 describe("groupMedia", () => {
-  const m = (
-    label: string,
-    folder: string,
-    kind: "video" | "audio" | "image" = "video",
-    external = false,
-  ) => ({ id: label, path: `${folder}/${label}`, label, kind, folder, external }) as MediaItem;
+  const m = (label: string, folder: string, kind: "video" | "audio" | "image" = "video") =>
+    ({ id: label, path: `${folder}/${label}`, label, kind, folder }) as unknown as MediaItem;
 
-  test("the project folder first, then subfolders in natural order, then elsewhere in the library", () => {
-    const groups = groupMedia([
-      m("z.mp4", "shared", "video", true),
-      m("a.mp4", "day 10"),
-      m("b.mp4", ""),
-      m("c.mp4", "day 2/cam A"),
-    ]);
-    expect(groups.map((g) => g.title)).toEqual(["", "day 2 / cam A", "day 10", "shared"]);
-    expect(groups.map((g) => g.external)).toEqual([false, false, false, true]);
+  test("the project folder first, then its subfolders in natural order", () => {
+    const groups = groupMedia([m("a.mp4", "day 10"), m("b.mp4", ""), m("c.mp4", "day 2/cam A")]);
+    expect(groups.map((g) => g.title)).toEqual(["", "day 2 / cam A", "day 10"]);
   });
 
   test("within a folder: cameras, then audio, then stills, by name", () => {
@@ -476,10 +465,6 @@ describe("groupMedia", () => {
       m("a.mp4", ""),
     ]);
     expect(group.items.map((i) => i.label)).toEqual(["a.mp4", "b.mp4", "mic.wav", "car.png"]);
-  });
-
-  test("a folder inside the project and one elsewhere with the same name stay apart", () => {
-    expect(groupMedia([m("a.mp4", "x"), m("b.mp4", "x", "video", true)])).toHaveLength(2);
   });
 });
 

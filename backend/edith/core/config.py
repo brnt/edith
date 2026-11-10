@@ -1,7 +1,7 @@
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import AliasChoices, Field
+from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -22,6 +22,11 @@ class Settings(BaseSettings):
     legacy_library_dir: Path | None = Field(
         default=None, validation_alias=AliasChoices("LEGACY_LIBRARY_DIR", "LIBRARY_DIR")
     )
+
+    @field_validator("legacy_library_dir", mode="before")
+    @classmethod
+    def _empty_means_unset(cls, value: object) -> object:
+        return None if value in ("", None) else value
 
 
 @lru_cache

@@ -47,8 +47,15 @@ Root `justfile` delegates to both; Compose runs `api` (:8000) and `web` (:8080).
   use a throwaway SQLite file under `tmp_path`).
 
 **Rules specific to this project:**
-- **Media is never modified or copied.** Paths in documents are relative to the library root and
-  validated (no `..`, no absolute); the app writes only `project.edith`, `cache/`, and `renders/`.
+- **A project is a self-contained folder anywhere on disk** ([0004](docs/adr/0004-projects-are-self-contained-folders.md)):
+  media, `project.edith`, `renders/`, hidden `.edith/` cache. There is **no library root and nothing is
+  scanned**: a project's id (slug) is its absolute folder path (base64url); `services/recents.py`
+  keeps the recent list in `STATE_DIR` (absolute paths); projects are created or opened by folder.
+  **Media paths in documents are relative to the project folder** and validated (no `..`, no
+  absolute), so the folder can be moved or copied whole. Media is never modified or copied; the app
+  writes only `project.edith`, `.edith/`, and `renders/`. There is no add/remove media action: the
+  folder is the interface. `GET /fs/folders` browses any folder (local single-user tool: keep the API
+  on localhost).
 - Routes are sync `def` (stdlib `sqlite3` is blocking; FastAPI runs them in a threadpool).
 - **The render plan (`edit/plan.py`) is the single source of truth** for what the output is.
   Exporters and the ffmpeg render serialise it; the frontend's `lib/timeline.ts` mirrors its
@@ -100,10 +107,6 @@ Root `justfile` delegates to both; Compose runs `api` (:8000) and `web` (:8080).
   every render (a hidden page delivers no observer callbacks).
 - **The timeline is one scroller (both axes)**: the ruler and label column are `sticky`. Keep every
   row's content inside its fixed height (1px of overflow is enough to make it scroll).
-- **Watched folders are derived, not stored:** besides the project folder, `discovery.scan` reads (one
-  level deep) every folder outside it that an included media item lives in (`_watched_dirs`), so a
-  shared `media/` folder on the drive is watched as soon as a project uses a file from it. No setting,
-  no write.
 - **Media discovery is read-only** (`services/discovery.py`): the project folder is walked (links
   followed; `cache/`, `renders/`, dotfiles and temp names skipped; files touched in the last 2s are
   ignored until they settle) and unincluded files are listed with `included: false`, probed once
@@ -132,14 +135,14 @@ Root `justfile` delegates to both; Compose runs `api` (:8000) and `web` (:8080).
   exports ignore it.
 - **Error messages are written for the person using the app** (the API's `message` is shown as-is,
   without the status code), and a failure that can recover on its own (media on an unplugged drive)
-  gets a Retry. A missing source file is a 404 `Can't read <path>` (`library.media_file`).
+  gets a Retry. A missing source file is a 404 `Can't read <path>` (`mediafiles.media_file`).
 - Long work (proxies, sync, render) runs as a job (`services/jobs.py`); the UI polls `/jobs/{id}`.
 - **ffmpeg gotchas learned on real footage:** never loop a still with `-loop 1` as an input inside
   a concat (it stalls); `-ss` before `-i` for every clip; hold stills with the `loop` filter.
   Exports and renders use the *saved* edit, not unsaved UI state.
 - **Sync** (`backend/edith/sync/`, try it: `cd backend && uv run python -m edith.sync --template FILE:START:END FILES...`):
   the registration sound is a pluggable *template* (`SyncTemplate.kind`: `excerpt` of a
-  registered recording, `seed` text, or a library `file`; the sync document gained these fields
+  registered recording, `seed` text, or an audio `file` of the project folder; the sync document gained these fields
   additively, so no version bump), because what was actually played is not always the generated burst
   ([0003](docs/adr/0003-sync-by-normalized-correlation-and-cross-file-consensus.md)). Different seeds
   still correlate ~0.6-0.7 (so a wrong seed partly matches, up to ~30 ms off): surface the Match
@@ -152,8 +155,11 @@ Root `justfile` delegates to both; Compose runs `api` (:8000) and `web` (:8080).
 - Not built yet: applying measured drift to clip placement, vertical/9:16 reframing, volume
   envelopes (the mix is stepwise regions: `EditList.mix`), and a room-audio sync fallback. Add a fixture project for every future version bump.
 
-**Local use:** `LIBRARY_DIR` (root `.env`) is the host folder bind-mounted as the library; point
-it at a folder on the external SSD.
+**Local use:** `EDITH_MOUNT` (root `.env`) is the part of your machine Docker Edith can see, mounted at
+the same path as on the host (default: your home folder; `/Volumes` for external drives). Projects
+from before the folder layout are converted once at startup from `LEGACY_LIBRARY_DIR`
+(`services/migration.py`: footage is *linked* into the project folder, ids unchanged, a
+`project.edith.before-folder-layout` backup is kept).
 
 ## Commands
 

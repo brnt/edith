@@ -14,7 +14,9 @@ pytestmark = pytest.mark.live
 
 TOKEN = os.environ.get("API_TOKEN", "dev-token")
 BASE_URL = os.environ.get("API_URL", "http://localhost:8000")
-HOST_LIBRARY_DIR = Path(os.environ.get("LIVE_LIBRARY_DIR", "../.library"))
+# Where the test project goes: a folder the running stack can see at this same path (under Docker
+# Compose that is anywhere in EDITH_MOUNT, your home folder by default).
+LIVE_PARENT = Path(os.environ.get("LIVE_PROJECT_PARENT", Path.home() / ".edith-live-tests"))
 
 
 @pytest.fixture
@@ -36,19 +38,21 @@ def test_health_and_auth(live: httpx.Client) -> None:
     assert health.json()["status"] == "ok"
 
     with httpx.Client(base_url=BASE_URL, timeout=10.0) as unauth:
-        denied = unauth.post("/projects", json={"name": "nope"})
+        denied = unauth.post("/projects", json={"name": "nope", "folder": str(LIVE_PARENT / "x")})
         assert denied.status_code == 401, denied.text
 
 
-def test_create_project_writes_file_on_bind_mount(live: httpx.Client) -> None:
+def test_create_project_writes_file_in_the_chosen_folder(live: httpx.Client) -> None:
     name = f"live-{uuid.uuid4().hex[:8]}"
-    created = live.post("/projects", json={"name": name})
+    folder = LIVE_PARENT / name
+    created = live.post("/projects", json={"name": name, "folder": str(folder)})
     assert created.status_code == 201, created.text
     slug = created.json()["slug"]
 
-    host_file = HOST_LIBRARY_DIR / slug / "project.edith"
+    host_file = folder / "project.edith"
     assert host_file.is_file(), f"expected {host_file} on the host bind mount"
 
     fetched = live.get(f"/projects/{slug}")
     assert fetched.status_code == 200, fetched.text
     assert fetched.json()["name"] == name
+    assert fetched.json()["folder"] == str(folder)

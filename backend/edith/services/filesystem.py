@@ -38,7 +38,11 @@ def places() -> list[Place]:
     found = [Place("Home", str(Path.home()))]
     for mounts in (Path("/Volumes"), Path("/media"), Path("/mnt")):
         if mounts.is_dir():
-            found += [Place(c.name, str(c)) for c in sorted(mounts.iterdir()) if c.is_dir()]
+            found += [
+                Place(c.name, str(c))
+                for c in sorted(mounts.iterdir())
+                if c.is_dir() and not c.name.startswith((".", "com.apple."))  # system volumes
+            ]
     return found
 
 

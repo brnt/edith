@@ -19,7 +19,6 @@ const cam = (id: string, label: string, proxy_ready = true): MediaItem => ({
   included: true,
   missing: false,
   folder: "",
-  external: false,
   size_bytes: null,
 });
 const still: MediaItem = {

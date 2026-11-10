@@ -2,11 +2,10 @@ import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 
 import { setAllEnabled, setAudioIncluded, setEnabled } from "../lib/editOps";
 import {
-  addMedia,
   fetchMediaDetails,
+  includeMedia,
   relinkMedia,
   startSync,
-  removeMedia,
   startProxies,
   thumbUrl,
   type EditList,
@@ -31,7 +30,6 @@ import {
 } from "../lib/timeline";
 import { channelStyle } from "../lib/channelStyle";
 import type { IconDefinition } from "@ant-design/icons-svg/es/types";
-import { LibraryBrowser } from "./LibraryBrowser";
 import { Button, Progress } from "./ui";
 import { Icon } from "./Icon";
 import {
@@ -41,9 +39,9 @@ import {
   Close,
   CloseCircle,
   ExclamationCircle,
+  Folder,
   InfoCircle,
   Picture,
-  Plus,
   Sound,
   Sync,
   Thunderbolt,
@@ -54,6 +52,8 @@ import { SoundOff } from "./SoundOff";
 
 interface Props {
   slug: string;
+  /** The project's folder (absolute): where its media goes. */
+  folder: string;
   /** The project's media. */
   media: MediaItem[];
   /** Everything in the project folder: the project's media plus files not included yet. */
@@ -79,9 +79,19 @@ const CARD = "w-[7.25rem]"; // slightly bigger than the grid's tiles' smallest, 
 
 /** The media tab: every file of the project folder as a card, grouped by folder. */
 export function MediaPanel(props: Props) {
-  const { slug, media, available, sync, peaks, edit, onEdit, onRelinked, onChange, onError } =
-    props;
-  const [browsing, setBrowsing] = useState(false);
+  const {
+    slug,
+    folder,
+    media,
+    available,
+    sync,
+    peaks,
+    edit,
+    onEdit,
+    onRelinked,
+    onChange,
+    onError,
+  } = props;
   // A missing file being pointed at another: the browser opens to choose the new one.
   const [relinking, setRelinking] = useState<MediaItem | null>(null);
   const [job, setJob] = useState<Job | null>(null);
@@ -115,10 +125,10 @@ export function MediaPanel(props: Props) {
 
   const fail = (e: unknown) => onError(e instanceof Error ? e.message : String(e));
 
-  const add = async (paths: string[]) => {
-    setBrowsing(false);
+  /** Including a file is the edit that writes it into the project (looking never does). */
+  const include = async (paths: string[]) => {
     try {
-      for (const path of paths) await addMedia(slug, path);
+      for (const path of paths) await includeMedia(slug, path);
     } catch (e) {
       fail(e);
     }
@@ -187,9 +197,13 @@ export function MediaPanel(props: Props) {
   return (
     <div class="flex h-full gap-4">
       <div class="flex shrink-0 flex-col items-start gap-2">
-        <Button variant="primary" icon={Plus} onClick={() => setBrowsing(true)}>
-          Add media…
-        </Button>
+        <p
+          class="flex max-w-[9rem] items-center gap-1 text-[11px] leading-4 text-neutral-400"
+          title={`Put media in this folder (subfolders are fine): ${folder}`}
+        >
+          <Icon icon={Folder} class="shrink-0" />
+          <span class="truncate">{folder.split("/").filter(Boolean).pop()}</span>
+        </p>
         <Button icon={Thunderbolt} disabled={noProxy === 0 || job !== null} onClick={buildProxies}>
           Build proxies{noProxy ? ` (${noProxy})` : ""}
         </Button>
@@ -212,8 +226,8 @@ export function MediaPanel(props: Props) {
       </div>
       {available.length === 0 ? (
         <p class="self-center text-sm text-neutral-500">
-          No media yet. Put the camera and audio files from this session in the project&apos;s
-          folder (subfolders are fine) and they show up here, or add files from elsewhere.
+          No media yet. Drop the camera and audio files from this session into the project folder
+          {folder ? ` (${folder})` : ""}, subfolders included, and they show up here by themselves.
         </p>
       ) : groups.length === 0 ? (
         <p class="self-center text-sm text-neutral-500">Nothing matches this filter.</p>
@@ -228,7 +242,7 @@ export function MediaPanel(props: Props) {
               group={g}
               collapsed={collapsed.has(g.key)}
               onToggle={() => toggleFolder(g.key)}
-              onIncludeAll={() => add(g.items.filter((m) => !m.included).map((m) => m.path))}
+              onIncludeAll={() => include(g.items.filter((m) => !m.included).map((m) => m.path))}
               onShowAll={(on) =>
                 onEdit(
                   setAllEnabled(
@@ -261,7 +275,7 @@ export function MediaPanel(props: Props) {
                   suggestion={suggestionFor(m)}
                   onRelink={(path) => (path ? relink(m, path) : setRelinking(m))}
                   onEdit={onEdit}
-                  onInclude={() => add([m.path])}
+                  onInclude={() => include([m.path])}
                   onDetails={(rect) => setOpen({ item: m, rect })}
                 />
               ))}
@@ -278,18 +292,16 @@ export function MediaPanel(props: Props) {
           usedIn={usage.get(open.item.id) ?? 0}
           onUseAsSound={() => useAsRegistrationSound(open.item)}
           syncResult={sync?.results[open.item.id] ?? null}
-          onRemove={() => {
-            const id = open.item.id;
-            setOpen(null);
-            removeMedia(slug, id).then(onChange, fail);
-          }}
           onClose={() => setOpen(null)}
         />
       )}
-      {browsing && <LibraryBrowser onAdd={add} onClose={() => setBrowsing(false)} />}
       {relinking && (
-        <LibraryBrowser
-          onAdd={(paths) => paths[0] && relink(relinking, paths[0])}
+        <RelinkPicker
+          item={relinking}
+          candidates={available.filter(
+            (a) => !a.included && !a.missing && a.kind === relinking.kind,
+          )}
+          onPick={(path) => relink(relinking, path)}
           onClose={() => setRelinking(null)}
         />
       )}
@@ -317,9 +329,7 @@ function FolderGroup({
 }) {
   const waiting = group.items.filter((m) => !m.included).length;
   const included = group.items.length - waiting;
-  const name = group.external
-    ? `Elsewhere${group.title ? ` · ${group.title}` : ""}`
-    : group.title || "Project folder";
+  const name = group.title || "Project folder";
   return (
     <section class="flex shrink-0 flex-col gap-1" data-testid="media-folder" aria-label={name}>
       <div class="flex items-center gap-2 text-[11px] leading-4">
@@ -606,7 +616,6 @@ function DetailsPopover({
   usedIn,
   onUseAsSound,
   syncResult,
-  onRemove,
   onClose,
 }: {
   slug: string;
@@ -616,7 +625,6 @@ function DetailsPopover({
   usedIn: number;
   onUseAsSound: () => void;
   syncResult: SyncResult | null;
-  onRemove: () => void;
   onClose: () => void;
 }) {
   const [details, setDetails] = useState<MediaDetails | null>(null);
@@ -734,14 +742,52 @@ function DetailsPopover({
           </p>
         </div>
       )}
-      {item.included && (
-        <div class="mt-3 border-t border-neutral-700 pt-2">
-          <Button variant="ghost" icon={Close} onClick={onRemove}>
-            Remove from project
+    </div>
+  );
+}
+
+/** Choose which file in the project folder a missing file has become. */
+function RelinkPicker({
+  item,
+  candidates,
+  onPick,
+  onClose,
+}: {
+  item: MediaItem;
+  candidates: MediaItem[];
+  onPick: (path: string) => void;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/70"
+      role="dialog"
+      aria-label={`Relink ${item.label}`}
+    >
+      <div class="flex max-h-[70vh] w-[30rem] flex-col rounded border border-neutral-700 bg-neutral-900 p-4 text-sm">
+        <h3 class="font-semibold">{item.label} can&apos;t be found</h3>
+        <p class="mt-1 text-neutral-400">
+          It was {item.path}. Put the file back in the project folder (or a subfolder), or pick the
+          file it has become:
+        </p>
+        <ul class="mt-2 flex-1 space-y-1 overflow-y-auto">
+          {candidates.map((c) => (
+            <li key={c.path}>
+              <button class="text-sky-300 hover:text-sky-200" onClick={() => onPick(c.path)}>
+                {c.path}
+              </button>
+            </li>
+          ))}
+          {candidates.length === 0 && (
+            <li class="text-neutral-500">No other {item.kind} files in the project folder yet.</li>
+          )}
+        </ul>
+        <div class="mt-3 flex justify-end">
+          <Button variant="ghost" icon={Close} onClick={onClose}>
+            Cancel
           </Button>
-          <p class="mt-1 text-[11px] text-neutral-500">The file itself is not touched.</p>
         </div>
-      )}
+      </div>
     </div>
   );
 }

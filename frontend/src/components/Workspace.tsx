@@ -8,6 +8,7 @@ import {
   fetchProject,
   fetchSync,
   putEdit,
+  touchProject,
   upgradeProject,
   type EditList,
   type MediaItem,
@@ -19,6 +20,7 @@ import {
 import { renameMedia } from "../lib/editOps";
 import * as history from "../lib/history";
 import { sortMedia } from "../lib/timeline";
+import { FolderPath } from "./FolderPath";
 import { Studio } from "./Studio";
 import { Badge, Button } from "./ui";
 import { Icon } from "./Icon";
@@ -70,6 +72,7 @@ export function Workspace({ slug }: { slug: string }) {
 
   useEffect(() => {
     void refreshProject();
+    touchProject(slug).catch(() => undefined); // it goes to the top of the recent list
     Promise.all([refreshMedia(), refreshSync()]).then(() => setReady(true));
     void refreshPlan();
     fetchEdit(slug)
@@ -201,7 +204,8 @@ export function Workspace({ slug }: { slug: string }) {
           <Icon icon={ArrowLeft} />
           Projects
         </a>
-        <h1 class="text-xl font-bold">{project?.name ?? slug}</h1>
+        <h1 class="text-xl font-bold">{project?.name ?? "…"}</h1>
+        {project && <FolderPath path={project.folder} class="max-w-[45vw]" />}
         {dirty && <Badge tone="warn">unsaved changes</Badge>}
         <div class="ml-auto flex items-center gap-2">
           <Button
@@ -259,6 +263,7 @@ export function Workspace({ slug }: { slug: string }) {
       {edit ? (
         <Studio
           slug={slug}
+          folder={project?.folder ?? ""}
           media={media}
           available={available}
           sync={sync}
