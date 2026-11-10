@@ -60,7 +60,7 @@ function TileShell({
         role="group"
         aria-label={`${name[0].toUpperCase()}${name.slice(1)} is on screen`}
         data-testid="tile-active"
-        class={`${TILE_BASE} ring-1 ring-neutral-700`}
+        class={TILE_BASE}
       >
         <div class="h-full w-full opacity-40">{children}</div>
         <span class="absolute inset-0 flex items-center justify-center text-xs font-semibold uppercase tracking-wide text-white">
@@ -72,7 +72,7 @@ function TileShell({
   return (
     <button
       type="button"
-      class={`${TILE_BASE} ring-1 ring-neutral-700 hover:ring-2 focus-visible:ring-2 ${still ? "hover:ring-teal-400 focus-visible:ring-teal-400" : "hover:ring-sky-400 focus-visible:ring-sky-400"}`}
+      class={`${TILE_BASE} hover:ring-2 focus-visible:ring-2 ${still ? "hover:ring-teal-400 focus-visible:ring-teal-400" : "hover:ring-sky-400 focus-visible:ring-sky-400"}`}
       aria-label={`Preview of ${name}: switch to it`}
       title={`Switch to ${channel.item.label}${channel.number ? ` (${channel.number})` : ""} at the playhead`}
       onClick={onActivate}
