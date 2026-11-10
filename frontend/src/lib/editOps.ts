@@ -42,6 +42,12 @@ export function addCuts(edit: EditList, cuts: Cut[]): EditList {
   return { ...edit, cuts: merged.map(([start_s, end_s]) => ({ start_s, end_s })) };
 }
 
+/** Move a cut's edges. Overlapping or touching cuts merge, so the list stays sorted and disjoint. */
+export function setCut(edit: EditList, index: number, start_s: number, end_s: number): EditList {
+  const cuts = edit.cuts.map((c, i) => (i === index ? { ...c, start_s, end_s } : c));
+  return addCuts({ ...edit, cuts: [] }, cuts);
+}
+
 export function removeCut(edit: EditList, index: number): EditList {
   return { ...edit, cuts: edit.cuts.filter((_, i) => i !== index) };
 }

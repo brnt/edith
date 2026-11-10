@@ -29,8 +29,11 @@ interface Props {
   onSelect: (range: Range | null) => void;
   onCamera: (mediaId: string) => void;
   onTrack: (mediaId: string, patch: { gain_db?: number; muted?: boolean }) => void;
+  /** A cut's edges were dragged: its index and its new start and end. */
+  onCutChange?: (index: number, start_s: number, end_s: number) => void;
 }
 
+const MIN_CUT_S = 0.1; // a dragged edge cannot squeeze a cut below this
 const STEPS = [1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 1800];
 
 export function Timeline(props: Props) {
@@ -39,6 +42,12 @@ export function Timeline(props: Props) {
   const total = Math.max(end * px, 1);
   const lanes = useRef<HTMLDivElement>(null);
   const drag = useRef<{ x: number; t: number; moved: boolean } | null>(null);
+  // An edge being dragged: shown live, committed once on release (one undo step).
+  const [edgeDrag, setEdgeDrag] = useState<{
+    index: number;
+    edge: "start" | "end";
+    value: number;
+  } | null>(null);
 
   const channels = channelsOf(media);
   const cameras = channels.filter((c) => c.item.kind === "video");
@@ -257,15 +266,68 @@ export function Timeline(props: Props) {
 
           {lo > 0 && band([0, lo], "bg-black/50", "in", ROW.ruler, `${bodyHeight}px`)}
           {hi < end && band([hi, end], "bg-black/50", "out", ROW.ruler, `${bodyHeight}px`)}
-          {edit.cuts.map((c, i) =>
-            band(
-              [c.start_s, c.end_s],
-              "bg-red-600/40 ring-1 ring-red-500",
-              `cut${i}`,
-              ROW.ruler,
-              `${bodyHeight}px`,
-            ),
-          )}
+          {edit.cuts.map((c, i) => {
+            const live = edgeDrag?.index === i ? edgeDrag : null;
+            const start = live?.edge === "start" ? live.value : c.start_s;
+            const stop = live?.edge === "end" ? live.value : c.end_s;
+            const handle = (edge: "start" | "end") => (
+              <div
+                role="separator"
+                aria-label={`Drag the ${edge} of the cut`}
+                title="Drag to adjust"
+                class={`absolute inset-y-0 z-10 w-2 cursor-ew-resize hover:bg-red-300/60 ${edge === "start" ? "-left-1" : "-right-1"} ${live?.edge === edge ? "bg-red-300/70" : ""}`}
+                onPointerDown={(e) => {
+                  e.stopPropagation();
+                  (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+                  setEdgeDrag({ index: i, edge, value: edge === "start" ? c.start_s : c.end_s });
+                }}
+                onPointerMove={(e) => {
+                  if (edgeDrag?.index !== i || edgeDrag.edge !== edge) return;
+                  e.stopPropagation();
+                  const t = timeAt(e.clientX);
+                  const value =
+                    edge === "start"
+                      ? Math.min(t, c.end_s - MIN_CUT_S)
+                      : Math.max(t, c.start_s + MIN_CUT_S);
+                  setEdgeDrag({ index: i, edge, value: Math.max(0, Math.min(end, value)) });
+                }}
+                onPointerUp={(e) => {
+                  if (edgeDrag?.index !== i || edgeDrag.edge !== edge) return;
+                  e.stopPropagation();
+                  props.onCutChange?.(
+                    i,
+                    edge === "start" ? edgeDrag.value : c.start_s,
+                    edge === "end" ? edgeDrag.value : c.end_s,
+                  );
+                  setEdgeDrag(null);
+                }}
+              />
+            );
+            return (
+              <div
+                key={`cut${i}`}
+                class="absolute"
+                style={{
+                  left: x(start),
+                  width: Math.max(1, x(stop - start)),
+                  top: ROW.ruler,
+                  height: bodyHeight,
+                }}
+              >
+                <div class="pointer-events-none absolute inset-0 bg-red-600/40 ring-1 ring-red-500" />
+                {handle("start")}
+                {handle("end")}
+                {live && (
+                  <div
+                    class="pointer-events-none absolute -top-5 z-20 whitespace-nowrap rounded bg-black/80 px-1 text-[10px] text-red-200"
+                    style={live.edge === "start" ? { left: 0 } : { right: 0 }}
+                  >
+                    {formatTime(live.value, 2)}
+                  </div>
+                )}
+              </div>
+            );
+          })}
           {suggestions.map((r, i) =>
             band(
               r,

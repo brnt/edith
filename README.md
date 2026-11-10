@@ -65,7 +65,9 @@ comes next.
    - **Dead time:** *Find* outlines silent stretches (all output tracks quiet) and always
      includes the registration sounds, which are sync marks and not content (it cuts them even
      when speech follows right after). *Cut all*, or drag-select and press `x` to cut by hand.
-     Cuts ripple.
+     Cuts ripple. **Drag a cut's edges** in the timeline to fine-tune where it starts and ends
+     (the first and last cuts set the start and end of the final clip); a readout shows the time
+     while you drag, and one drag is one undo step.
    - **Still over a range:** drag-select, pick an image, *Show still*: it switches to the still at
      the start and back to whatever was showing at the end. The audio always continues.
    - **Audio:** per-track gain and mute on the timeline. By default every audio-only file is
