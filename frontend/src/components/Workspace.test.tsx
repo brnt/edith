@@ -694,7 +694,7 @@ describe("the other cameras beside the active view", () => {
     );
   });
 
-  test("while a segment's edge is dragged the preview shows the edit as it would be dropped", async () => {
+  test("dragging the boundary between two videos compares them side by side and hides the grid", async () => {
     render(<Workspace slug="show" />);
     const tiles = await screen.findByTestId("channel-tiles");
     const timeline = screen.getByTestId("timeline");
@@ -715,18 +715,19 @@ describe("the other cameras beside the active view", () => {
       name: "Drag the start of the segment",
     });
     fireEvent.pointerDown(handle, { clientX: 20, pointerId: 1 });
-    fireEvent.pointerMove(handle, { clientX: 10, pointerId: 1 }); // earlier than the old start (1.0 s)
-    // The old edit would still show camera 1 at 0.5 s; the preview shows the segment being resized.
-    expect(screen.getAllByText("0:00.50").length).toBeGreaterThan(0); // playhead + drag readout
-    expect(within(tiles).getByTestId("tile-active")).toHaveAttribute(
-      "aria-label",
-      "Camera 2 is on screen",
-    );
-    fireEvent.pointerUp(handle, { clientX: 10, pointerId: 1 });
-    expect(within(tiles).getByTestId("tile-active")).toHaveAttribute(
-      "aria-label",
-      "Camera 2 is on screen",
-    );
+    fireEvent.pointerMove(handle, { clientX: 40, pointerId: 1 }); // to 2.0 s
+    expect(screen.queryByTestId("channel-tiles")).toBeNull(); // the grid steps aside
+    expect(screen.getAllByTestId("compare-label").map((l) => l.textContent)).toEqual([
+      "Cam A · last frame",
+      "Cam B · first frame",
+    ]);
+    expect(screen.getAllByText("0:02.00").length).toBeGreaterThan(0); // the playhead is on the boundary
+
+    fireEvent.pointerUp(handle, { clientX: 40, pointerId: 1 });
+    expect(screen.queryByTestId("compare-label")).toBeNull();
+    expect(await screen.findByTestId("channel-tiles")).toBeInTheDocument(); // and comes back
+    fireEvent.click(screen.getByRole("button", { name: /Switches \(1\)/ }));
+    expect(screen.getByText(/0:02\.0 → Camera 2/)).toBeInTheDocument(); // the edge was committed
   });
 
   test("the transport sits under the active view and the zoom controls moved to the timeline", async () => {

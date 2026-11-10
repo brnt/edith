@@ -18,6 +18,7 @@ import * as history from "./history";
 import {
   activeChannel,
   advancePlayhead,
+  boundaryPreview,
   movedSwitches,
   segments,
   channelsOf,
@@ -393,6 +394,36 @@ describe("showOver", () => {
       { at_s: 10, media_id: "camB" },
       { at_s: 14, media_id: "camA" },
     ]);
+  });
+});
+
+describe("boundaryPreview", () => {
+  const isVideo = (id: string) => id.startsWith("cam");
+  const f = 1 / 30;
+  const at = (
+    before: string | null,
+    after: string | null,
+    resizing: "before" | "after" = "after",
+  ) => boundaryPreview({ before, after, at: 10, resizing, isVideo, frameS: f });
+
+  test("two different videos are compared side by side, the frame either side of the boundary", () => {
+    const { t, compare } = at("camA", "camB");
+    expect(t).toBe(10);
+    expect(compare).toEqual({ before: "camA", after: "camB", tBefore: 10 - f, tAfter: 10 });
+  });
+
+  test("a video next to a still shows the video, whichever side it is on", () => {
+    expect(at("car", "camB", "before")).toEqual({ t: 10, compare: null }); // its first frame
+    expect(at("camA", "car", "after")).toEqual({ t: 10 - f, compare: null }); // its last frame
+  });
+
+  test("two stills show the one being resized", () => {
+    expect(at("car", "logo", "after")).toEqual({ t: 10, compare: null });
+    expect(at("car", "logo", "before")).toEqual({ t: 10 - f, compare: null });
+  });
+
+  test("one camera on both sides has nothing to compare: it shows the one being resized", () => {
+    expect(at("camA", "camA", "before")).toEqual({ t: 10 - f, compare: null });
   });
 });
 

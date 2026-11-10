@@ -6,12 +6,14 @@ import {
   channelsOf,
   defaultCamera,
   effectiveTracks,
+  boundaryPreview,
   formatTime,
   movedSwitches,
   segments,
   TIMELINE_LABEL_W as LABEL_W,
   type Channel,
   type Picked,
+  type Preview,
   type Range,
   type Segment,
 } from "../lib/timeline";
@@ -48,8 +50,8 @@ interface Props {
   onSegmentEdge?: (switchIndex: number, at_s: number) => void;
   /** While an edge is dragged, the playhead follows it so the frame at the edge can be checked. */
   onScrub?: (t: number) => void;
-  /** The edit as it would be if the dragged edge were dropped now (null when no drag). */
-  onPreview?: (edit: EditList | null) => void;
+  /** What the preview shows while an edge is dragged (null when no drag). */
+  onPreview?: (preview: Preview | null) => void;
 }
 
 const MIN_CUT_S = 0.1; // a dragged edge cannot squeeze a cut below this
@@ -146,6 +148,25 @@ export function Timeline(props: Props) {
   const segs = segments(live, fallback, end);
   const switchCount = edit.switches.length;
 
+  /** Move the playhead and the preview to show the boundary being dragged (see boundaryPreview). */
+  const preview = (switchIndex: number, edge: "start" | "end", value: number) => {
+    const moved = movedSwitches(edit.switches, switchIndex, value, end);
+    const at = moved[switchIndex].at_s;
+    const around = segments(moved, fallback, end);
+    const kindOf = (id: string) => media.find((m) => m.id === id)?.kind;
+    const { t, compare } = boundaryPreview({
+      before: around.find((g) => g.index === switchIndex - 1)?.channel ?? fallback,
+      after: around.find((g) => g.index === switchIndex)?.channel ?? null,
+      at,
+      // The handle on a segment's start edge resizes the segment after the boundary.
+      resizing: edge === "start" ? "after" : "before",
+      isVideo: (id) => kindOf(id) === "video",
+      frameS,
+    });
+    props.onScrub?.(t);
+    props.onPreview?.({ edit: { ...edit, switches: moved }, compare });
+  };
+
   const segHandle = (switchIndex: number, edge: "start" | "end", at: number) => (
     <div
       role="separator"
@@ -156,18 +177,14 @@ export function Timeline(props: Props) {
         e.stopPropagation();
         (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
         setSegDrag({ index: switchIndex, value: at });
-        props.onScrub?.(edge === "end" ? Math.max(0, at - frameS) : at);
+        preview(switchIndex, edge, at);
       }}
       onPointerMove={(e) => {
         if (segDrag?.index !== switchIndex) return;
         e.stopPropagation();
         const value = timeAt(e.clientX);
         setSegDrag({ index: switchIndex, value });
-        const moved = movedSwitches(edit.switches, switchIndex, value, end);
-        const at_s = moved[switchIndex].at_s;
-        // Show the segment being resized: its first frame at a start edge, its last at an end edge.
-        props.onScrub?.(edge === "end" ? Math.max(0, at_s - frameS) : at_s);
-        props.onPreview?.({ ...edit, switches: moved });
+        preview(switchIndex, edge, value);
       }}
       onPointerUp={(e) => {
         if (segDrag?.index !== switchIndex) return;
