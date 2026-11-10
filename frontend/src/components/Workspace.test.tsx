@@ -242,3 +242,14 @@ test("the ribbon opens on the next step, switches tabs, and never changes height
     expect(screen.getByTestId("player")).toBeInTheDocument();
   }
 });
+
+test("the media tab shows tiny thumbnails for video and images, not audio", async () => {
+  const { container } = render(<Workspace slug="show" />);
+  await screen.findByTestId("timeline");
+  fireEvent.click(screen.getByRole("tab", { name: /Media/ }));
+  await screen.findByRole("button", { name: "Add media…" });
+  const sources = [...container.querySelectorAll("img")].map((img) => img.getAttribute("src"));
+  expect(sources.sort()).toEqual(
+    ["camA", "camB", "car"].map((id) => `/api/projects/show/media/${id}/thumb`).sort(),
+  );
+});

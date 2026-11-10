@@ -11,7 +11,7 @@ from edith.api.schemas import (
 from edith.core.auth import require_token
 from edith.core.config import Settings, get_settings
 from edith.services import library as lib
-from edith.services import media_items, peaks, proxies
+from edith.services import media_items, peaks, proxies, thumbnails
 from edith.services.jobs import Job, jobs
 from edith.services.projects import open_project, project_folder
 
@@ -60,6 +60,17 @@ def get_proxy(slug: str, media_id: str, settings: Settings = Depends(get_setting
     if not path.is_file():
         raise HTTPException(status.HTTP_404_NOT_FOUND, "proxy not built yet")
     return FileResponse(path, media_type=proxies.proxy_mime(path))
+
+
+@router.get("/projects/{slug}/media/{media_id}/thumb")
+def get_thumbnail(slug: str, media_id: str, settings: Settings = Depends(get_settings)):
+    folder = project_folder(settings.library_dir, slug)
+    with open_project(settings.library_dir, slug) as project:
+        item = media_items.get_item(project, media_id)
+    path = thumbnails.build_thumbnail(lib.media_file(settings.library_dir, item.path), item, folder)
+    if path is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "audio has no picture")
+    return FileResponse(path, media_type="image/jpeg", headers={"Cache-Control": "max-age=3600"})
 
 
 @router.get("/projects/{slug}/media/{media_id}/peaks", response_model=PeaksRead)

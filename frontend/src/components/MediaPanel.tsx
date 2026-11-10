@@ -1,6 +1,13 @@
 import { useState } from "preact/hooks";
 
-import { addMedia, removeMedia, startProxies, type Job, type MediaItem } from "../lib/api";
+import {
+  addMedia,
+  removeMedia,
+  startProxies,
+  thumbUrl,
+  type Job,
+  type MediaItem,
+} from "../lib/api";
 import { waitForJob } from "../lib/jobs";
 import { formatTime } from "../lib/timeline";
 import { LibraryBrowser } from "./LibraryBrowser";
@@ -57,9 +64,10 @@ export function MediaPanel({ slug, media, onChange, onError }: Props) {
           No media yet. Add the camera and audio files from this session; they stay where they are.
         </p>
       ) : (
-        <ul class="grid min-w-0 auto-cols-[17rem] grid-flow-col grid-rows-4 content-start gap-x-4 gap-y-1 text-sm">
+        <ul class="grid min-w-0 auto-cols-[19rem] grid-flow-col grid-rows-3 content-start gap-x-4 gap-y-1 text-sm">
           {media.map((m) => (
-            <li key={m.id} class="flex items-center gap-2" title={details(m)}>
+            <li key={m.id} class="flex h-9 items-center gap-2" title={details(m)}>
+              <Thumb slug={slug} item={m} />
               <Badge>{m.kind}</Badge>
               <span class="min-w-0 flex-1 truncate">{m.label}</span>
               {m.proxy_ready ? (
@@ -94,4 +102,22 @@ function details(m: MediaItem): string {
   ]
     .filter(Boolean)
     .join(" · ");
+}
+
+/** A tiny picture of the media; audio has none, so it gets a note glyph. */
+function Thumb({ slug, item }: { slug: string; item: MediaItem }) {
+  return (
+    <div class="flex h-8 w-14 shrink-0 items-center justify-center overflow-hidden rounded bg-neutral-900 text-neutral-500">
+      {item.kind === "audio" ? (
+        <span aria-hidden="true">♪</span>
+      ) : (
+        <img
+          src={thumbUrl(slug, item.id)}
+          alt=""
+          loading="lazy"
+          class="h-full w-full object-cover"
+        />
+      )}
+    </div>
+  );
 }
