@@ -657,6 +657,43 @@ describe("the other cameras beside the active view", () => {
     expect(screen.getByRole("button", { name: "Cut (x)" })).toBeDisabled(); // selection used up
   });
 
+  test("select a segment on the timeline and delete it: the one before carries on; Esc deselects", async () => {
+    render(<Workspace slug="show" />);
+    const tiles = await screen.findByTestId("channel-tiles");
+    const timeline = screen.getByTestId("timeline");
+    await within(tiles).findByRole("button", { name: "Preview of camera 2: switch to it" });
+    await screen.findByText("synced");
+    fireEvent.keyDown(window, { key: "ArrowRight" });
+    await waitFor(() => expect(screen.getByText("0:01.00")).toBeInTheDocument());
+    fireEvent.click(
+      within(tiles).getByRole("button", { name: "Preview of camera 2: switch to it" }),
+    );
+    expect(screen.getByRole("button", { name: /Switches \(1\)/ })).toBeInTheDocument();
+
+    const lanes = timeline.querySelector(".cursor-crosshair") as HTMLElement;
+    const pick = (el: HTMLElement) => {
+      fireEvent.pointerDown(el, { clientX: 30, pointerId: 1 });
+      fireEvent.pointerUp(lanes, { clientX: 30, pointerId: 1 });
+    };
+    const segments = () => within(timeline).getAllByTestId("segment");
+    pick(segments()[1]); // camera 2's segment (camera 1 has the opening one)
+    expect(segments()[1]).toHaveAttribute("aria-selected", "true");
+    expect(
+      within(timeline).getAllByRole("separator", { name: /of the segment/ }).length,
+    ).toBeGreaterThan(0);
+
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(segments()[1]).toHaveAttribute("aria-selected", "false");
+
+    pick(segments()[1]);
+    fireEvent.keyDown(window, { key: "Delete" });
+    expect(screen.getByRole("button", { name: /Switches \(0\)/ })).toBeInTheDocument();
+    expect(within(tiles).getByTestId("tile-active")).toHaveAttribute(
+      "aria-label",
+      "Camera 1 is on screen", // the previously active segment continues
+    );
+  });
+
   test("the transport sits under the active view and the zoom controls moved to the timeline", async () => {
     render(<Workspace slug="show" />);
     const timeline = await screen.findByTestId("timeline");

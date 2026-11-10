@@ -214,27 +214,67 @@ export function frameState(
   return { channel: activeChannel(edit.switches, t, defaultCamera(media, offsets)), local };
 }
 
-/** Stretches of the timeline during which `channelId` (a camera or a still) is on screen. */
-export function channelSpans(
+export const MIN_SEGMENT_S = 0.1; // a dragged edge cannot squeeze a segment below this
+
+/** The switches in time order (the order segment indexes refer to). */
+export const inTimeOrder = (switches: CameraSwitch[]) =>
+  [...switches].sort((a, b) => a.at_s - b.at_s);
+
+/** What is selected on the timeline: a channel segment (by its switch) or a cut. */
+export interface Picked {
+  kind: "segment" | "cut";
+  index: number;
+}
+
+/** One stretch during which a single channel (a camera or a still) is on screen. */
+export interface Segment {
+  /** Which switch (in time order) starts it; -1 for the opening stretch before the first switch. */
+  index: number;
+  /** The channel shown, with the default camera already resolved. */
+  channel: string | null;
+  start: number;
+  end: number;
+}
+
+/** The edit's switches as consecutive segments from 0 to `end`. */
+export function segments(
   switches: CameraSwitch[],
-  channelId: string,
   fallback: string | null,
-  lo: number,
-  hi: number,
-): Range[] {
-  const spans: Range[] = [];
-  let current = fallback;
-  let from = lo;
-  const ordered = [...switches]
-    .filter((s) => s.at_s > lo && s.at_s < hi)
-    .sort((a, b) => a.at_s - b.at_s);
-  for (const s of ordered) {
-    if (current === channelId) spans.push([from, s.at_s]);
-    current = s.media_id ?? fallback;
-    from = s.at_s;
-  }
-  if (current === channelId) spans.push([from, hi]);
-  return spans;
+  end: number,
+): Segment[] {
+  const ordered = inTimeOrder(switches);
+  const out: Segment[] = [];
+  const first = ordered[0]?.at_s ?? end;
+  if (first > 0) out.push({ index: -1, channel: fallback, start: 0, end: first });
+  ordered.forEach((s, i) =>
+    out.push({
+      index: i,
+      channel: s.media_id ?? fallback,
+      start: s.at_s,
+      end: ordered[i + 1]?.at_s ?? end,
+    }),
+  );
+  return out;
+}
+
+/**
+ * The switches (in time order) with switch `index` moved to `at_s`. It can't pass its neighbours,
+ * so moving the edge between two segments just lengthens one and shortens the other.
+ */
+export function movedSwitches(
+  switches: CameraSwitch[],
+  index: number,
+  at_s: number,
+  end: number,
+): CameraSwitch[] {
+  const ordered = inTimeOrder(switches);
+  if (index < 0 || index >= ordered.length) return ordered;
+  const lower = index > 0 ? ordered[index - 1].at_s + MIN_SEGMENT_S : 0;
+  const upper = index + 1 < ordered.length ? ordered[index + 1].at_s - MIN_SEGMENT_S : end;
+  if (lower > upper) return ordered;
+  return ordered.map((s, i) =>
+    i === index ? { ...s, at_s: Math.min(upper, Math.max(lower, at_s)) } : s,
+  );
 }
 
 const KIND_ORDER = { video: 0, audio: 1, image: 2 } as const;

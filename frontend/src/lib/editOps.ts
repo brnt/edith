@@ -1,6 +1,13 @@
 // Immutable edit operations. Every function returns a new EditList.
 import type { Cut, EditList, MediaItem, MixRegion } from "./api";
-import { activeChannel, EPS, effectiveTracks, mergeRanges } from "./timeline";
+import {
+  activeChannel,
+  EPS,
+  effectiveTracks,
+  inTimeOrder,
+  mergeRanges,
+  movedSwitches,
+} from "./timeline";
 
 const SAME_TIME = 0.05;
 
@@ -27,6 +34,26 @@ export function setCamera(edit: EditList, at_s: number, media_id: string | null)
   // A switch to the channel that is already showing changes nothing.
   const compact = switches.filter((s, i) => i === 0 || s.media_id !== switches[i - 1].media_id);
   return { ...edit, switches: compact };
+}
+
+/** Delete the segment that starts at switch `index` (in time order): the one before it carries on. */
+export function deleteSegment(edit: EditList, index: number): EditList {
+  const ordered = inTimeOrder(edit.switches);
+  if (index < 0 || index >= ordered.length) return edit;
+  const rest = ordered.filter((_, i) => i !== index);
+  // The segment before may now meet one showing the same channel: that is one segment.
+  const switches = rest.filter((s, i) => i === 0 || s.media_id !== rest[i - 1].media_id);
+  return { ...edit, switches };
+}
+
+/** Move the start of the segment that starts at switch `index` (and so the end of the one before). */
+export function moveSegmentEdge(
+  edit: EditList,
+  index: number,
+  at_s: number,
+  end: number,
+): EditList {
+  return { ...edit, switches: movedSwitches(edit.switches, index, at_s, end) };
 }
 
 export function removeSwitch(edit: EditList, index: number): EditList {

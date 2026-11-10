@@ -1,5 +1,5 @@
 import type { Peaks } from "../lib/api";
-import { setCut, setTrack } from "../lib/editOps";
+import { setTrack } from "../lib/editOps";
 import { formatTime, frameState, timelineToOutput } from "../lib/timeline";
 import type { EditorApi } from "../lib/useEditor";
 import { ChannelTiles } from "./ChannelTiles";
@@ -138,7 +138,10 @@ export function Stage({
           onSelect={ed.setSelection}
           onCamera={ed.cutTo}
           onTrack={(id, patch) => ed.onEdit(setTrack(ed.edit, ed.media, id, patch))}
-          onCutChange={(i, a, b) => ed.onEdit(setCut(ed.edit, i, a, b))}
+          picked={ed.picked}
+          onPick={ed.pick}
+          onSegmentEdge={ed.changeSegmentEdge}
+          onCutChange={ed.changeCut}
         />
       </div>
     </div>
