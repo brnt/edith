@@ -19,10 +19,12 @@ import {
 } from "../lib/editOps";
 import {
   cutRanges,
+  advancePlayhead,
   fitPxPerSec,
   formatTime,
   keepIntervals,
   mediaOffsets,
+  playbackEnd,
   skipCuts,
   timelineEnd,
   timelineToOutput,
@@ -93,14 +95,13 @@ export function Editor({ slug, media, sync, edit, peaks, onEdit, onError }: Prop
     const tick = (now: number) => {
       const dt = (now - last) / 1000;
       last = now;
-      const { t: current, keeps: ks, hi: out } = state.current;
-      const next = current + dt;
-      if (next >= out) {
-        setT(out);
+      const { t: current, keeps: ks } = state.current;
+      const moved = advancePlayhead(current, dt, ks);
+      setT(moved.t);
+      if (moved.ended) {
         setPlaying(false);
         return;
       }
-      setT(skipCuts(next, ks));
       frame = requestAnimationFrame(tick);
     };
     frame = requestAnimationFrame(tick);
@@ -108,9 +109,9 @@ export function Editor({ slug, media, sync, edit, peaks, onEdit, onError }: Prop
   }, [playing]);
 
   const togglePlay = () => {
-    const { playing: on, t: current, keeps: ks, hi: out, lo: start } = state.current;
+    const { playing: on, t: current, keeps: ks, lo: start } = state.current;
     if (on) return setPlaying(false);
-    setT(current >= out - 0.05 ? skipCuts(start, ks) : skipCuts(current, ks));
+    setT(current >= playbackEnd(ks) - 0.05 ? skipCuts(start, ks) : skipCuts(current, ks));
     setPlaying(true);
   };
 

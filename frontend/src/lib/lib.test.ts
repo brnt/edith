@@ -5,6 +5,7 @@ import { addCuts, addStill, removeCut, setCamera, setTrack } from "./editOps";
 import * as history from "./history";
 import {
   activeCamera,
+  advancePlayhead,
   cameraSpans,
   effectiveTracks,
   fitPxPerSec,
@@ -14,6 +15,7 @@ import {
   mediaOffsets,
   mergeRanges,
   outputToTimeline,
+  playbackEnd,
   skipCuts,
   sortMedia,
   timelineToOutput,
@@ -127,6 +129,34 @@ describe("ranges and cuts", () => {
     expect(skipCuts(5, keeps)).toBe(10);
     expect(skipCuts(7, keeps)).toBe(10);
     expect(skipCuts(25, keeps)).toBe(20);
+  });
+});
+
+describe("advancing the playhead", () => {
+  const keeps = keepIntervals(0, 20, [
+    [5, 10],
+    [15, 20],
+  ]); // keeps 0-5 and 10-15; a trailing cut
+
+  test("moves forward and jumps a cut", () => {
+    expect(advancePlayhead(4.9, 0.2, keeps)).toEqual({ t: 10, ended: false });
+    expect(advancePlayhead(1, 0.5, keeps)).toEqual({ t: 1.5, ended: false });
+  });
+
+  test("ends at the last kept moment, never inside a trailing cut", () => {
+    expect(playbackEnd(keeps)).toBe(15);
+    expect(advancePlayhead(14.9, 0.2, keeps)).toEqual({ t: 15, ended: true });
+    expect(advancePlayhead(15, 0.016, keeps)).toEqual({ t: 15, ended: true });
+  });
+
+  test("a trailing cut that reaches the end of the range does not strand the playhead", () => {
+    // Regression: the playhead stopped at the cut line while playback carried on.
+    const trailing = keepIntervals(0, 57.84, [[52.74, 57.84]]);
+    expect(advancePlayhead(52.7, 0.05, trailing).ended).toBe(true);
+  });
+
+  test("with nothing kept, playback ends immediately", () => {
+    expect(advancePlayhead(0, 0.1, [])).toEqual({ t: 0, ended: true });
   });
 });
 
