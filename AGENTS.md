@@ -88,6 +88,9 @@ Root `justfile` delegates to both; Compose runs `api` (:8000) and `web` (:8080).
   after the boundary, or one frame earlier to show the last frame before it.
 - **A selected segment or cut is marked by a faint stripe texture** (`stripes()` in `Timeline.tsx`),
   not an outline or glow: both looked heavy on the cut blocks. Don't add borders back.
+- **Don't reserve spare room under the view** (`BELOW_PLAYER_REM` in `Stage.tsx` is just the gap plus
+  the time/buttons row, about 47px): any spare room is dead space the view shrinks to leave. The
+  preview warning is an overlay on the view's bottom edge for the same reason.
 - **Stage layout is a vertical split** (`Stage.tsx`): the view's row is `flex: 1` with
   `container-type: size`, and the view's height is `--player-h` in `cqh`/`cqw` units, so it fills
   whatever the timeline leaves (don't size it from `vh`). The timeline box's height is **measured in
