@@ -12,6 +12,7 @@ import {
 } from "../lib/editOps";
 import { effectiveTracks, formatTime, type Range } from "../lib/timeline";
 import type { EditorApi } from "../lib/useEditor";
+import { ChannelChip } from "./ChannelChip";
 import { Button, Dropdown } from "./ui";
 
 /** A ribbon group: controls wrap within `width`, with the group's name underneath. */
@@ -139,15 +140,15 @@ export function EditTools({ ed }: { ed: EditorApi }) {
         {ed.channels
           .filter((c) => c.number !== null)
           .map((c) => (
-            <Button
+            <ChannelChip
               key={c.item.id}
+              kind={c.item.kind as "video" | "image"}
+              number={c.number}
+              size="md"
               title={c.item.label}
-              aria-label={`Switch to ${c.item.kind === "video" ? "camera" : "still"} ${c.number}`}
-              class={c.item.kind === "image" ? "!bg-fuchsia-800 hover:!bg-fuchsia-600" : ""}
+              ariaLabel={`Switch to ${c.item.kind === "video" ? "camera" : "still"} ${c.number}`}
               onClick={() => ed.cutTo(c.item.id)}
-            >
-              {c.number}
-            </Button>
+            />
           ))}
         {ed.channels.length === 0 && <span class="text-neutral-500">No video or stills</span>}
       </Group>
