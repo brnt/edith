@@ -1,13 +1,22 @@
 import { useEffect, useState } from "preact/hooks";
 
-import { fetchPlaces, listFolders, type FolderListing, type Place } from "../lib/api";
+import {
+  fetchPlaces,
+  listFolders,
+  type FolderEntry,
+  type FolderListing,
+  type Place,
+} from "../lib/api";
 import { Button } from "./ui";
 import { Icon } from "./Icon";
-import { ArrowUp, Check, Close, Folder } from "./icons";
+import { ArrowUp, CaretRight, Check, Close, Folder } from "./icons";
+
+const basename = (path: string) => path.replace(/\/+$/, "").split("/").pop() || path;
 
 /**
- * Pick a folder anywhere on disk. `choose`: the folder for a new project (the one holding the
- * media), optionally a new sub-folder of it. `open`: a folder that already holds a project.
+ * Pick a folder anywhere on disk: click to select, double-click (or the arrow) to go inside, and the
+ * button acts on the selected folder, or on the one you are in when none is selected. `choose`: the folder for a new project (the one holding the
+ * media), optionally a new sub-folder of it. `open`: a folder that has a project (.edith file) in it.
  */
 export function FolderBrowser({
   mode,
@@ -28,6 +37,7 @@ export function FolderBrowser({
   const [dir, setDir] = useState("");
   const [listing, setListing] = useState<FolderListing | null>(null);
   const [places, setPlaces] = useState<Place[]>([]);
+  const [selected, setSelected] = useState<FolderEntry | null>(null);
   const [newName, setNewName] = useState("");
   const [error, setError] = useState<string | null>(null);
 
@@ -44,10 +54,24 @@ export function FolderBrowser({
     );
   }, [dir]);
 
-  const here = listing?.dir ?? "";
-  const chosen = newName.trim() ? `${here.replace(/\/$/, "")}/${newName.trim()}` : here;
-  // A new project can't go in a folder that is a project, nor inside one.
-  const usable = mode === "open" ? !!listing?.is_project : !!listing && !listing.is_project;
+  const goInto = (path: string) => {
+    setSelected(null);
+    setDir(path);
+  };
+
+  // The folder the button acts on: the one you selected, else the one you are looking inside.
+  const target = selected
+    ? { path: selected.path, name: selected.name, isProject: selected.is_project }
+    : {
+        path: listing?.dir ?? "",
+        name: basename(listing?.dir ?? ""),
+        isProject: !!listing?.is_project,
+      };
+  const chosen = newName.trim()
+    ? `${target.path.replace(/\/+$/, "")}/${newName.trim()}`
+    : target.path;
+  // Open needs a folder holding a project; a new project can't go in (or inside) one.
+  const usable = !!listing && (mode === "open" ? target.isProject : !target.isProject);
 
   return (
     <div
@@ -63,7 +87,7 @@ export function FolderBrowser({
             <button
               key={pl.path}
               class="rounded bg-neutral-800 px-2 py-0.5 text-sky-300 hover:bg-neutral-700"
-              onClick={() => setDir(pl.path)}
+              onClick={() => goInto(pl.path)}
             >
               {pl.name}
             </button>
@@ -71,42 +95,62 @@ export function FolderBrowser({
         </div>
         <p
           class="mt-2 shrink-0 truncate font-mono text-xs text-neutral-400"
-          title={here}
+          title={listing?.dir}
           data-testid="folder-path"
         >
-          {here}
+          {listing?.dir}
         </p>
         {error && <p class="mt-1 text-sm text-red-400">{error}</p>}
-        <ul class="mt-2 min-h-[10rem] flex-1 space-y-1 overflow-y-auto text-sm">
+        <ul class="mt-2 min-h-[10rem] flex-1 space-y-0.5 overflow-y-auto text-sm">
           {listing?.parent != null && (
             <li>
               <button
-                class="inline-flex items-center gap-1.5 text-sky-400"
-                onClick={() => setDir(listing.parent ?? "")}
+                class="inline-flex items-center gap-1.5 px-1 text-sky-400"
+                onClick={() => goInto(listing.parent ?? "")}
               >
                 <Icon icon={ArrowUp} />
                 up
               </button>
             </li>
           )}
-          {listing?.entries.map((e) => (
-            <li key={e.path}>
-              <button
-                class="inline-flex items-center gap-1.5 text-sky-400"
-                onClick={() => setDir(e.path)}
+          {listing?.entries.map((e) => {
+            const on = selected?.path === e.path;
+            return (
+              <li
+                key={e.path}
+                class={`flex items-center gap-1 rounded px-1 ${on ? "bg-sky-900/60" : "hover:bg-neutral-800"}`}
               >
-                <Icon icon={Folder} />
-                {e.name}
-                {e.is_project && (
-                  <span class="rounded bg-emerald-900 px-1.5 text-[11px] text-emerald-200">
-                    project
-                  </span>
-                )}
-              </button>
-            </li>
-          ))}
+                <button
+                  class="inline-flex min-w-0 flex-1 items-center gap-1.5 py-0.5 text-left text-sky-300"
+                  aria-pressed={on}
+                  title="Click to select, double-click to go inside"
+                  onClick={() => setSelected(e)}
+                  onDblClick={() => goInto(e.path)}
+                >
+                  <Icon icon={Folder} />
+                  <span class="truncate">{e.name}</span>
+                  {e.is_project && (
+                    <span
+                      class="shrink-0 rounded bg-emerald-900 px-1.5 text-[11px] text-emerald-200"
+                      title="This folder has a project in it (a .edith file)"
+                    >
+                      .edith
+                    </span>
+                  )}
+                </button>
+                <button
+                  class="shrink-0 p-0.5 text-neutral-400 hover:text-neutral-100"
+                  aria-label={`Go inside ${e.name}`}
+                  title="Go inside"
+                  onClick={() => goInto(e.path)}
+                >
+                  <Icon icon={CaretRight} />
+                </button>
+              </li>
+            );
+          })}
           {listing && listing.entries.length === 0 && (
-            <li class="text-neutral-500">No folders here.</li>
+            <li class="px-1 text-neutral-500">No folders here.</li>
           )}
         </ul>
         {mode === "choose" && (
@@ -121,12 +165,20 @@ export function FolderBrowser({
             />
           </label>
         )}
-        {mode === "choose" && listing?.is_project && (
-          <p class="mt-1 text-xs text-amber-300">This folder already holds a project.</p>
-        )}
-        {mode === "open" && listing && !listing.is_project && (
-          <p class="mt-1 text-xs text-neutral-500">
-            Go into a folder marked “project”, then open it.
+        {listing && (
+          <p
+            class={`mt-2 text-xs ${usable ? "text-neutral-400" : "text-amber-300"}`}
+            data-testid="folder-hint"
+          >
+            {mode === "open"
+              ? target.isProject
+                ? `Open the project in “${target.name}”.`
+                : `There is no .edith project file in “${target.name}”: select the folder that contains one.`
+              : target.isProject
+                ? `“${target.name}” already has a project in it: choose another folder.`
+                : newName.trim()
+                  ? `A new folder “${newName.trim()}” will be made in “${target.name}”.`
+                  : `The project will live in “${target.name}” (put the media there).`}
           </p>
         )}
         <div class="mt-3 flex justify-end gap-2">

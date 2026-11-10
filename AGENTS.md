@@ -48,7 +48,7 @@ Root `justfile` delegates to both; Compose runs `api` (:8000) and `web` (:8080).
 
 **Rules specific to this project:**
 - **A project is a self-contained folder anywhere on disk** ([0004](docs/adr/0004-projects-are-self-contained-folders.md)):
-  media, `project.edith`, `renders/`, hidden `.edith/` cache. There is **no library root and nothing is
+  media, its `.edith` file (`project.edith`; `projects.project_file_in` accepts the one `*.edith` in a folder), `renders/`, hidden `.edith/` cache. There is **no library root and nothing is
   scanned**: a project's id (slug) is its absolute folder path (base64url); `services/recents.py`
   keeps the recent list in `STATE_DIR` (absolute paths); projects are created or opened by folder.
   **Media paths in documents are relative to the project folder** and validated (no `..`, no

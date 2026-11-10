@@ -115,7 +115,7 @@ export function ProjectList() {
       {dialog === "new" && (
         <FolderBrowser
           mode="choose"
-          title="New project: choose the folder that holds the media"
+          title="New project: select the folder that holds the media"
           confirmLabel="Create project here"
           onChoose={create}
           onClose={() => setDialog(null)}
@@ -136,7 +136,7 @@ export function ProjectList() {
       {dialog === "open" && (
         <FolderBrowser
           mode="open"
-          title="Open a project: choose its folder"
+          title="Open a project: select the folder that contains its .edith file"
           confirmLabel="Open this project"
           onChoose={open}
           onClose={() => setDialog(null)}

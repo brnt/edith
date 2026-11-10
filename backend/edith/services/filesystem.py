@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from edith.core.errors import InvalidMediaPath
-from edith.services.projects import PROJECT_FILENAME
+from edith.services.projects import project_file_in
 
 
 @dataclass(frozen=True)
@@ -62,6 +62,6 @@ def list_folders(directory: str = "") -> FolderListing:
         if child.name.startswith(".") or not child.is_dir(follow_symlinks=True):
             continue
         path = Path(child.path)
-        entries.append(FolderEntry(child.name, str(path), (path / PROJECT_FILENAME).is_file()))
+        entries.append(FolderEntry(child.name, str(path), project_file_in(path) is not None))
     parent = None if folder.parent == folder else str(folder.parent)
-    return FolderListing(str(folder), parent, entries, (folder / PROJECT_FILENAME).is_file())
+    return FolderListing(str(folder), parent, entries, project_file_in(folder) is not None)
