@@ -203,3 +203,28 @@ def test_a_still_is_described_by_its_image_format_and_a_wrong_extension_is_notic
         client.get(f"/projects/{project}/media/{cam['id']}/details").json()["image_format"] is None
     )
     assert video.exists()
+
+
+def test_folders_the_projects_media_comes_from_are_watched_too(
+    client: TestClient, library: Path, project: str
+):
+    """The shared media/ folder: add one file from it, and what lands there next shows up."""
+    _age(write_video(library / "shared" / "first.mp4"))
+    client.post(f"/projects/{project}/media", json={"path": "shared/first.mp4"})
+    assert set(_media(client, project)) == {"first.mp4"}
+
+    _age(write_image(library / "shared" / "new.png"))  # dropped into the folder afterwards
+    _age(write_image(library / "shared" / "deeper" / "other.png"))  # one level only
+    _age(write_image(library / "elsewhere" / "unrelated.png"))  # not a folder the project uses
+    media = _media(client, project)
+    assert set(media) == {"first.mp4", "new.png"}
+    assert media["new.png"]["included"] is False and media["new.png"]["external"] is True
+    assert media["new.png"]["folder"] == "shared"
+
+    # Looking still never writes the project file.
+    before = _digest(library / project / "project.edith")
+    client.get(f"/projects/{project}/media")
+    assert _digest(library / project / "project.edith") == before
+    # And it can be included like any other found file.
+    added = client.post(f"/projects/{project}/media", json={"path": media["new.png"]["path"]})
+    assert added.status_code == 201

@@ -100,6 +100,10 @@ Root `justfile` delegates to both; Compose runs `api` (:8000) and `web` (:8080).
   every render (a hidden page delivers no observer callbacks).
 - **The timeline is one scroller (both axes)**: the ruler and label column are `sticky`. Keep every
   row's content inside its fixed height (1px of overflow is enough to make it scroll).
+- **Watched folders are derived, not stored:** besides the project folder, `discovery.scan` reads (one
+  level deep) every folder outside it that an included media item lives in (`_watched_dirs`), so a
+  shared `media/` folder on the drive is watched as soon as a project uses a file from it. No setting,
+  no write.
 - **Media discovery is read-only** (`services/discovery.py`): the project folder is walked (links
   followed; `cache/`, `renders/`, dotfiles and temp names skipped; files touched in the last 2s are
   ignored until they settle) and unincluded files are listed with `included: false`, probed once

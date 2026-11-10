@@ -30,13 +30,17 @@ import {
   type MediaGroup,
 } from "../lib/timeline";
 import { channelStyle } from "../lib/channelStyle";
+import type { IconDefinition } from "@ant-design/icons-svg/es/types";
 import { LibraryBrowser } from "./LibraryBrowser";
 import { Button, Progress } from "./ui";
 import { Icon } from "./Icon";
 import {
   CaretDown,
   CaretRight,
+  CheckCircle,
   Close,
+  CloseCircle,
+  ExclamationCircle,
   InfoCircle,
   Picture,
   Plus,
@@ -357,11 +361,14 @@ function FolderGroup({
   );
 }
 
-const SYNC_DOT: Record<SyncResult["status"] | "none", { tone: string; label: string }> = {
-  synced: { tone: "bg-emerald-400", label: "synced" },
-  low_confidence: { tone: "bg-amber-400", label: "low confidence" },
-  unsynced: { tone: "bg-red-400", label: "not found" },
-  none: { tone: "bg-neutral-500", label: "not synced yet" },
+const SYNC_DOT: Record<
+  SyncResult["status"] | "none",
+  { icon: IconDefinition; tone: string; label: string }
+> = {
+  synced: { icon: CheckCircle, tone: "text-emerald-400", label: "synced" },
+  low_confidence: { icon: ExclamationCircle, tone: "text-amber-400", label: "low confidence" },
+  unsynced: { icon: CloseCircle, tone: "text-red-400", label: "not found" },
+  none: { icon: Sync, tone: "text-neutral-400", label: "not synced yet" },
 };
 
 function MediaCard({
@@ -512,8 +519,10 @@ function MediaCard({
             role="img"
             aria-label={`Sync: ${sync.label}`}
             title={`Sync: ${sync.label}${syncResult?.score ? ` (match ${syncResult.score.toFixed(2)})` : ""}`}
-            class={`h-2.5 w-2.5 rounded-full ring-1 ring-black/60 ${sync.tone}`}
-          />
+            class={`${iconButton} ${sync.tone}`}
+          >
+            <Icon icon={sync.icon} />
+          </span>
         )}
         {notes.length > 0 && (
           <button

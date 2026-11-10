@@ -41,8 +41,12 @@ comes next.
    still-image files in it (subfolders are fine: the media view keeps your folder hierarchy) and
    they turn up in the **Media** tab by themselves within a few seconds. Footage that lives
    elsewhere (an external drive) can be linked into the folder, or added with **Add media…**.
+   Once a project uses a file from another folder (say a shared `media/` folder on the drive),
+   **that folder is watched too** (one level deep): files dropped into it later turn up as new,
+   with no linking and nothing written until you include them.
    Each file is a card: a thumbnail (a waveform for audio) with its name, the grid number it has,
-   a sync dot for video and audio (green synced, amber check, red not found), and:
+   a sync icon for video and audio (green check synced, amber exclamation check, red cross not
+   found, grey arrows not synced yet), and:
    - **Include:** a file found in the folder is marked *new* and is **not part of the project**
      until you include it (click its eye). Looking never writes to the project; including is the
      edit that does. The tab shows how many are waiting.

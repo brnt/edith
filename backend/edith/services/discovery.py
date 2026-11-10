@@ -9,6 +9,7 @@ import hashlib
 import json
 import os
 import time
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -36,8 +37,29 @@ class Found:
     settled: bool
 
 
-def scan(library: Path, slug: str) -> list[Found]:
-    """Every supported media file under the project folder (following links), skipping dotfiles."""
+def _found(library: Path, path: Path, now: float) -> Found | None:
+    name = path.name
+    if name.startswith(".") or path.suffix.lower() in _TEMP_SUFFIXES or lib.kind_for(name) is None:
+        return None
+    try:
+        stat = path.stat()
+    except OSError:  # a broken link, or a file that vanished mid-scan
+        return None
+    return Found(
+        path.relative_to(library).as_posix(),
+        stat.st_size,
+        stat.st_mtime_ns,
+        now - stat.st_mtime >= SETTLE_S,
+    )
+
+
+def scan(library: Path, slug: str, watched: Iterable[str] = ()) -> list[Found]:
+    """Supported media files in the project folder (all of it, following links) and in `watched`.
+
+    `watched` are library-relative directories outside the project folder that its media already
+    comes from (a shared `media/` folder on an external drive): files dropped into them show up too.
+    Those are read one level deep only, so pointing at a big folder can't make the scan crawl.
+    """
     root = project_folder(library, slug)
     found: list[Found] = []
     seen: set[Path] = set()
@@ -54,18 +76,17 @@ def scan(library: Path, slug: str) -> list[Found]:
             d for d in dirnames if not d.startswith(".") and not (top and d in _SKIPPED_TOP_LEVEL)
         )
         for name in sorted(filenames):
-            if name.startswith(".") or Path(name).suffix.lower() in _TEMP_SUFFIXES:
-                continue
-            if lib.kind_for(name) is None:
-                continue
-            try:
-                stat = (here / name).stat()
-            except OSError:  # a broken link, or a file that vanished mid-scan
-                continue
-            rel = (here / name).relative_to(library).as_posix()
-            found.append(
-                Found(rel, stat.st_size, stat.st_mtime_ns, now - stat.st_mtime >= SETTLE_S)
-            )
+            if (f := _found(library, here / name, now)) is not None:
+                found.append(f)
+    have = {f.rel for f in found}
+    for rel_dir in sorted(set(watched)):
+        folder = library / rel_dir
+        if not folder.is_dir() or folder.resolve() in seen:
+            continue
+        for child in sorted(folder.iterdir(), key=lambda c: c.name):
+            if child.is_file() and (f := _found(library, child, now)) is not None:
+                if f.rel not in have:
+                    found.append(f)
     return found
 
 
