@@ -299,11 +299,14 @@ test("the ribbon opens on the next step, switches tabs, and never changes height
 });
 
 test("the media tab shows tiny thumbnails for video and images, not audio", async () => {
-  const { container } = render(<Workspace slug="show" />);
+  render(<Workspace slug="show" />);
   await screen.findByTestId("timeline");
   fireEvent.click(screen.getByRole("tab", { name: /Media/ }));
   await screen.findByRole("button", { name: "Add media…" });
-  const sources = [...container.querySelectorAll("img")].map((img) => img.getAttribute("src"));
+  // Only the ribbon's pictures: the stage has one of its own for the still's tile.
+  const sources = [...screen.getByRole("tabpanel").querySelectorAll("img")].map((img) =>
+    img.getAttribute("src"),
+  );
   expect(sources.sort()).toEqual(
     ["camA", "camB", "car"].map((id) => `/api/projects/show/media/${id}/thumb`).sort(),
   );
@@ -537,20 +540,20 @@ describe("icons", () => {
 describe("the other cameras beside the active view", () => {
   test("show the cameras that are not on screen; clicking one cuts to it at the playhead", async () => {
     render(<Workspace slug="show" />);
-    const tiles = await screen.findByTestId("camera-tiles");
+    const tiles = await screen.findByTestId("channel-tiles");
     // Cam A is on screen (it starts first), so only Cam B (camera 2) is offered. Waiting for its
     // tile also waits for the media to load, which the timeline length depends on.
     await within(tiles).findByRole("button", { name: "Preview of camera 2: switch to it" });
     await screen.findByText("synced"); // loading is finished; the playhead has been placed
-    expect(within(tiles).getAllByRole("button")).toHaveLength(1);
+    expect(within(tiles).getAllByRole("button")).toHaveLength(2); // camera 2 and the still
     fireEvent.keyDown(window, { key: "ArrowRight" });
     await waitFor(() => expect(screen.getByText("0:01.00")).toBeInTheDocument());
 
     const order = () =>
       [...tiles.children].map(
-        (el) => /camera (\d+)/i.exec(el.getAttribute("aria-label") ?? "")?.[1],
+        (el) => /(?:camera|still) (\d+)/i.exec(el.getAttribute("aria-label") ?? "")?.[1],
       );
-    expect(order()).toEqual(["1", "2"]); // camera 1's slot holds the placeholder
+    expect(order()).toEqual(["1", "2", "3"]); // camera 1's slot holds the placeholder
     expect(within(tiles).getByTestId("tile-placeholder")).toHaveAttribute(
       "aria-label",
       "Camera 1 is on screen",
@@ -565,7 +568,7 @@ describe("the other cameras beside the active view", () => {
       await within(tiles).findByRole("button", { name: "Preview of camera 1: switch to it" }),
     ).toBeInTheDocument();
     expect(within(tiles).queryByRole("button", { name: /camera 2/ })).toBeNull();
-    expect(order()).toEqual(["1", "2"]);
+    expect(order()).toEqual(["1", "2", "3"]);
     expect(within(tiles).getByTestId("tile-placeholder")).toHaveAttribute(
       "aria-label",
       "Camera 2 is on screen",
@@ -584,6 +587,6 @@ describe("the other cameras beside the active view", () => {
     const play = screen.getByRole("button", { name: /Play \(space\)/ });
     // Same column as the player: the play button is not inside the camera tiles or the timeline.
     expect(player.closest(".flex-col")?.contains(play)).toBe(true);
-    expect(screen.getByTestId("camera-tiles").contains(play)).toBe(false);
+    expect(screen.getByTestId("channel-tiles").contains(play)).toBe(false);
   });
 });

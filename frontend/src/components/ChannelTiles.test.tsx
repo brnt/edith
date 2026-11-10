@@ -3,7 +3,7 @@ import { afterEach, expect, test, vi } from "vitest";
 
 import type { MediaItem } from "../lib/api";
 import { channelsOf } from "../lib/timeline";
-import { CameraTile, CameraTiles, paintFrame } from "./CameraTiles";
+import { CameraTile, ChannelTiles, paintFrame } from "./ChannelTiles";
 
 const cam = (id: string, label: string, proxy_ready = true): MediaItem => ({
   id,
@@ -63,61 +63,103 @@ test("a frame is fitted inside the tile on black, centred", () => {
 });
 
 const slots = () =>
-  [...screen.getByTestId("camera-tiles").children].map((el) => ({
-    camera: Number(/camera (\d+)/i.exec(el.getAttribute("aria-label") ?? "")?.[1]),
-    isButton: el.tagName === "BUTTON",
-  }));
+  [...screen.getByTestId("channel-tiles").children].map((el) => {
+    const [, kind, n] = /(camera|still) (\d+)/i.exec(el.getAttribute("aria-label") ?? "") ?? [];
+    return { slot: `${kind.toLowerCase()} ${n}`, isButton: el.tagName === "BUTTON" };
+  });
 
-const grid = (activeId: string | null) => (
-  <CameraTiles
+const grid = (activeId: string | null, onActivate = vi.fn()) => (
+  <ChannelTiles
+    slug="show"
     channels={channels}
     activeId={activeId}
     elements={{ current: {} }}
     local={{ a: 1, b: 1, c: 1 }}
-    onActivate={vi.fn()}
+    onActivate={onActivate}
   />
 );
 
-test("every camera has a slot, in camera order; the one on screen is a placeholder, not a button", () => {
+test("every camera and still has a slot: cameras by number, then stills; the one on screen is a placeholder", () => {
   render(grid("a"));
   expect(slots()).toEqual([
-    { camera: 1, isButton: false },
-    { camera: 2, isButton: true },
-    { camera: 3, isButton: true },
+    { slot: "camera 1", isButton: false },
+    { slot: "camera 2", isButton: true },
+    { slot: "camera 3", isButton: true },
+    { slot: "still 4", isButton: true },
   ]);
   const placeholder = screen.getByTestId("tile-placeholder");
   expect(placeholder).toHaveAttribute("aria-label", "Camera 1 is on screen");
   expect(placeholder).toHaveTextContent("Cam A"); // still labelled, so you can see which one it is
   expect(screen.queryByRole("button", { name: /camera 1/i })).toBeNull(); // nothing to click
-  expect(screen.getByTestId("camera-tiles")).not.toHaveTextContent("car.png"); // stills are not tiles
 });
 
-test("switching the active camera swaps what is in two slots but never re-orders the grid", () => {
+test("switching the active channel swaps what is in two slots but never re-orders the grid", () => {
   const { rerender } = render(grid("a"));
-  const before = slots().map((s) => s.camera);
-  expect(before).toEqual([1, 2, 3]);
+  const before = slots().map((s) => s.slot);
+  expect(before).toEqual(["camera 1", "camera 2", "camera 3", "still 4"]);
 
   rerender(grid("c")); // camera 3 goes on screen
   expect(slots()).toEqual([
-    { camera: 1, isButton: true }, // camera 1 is now a live tile again, in its own slot
-    { camera: 2, isButton: true },
-    { camera: 3, isButton: false },
+    { slot: "camera 1", isButton: true }, // camera 1 is a live tile again, in its own slot
+    { slot: "camera 2", isButton: true },
+    { slot: "camera 3", isButton: false },
+    { slot: "still 4", isButton: true },
   ]);
 
+  rerender(grid("car")); // and then the still
+  expect(slots().map((s) => s.slot)).toEqual(before);
+  expect(slots().map((s) => s.isButton)).toEqual([true, true, true, false]);
+  expect(screen.getByTestId("tile-placeholder")).toHaveAttribute(
+    "aria-label",
+    "Still 4 is on screen",
+  );
+
   rerender(grid("b"));
-  expect(slots().map((s) => s.camera)).toEqual(before);
+  expect(slots().map((s) => s.slot)).toEqual(before);
 });
 
-test("when a still is on screen, every camera is a live tile and there is no placeholder", () => {
-  render(grid("car"));
-  expect(screen.getAllByRole("button")).toHaveLength(3);
-  expect(screen.queryByTestId("tile-placeholder")).toBeNull();
+test("a still is a small picture: its proxy when built, the little thumbnail otherwise", () => {
+  const { rerender } = render(grid("a"));
+  const picture = () =>
+    screen.getByRole("button", { name: /Preview of still/ }).querySelector("img");
+  expect(picture()?.getAttribute("src")).toBe("/api/projects/show/media/car/proxy");
+
+  const noProxy = channelsOf([cam("a", "Cam A"), { ...still, proxy_ready: false }]);
+  rerender(
+    <ChannelTiles
+      slug="show"
+      channels={noProxy}
+      activeId="a"
+      elements={{ current: {} }}
+      local={{ a: 1 }}
+      onActivate={vi.fn()}
+    />,
+  );
+  expect(picture()?.getAttribute("src")).toBe("/api/projects/show/media/car/thumb");
+});
+
+test("clicking a still's tile activates it, like a camera's", () => {
+  const onActivate = vi.fn();
+  render(grid("a", onActivate));
+  fireEvent.click(screen.getByRole("button", { name: "Preview of still 4: switch to it" }));
+  expect(onActivate).toHaveBeenCalledWith("car");
+});
+
+test("stills are teal and cameras blue, on the tiles and on the placeholder", () => {
+  const { rerender } = render(grid("a"));
+  const chip = (name: string) =>
+    screen.getByRole("button", { name }).querySelector("span.absolute");
+  expect(chip("Preview of camera 2: switch to it")?.className).toContain("bg-sky");
+  expect(chip("Preview of still 4: switch to it")?.className).toContain("bg-teal");
+  rerender(grid("car"));
+  expect(screen.getByTestId("tile-placeholder").className).toContain("border-teal");
 });
 
 test("clicking a tile activates that camera", () => {
   const onActivate = vi.fn();
   render(
-    <CameraTiles
+    <ChannelTiles
+      slug="show"
       channels={channels}
       activeId="a"
       elements={{ current: {} }}

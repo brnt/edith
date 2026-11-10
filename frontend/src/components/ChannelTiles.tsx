@@ -1,10 +1,10 @@
 import { useEffect, useRef } from "preact/hooks";
 
-import type { MediaItem } from "../lib/api";
-import { CHANNEL_STYLE } from "../lib/channelStyle";
+import { proxyUrl, thumbUrl, type MediaItem } from "../lib/api";
+import { channelStyle } from "../lib/channelStyle";
 import type { Channel } from "../lib/timeline";
 import { Icon } from "./Icon";
-import { VideoCamera } from "./icons";
+import { Picture, VideoCamera } from "./icons";
 
 const TILE_W = 320; // canvas pixels; shown smaller, so it stays sharp
 const TILE_H = 180;
@@ -22,6 +22,25 @@ export function paintFrame(canvas: HTMLCanvasElement, video: HTMLVideoElement): 
   const h = vh * scale;
   ctx.drawImage(video, (canvas.width - w) / 2, (canvas.height - h) / 2, w, h);
 }
+
+const kindOf = (channel: Channel): "video" | "image" =>
+  channel.item.kind === "image" ? "image" : "video";
+
+/** The number and name on a tile, in the channel's own color (blue camera, teal still). */
+function TileLabel({ channel, dim = false }: { channel: Channel; dim?: boolean }) {
+  const bg = channelStyle(kindOf(channel)).chip.split(" ")[0];
+  return (
+    <span
+      class={`absolute bottom-1 left-1 flex max-w-[calc(100%-0.5rem)] items-center gap-1 rounded px-1.5 text-[11px] text-white ${bg} ${dim ? "opacity-60" : ""}`}
+    >
+      <span class="font-semibold">{channel.number ?? "•"}</span>
+      <span class="truncate">{channel.item.label}</span>
+    </span>
+  );
+}
+
+const TILE =
+  "group relative aspect-video w-full overflow-hidden rounded bg-black ring-1 ring-neutral-700 hover:ring-2 focus-visible:ring-2";
 
 interface TileProps {
   channel: Channel;
@@ -78,7 +97,7 @@ export function CameraTile({ channel, elements, hasFootage, proxyReady, onActiva
   return (
     <button
       type="button"
-      class="group relative aspect-video w-full overflow-hidden rounded bg-black ring-1 ring-neutral-700 hover:ring-2 hover:ring-sky-400 focus-visible:ring-2 focus-visible:ring-sky-400"
+      class={`${TILE} hover:ring-sky-400 focus-visible:ring-sky-400`}
       aria-label={`Preview of camera ${channel.number ?? item.label}: switch to it`}
       title={`Switch to ${item.label}${channel.number ? ` (${channel.number})` : ""} at the playhead`}
       onClick={onActivate}
@@ -89,68 +108,99 @@ export function CameraTile({ channel, elements, hasFootage, proxyReady, onActiva
           {proxyReady ? "no footage yet" : "no proxy"}
         </span>
       )}
-      <span
-        class={`absolute bottom-1 left-1 flex max-w-[calc(100%-0.5rem)] items-center gap-1 rounded px-1.5 text-[11px] text-white ${CHANNEL_STYLE.video.chip.split(" ")[0]}`}
-      >
-        <span class="font-semibold">{channel.number ?? "•"}</span>
-        <span class="truncate">{item.label}</span>
-      </span>
+      <TileLabel channel={channel} />
     </button>
   );
 }
 
-/** The slot of the camera that is on screen: held empty so the other tiles never move. */
+/** A still, as a small picture (its proxy when built, else the little thumbnail). */
+export function StillTile({
+  channel,
+  slug,
+  onActivate,
+}: {
+  channel: Channel;
+  slug: string;
+  onActivate: () => void;
+}) {
+  const item = channel.item;
+  return (
+    <button
+      type="button"
+      class={`${TILE} hover:ring-teal-400 focus-visible:ring-teal-400`}
+      aria-label={`Preview of still ${channel.number ?? item.label}: switch to it`}
+      title={`Switch to ${item.label}${channel.number ? ` (${channel.number})` : ""} at the playhead`}
+      onClick={onActivate}
+    >
+      <img
+        src={item.proxy_ready ? proxyUrl(slug, item.id) : thumbUrl(slug, item.id)}
+        alt=""
+        loading="lazy"
+        class="h-full w-full object-contain"
+      />
+      <TileLabel channel={channel} />
+    </button>
+  );
+}
+
+/** The slot of the channel that is on screen: held empty so the other tiles never move. */
 export function TilePlaceholder({ channel }: { channel: Channel }) {
+  const still = kindOf(channel) === "image";
   return (
     <div
       role="group"
-      aria-label={`Camera ${channel.number ?? channel.item.label} is on screen`}
+      aria-label={`${still ? "Still" : "Camera"} ${channel.number ?? channel.item.label} is on screen`}
       data-testid="tile-placeholder"
-      class="relative flex aspect-video w-full items-center justify-center rounded border-2 border-dashed border-sky-500/50 bg-neutral-900/40 text-xs text-sky-300/80"
+      class={`relative flex aspect-video w-full items-center justify-center rounded border-2 border-dashed bg-neutral-900/40 text-xs ${still ? "border-teal-500/50 text-teal-300/80" : "border-sky-500/50 text-sky-300/80"}`}
     >
       <span class="inline-flex items-center gap-1">
-        <Icon icon={VideoCamera} />
+        <Icon icon={still ? Picture : VideoCamera} />
         on screen
       </span>
-      <span
-        class={`absolute bottom-1 left-1 flex max-w-[calc(100%-0.5rem)] items-center gap-1 rounded px-1.5 text-[11px] text-white opacity-60 ${CHANNEL_STYLE.video.chip.split(" ")[0]}`}
-      >
-        <span class="font-semibold">{channel.number ?? "•"}</span>
-        <span class="truncate">{channel.item.label}</span>
-      </span>
+      <TileLabel channel={channel} dim />
     </div>
   );
 }
 
 /**
- * Every camera, each in a fixed slot (by camera number). The one on screen is a placeholder, so
- * switching cameras changes what is in two slots but never re-orders the grid.
+ * Every camera and still, each in a fixed slot (cameras by number, then stills). The one on screen
+ * is a placeholder, so switching changes what is in two slots but never re-orders the grid.
  */
-export function CameraTiles({
+export function ChannelTiles({
+  slug,
   channels,
   activeId,
   elements,
   local,
   onActivate,
 }: {
+  slug: string;
   channels: Channel[];
   activeId: string | null;
   elements: TileProps["elements"];
-  /** Local file time per media id, or null when that camera has no footage at `t`. */
+  /** Local file time per media id, or null when that camera has no footage at the playhead. */
   local: Record<string, number | null>;
   onActivate: (mediaId: string) => void;
 }) {
-  const cameras = channels.filter((c) => c.item.kind === "video");
   return (
     <div
       class="grid h-full min-w-0 flex-1 content-start gap-2 overflow-y-auto"
       style={{ gridTemplateColumns: "repeat(auto-fill, minmax(9.5rem, 1fr))" }}
-      data-testid="camera-tiles"
+      data-testid="channel-tiles"
     >
-      {cameras.map((c) =>
-        c.item.id === activeId ? (
-          <TilePlaceholder key={c.item.id} channel={c} />
-        ) : (
+      {channels.map((c) => {
+        if (c.item.id === activeId) return <TilePlaceholder key={c.item.id} channel={c} />;
+        if (c.item.kind === "image") {
+          return (
+            <StillTile
+              key={c.item.id}
+              channel={c}
+              slug={slug}
+              onActivate={() => onActivate(c.item.id)}
+            />
+          );
+        }
+        return (
           <CameraTile
             key={c.item.id}
             channel={c}
@@ -159,8 +209,8 @@ export function CameraTiles({
             proxyReady={c.item.proxy_ready}
             onActivate={() => onActivate(c.item.id)}
           />
-        ),
-      )}
+        );
+      })}
     </div>
   );
 }
