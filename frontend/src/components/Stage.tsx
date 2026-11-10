@@ -9,12 +9,15 @@ import { Player } from "./Player";
 import { Timeline } from "./Timeline";
 import { Button } from "./ui";
 
-// The active view's height; its width (16:9) and the column around it follow from this one value.
-// It is 27vh at least, and grows with the window's height (what is left after the header, ribbon,
-// transport and a usable timeline) until the view is two thirds of the window's width (37.5vw * 16/9).
-const PLAYER_H = "clamp(140px, min(37.5vw, max(27vh, calc(100vh - 36rem))), 900px)";
-// Room under the view for the time, the buttons, and one line of warning.
-const BELOW_PLAYER = "5.5rem";
+// Vertical space is shared like this: the timeline takes what its rows need (it scrolls inside
+// itself only when that would squeeze the view below its minimum), but never less than about four
+// rows. The active view gets everything else, up to two thirds of the window's width (37.5 * 16/9).
+const BELOW_PLAYER = "5.5rem"; // under the view: the time, the buttons, and one line of warning
+const PLAYER_MIN = "max(140px, 27vh)"; // the smallest the view is squeezed to
+const TIMELINE_MIN = "10.5rem"; // the ruler and four rows
+// The view's height, measured against its own row (container query units): it fills the row, so it
+// grows when the timeline is short.
+const PLAYER_H = `clamp(140px, min(calc(100cqh - ${BELOW_PLAYER}), 37.5cqw), 900px)`;
 
 /** The part that is always on screen: the active view, the other cameras, transport, timeline. */
 export function Stage({
@@ -65,12 +68,15 @@ export function Stage({
 
   return (
     <div class="flex min-h-0 flex-1 flex-col gap-2 p-3">
-      <div class="flex shrink-0 gap-3" style={{ height: `calc(${PLAYER_H} + ${BELOW_PLAYER})` }}>
+      <div
+        class="flex min-h-0 flex-1 gap-3 [container-type:size]"
+        style={{ minHeight: `calc(${PLAYER_MIN} + ${BELOW_PLAYER})`, "--player-h": PLAYER_H }}
+      >
         <div
           class="flex h-full shrink-0 flex-col gap-1.5"
-          style={{ width: compare ? "100%" : `calc(${PLAYER_H} * 16 / 9)` }}
+          style={{ width: compare ? "100%" : "calc(var(--player-h) * 16 / 9)" }}
         >
-          <div class="w-full shrink-0" style={{ height: PLAYER_H }}>
+          <div class="w-full shrink-0" style={{ height: "var(--player-h)" }}>
             <Player
               slug={slug}
               media={ed.media}
@@ -129,7 +135,14 @@ export function Stage({
         )}
       </div>
 
-      <div ref={ed.timelineBox} class="min-h-0 flex-1 overflow-y-auto">
+      <div
+        ref={ed.timelineBox}
+        class="shrink-0 overflow-y-auto"
+        style={{
+          minHeight: TIMELINE_MIN,
+          maxHeight: `calc(100% - ${PLAYER_MIN} - ${BELOW_PLAYER} - 0.5rem)`,
+        }}
+      >
         <Timeline
           media={ed.media}
           offsets={ed.offsets}
