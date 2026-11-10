@@ -162,6 +162,7 @@ export const removeMedia = (slug: string, id: string) =>
 export const startProxies = (slug: string) => request<Job>(`${p(slug)}/proxies`, json("POST"));
 export const fetchPeaks = (slug: string, id: string) =>
   request<Peaks>(`${p(slug)}/media/${id}/peaks`);
+export const thumbUrl = (slug: string, id: string) => `${BASE_URL}${p(slug)}/media/${id}/thumb`;
 export const proxyUrl = (slug: string, id: string) => `${BASE_URL}${p(slug)}/media/${id}/proxy`;
 
 export const fetchSync = (slug: string) => request<SyncState>(`${p(slug)}/sync`);

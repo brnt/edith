@@ -108,3 +108,21 @@ def test_removing_media_clears_references(client: TestClient, library, project):
     assert client.delete(f"/projects/{project}/media/{media_id}").status_code == 204
     assert client.get(f"/projects/{project}/media").json() == []
     assert client.delete(f"/projects/{project}/media/{media_id}").status_code == 404
+
+
+def test_thumbnails_for_video_and_images_but_not_audio(client: TestClient, library, project):
+    write_video(library / "cam.mp4", seconds=4)
+    write_image(library / "car.jpg", "1200x800")
+    write_wav(library / "mic.wav", np.zeros(4_410))
+    ids = {
+        n: client.post(f"/projects/{project}/media", json={"path": n}).json()["id"]
+        for n in ("cam.mp4", "car.jpg", "mic.wav")
+    }
+    for name in ("cam.mp4", "car.jpg"):
+        response = client.get(f"/projects/{project}/media/{ids[name]}/thumb")
+        assert response.status_code == 200, response.text
+        assert response.headers["content-type"] == "image/jpeg"
+        assert response.content[:2] == b"\xff\xd8"  # a real JPEG
+        assert (library / project / "cache" / "thumbs" / f"{ids[name]}.jpg").is_file()
+    assert client.get(f"/projects/{project}/media/{ids['mic.wav']}/thumb").status_code == 404
+    assert client.get(f"/projects/{project}/media/nope/thumb").status_code == 404
