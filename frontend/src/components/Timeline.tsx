@@ -59,6 +59,7 @@ const stripes = (alpha: number) => ({
   backgroundImage: `repeating-linear-gradient(135deg, rgba(255,255,255,${alpha}) 0 3px, transparent 3px 7px)`,
 });
 
+const MIN_GRIP_PX = 16;
 const MIN_CUT_S = 0.1; // a dragged edge cannot squeeze a cut below this
 const STEPS = [1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 1800];
 
@@ -211,6 +212,7 @@ export function Timeline(props: Props) {
     // An edge can be dragged when it is a switch (not the start of the timeline or the end of the clip).
     const canStart = seg.index >= 0 && seg.start >= lo;
     const canEnd = seg.index + 1 < switchCount && seg.end <= hi;
+    const wide = x(to - from) >= MIN_GRIP_PX; // a sliver has no room for two grips
     return (
       <div
         key={`seg${seg.index}`}
@@ -231,24 +233,8 @@ export function Timeline(props: Props) {
         )}
         {on && canStart && segHandle(seg.index, "start", seg.start)}
         {on && canEnd && segHandle(seg.index + 1, "end", seg.end)}
-        {/* A vertical row of dots (an ellipsis turned on its side) inside each draggable edge, this far in from
-            the edge, says the edge (not the whole segment) can be dragged. */}
-        {on && canStart && (
-          <span
-            data-grip="start"
-            class="pointer-events-none absolute inset-y-0 -left-[0.03em] flex items-center text-xs text-neutral-700/65"
-          >
-            <Icon icon={Ellipsis} class="rotate-90" />
-          </span>
-        )}
-        {on && canEnd && (
-          <span
-            data-grip="end"
-            class="pointer-events-none absolute inset-y-0 -right-[0.03em] flex items-center text-xs text-neutral-700/65"
-          >
-            <Icon icon={Ellipsis} class="rotate-90" />
-          </span>
-        )}
+        {on && canStart && wide && <Grip edge="start" />}
+        {on && canEnd && wide && <Grip edge="end" />}
         {on && segDrag && (segDrag.index === seg.index || segDrag.index === seg.index + 1) && (
           <div
             class="pointer-events-none absolute -top-5 z-20 whitespace-nowrap rounded bg-black/80 px-1 text-[10px] text-white"
@@ -500,6 +486,13 @@ export function Timeline(props: Props) {
                 />
                 {on && handle("start")}
                 {on && handle("end")}
+                {/* The cut spans every row, so the grips sit level with the first one. */}
+                {on && x(stop - start) >= MIN_GRIP_PX && (
+                  <>
+                    <Grip edge="start" height={ROW.video} />
+                    <Grip edge="end" height={ROW.video} />
+                  </>
+                )}
                 {live && (
                   <div
                     class="pointer-events-none absolute -top-5 z-20 whitespace-nowrap rounded bg-black/80 px-1 text-[10px] text-red-200"
@@ -529,6 +522,24 @@ export function Timeline(props: Props) {
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * Grab marks for a draggable edge: a vertical row of bold, light, semi-transparent dots (an
+ * ellipsis turned on its side), a few pixels in from the edge. They say the edge, not the whole
+ * block, can be dragged. The glyph has padding, hence the small negative offset.
+ */
+function Grip({ edge, height }: { edge: "start" | "end"; height?: number }) {
+  return (
+    <span
+      data-grip={edge}
+      class={`pointer-events-none absolute top-0 flex items-center text-xs text-white/60 ${edge === "start" ? "-left-[0.03em]" : "-right-[0.03em]"}`}
+      style={{ height: height ?? "100%" }}
+    >
+      {/* The stroke thickens the dots: that is what makes them bold. */}
+      <Icon icon={Ellipsis} class="rotate-90 [&_path]:stroke-current [&_path]:stroke-[60]" />
+    </span>
   );
 }
 

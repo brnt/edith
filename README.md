@@ -80,8 +80,8 @@ comes next.
      stretch where that channel is on screen) or a **cut** to select it (it gets a faint diagonal stripe texture).
      Every click on the timeline moves the playhead to the clicked moment; on a segment or a cut it
      also selects it, and on anything else it deselects. `Esc` deselects.
-     - **Resize:** drag a selected item's edges. Grip marks inside a segment's ends show which
-       edges can move. Moving a segment's edge moves the neighbouring segment's edge with it, and
+     - **Resize:** drag a selected item's edges. Light grip marks inside a segment's or cut's ends
+       show which edges can move. Moving a segment's edge moves the neighbouring segment's edge with it, and
        it can't pass the next one. A cut's edges set where it starts and ends (the first and last
        cuts set the start and end of the final clip).
      - **While you drag,** the playhead follows the edge and the preview shows the edit as it

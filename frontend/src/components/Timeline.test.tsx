@@ -246,6 +246,16 @@ test("the selected segment or cut is marked by a stripe texture, not an outline"
   expect(document.querySelectorAll('[data-texture="selected"]')).toHaveLength(1);
 });
 
+test("a selected cut has grips at both edges; an unselected one has none", () => {
+  setup({ picked: { kind: "cut", index: 0 } });
+  const cut = screen.getByTestId("cut");
+  expect(cut.querySelector('[data-grip="start"]')).not.toBeNull();
+  expect(cut.querySelector('[data-grip="end"]')).not.toBeNull();
+  cleanup();
+  setup();
+  expect(document.querySelector("[data-grip]")).toBeNull();
+});
+
 test("a selected cut is striped too, and unselected ones are not", () => {
   setup({ picked: { kind: "cut", index: 0 } });
   expect(screen.getByTestId("cut").querySelector('[data-texture="selected"]')).not.toBeNull();
