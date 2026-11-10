@@ -58,10 +58,10 @@ comes next.
    and may land up to ~30 ms off, but scores clearly lower. Nudge any file by hand in
    milliseconds.
 3. **Edit.** The large view plays the synced proxies, with the time and play controls under it. Beside
-   it is a grid of live thumbnails of the other cameras, which stay in step with the playhead:
-   **click one to cut to it at the current position**. Each camera keeps its own slot in the grid
-   (in camera order); the one on screen shows as a dashed placeholder, so switching never
-   shuffles the tiles. The timeline shows each camera, the stills, and each audio track's waveform.
+   it is a grid of every camera (live thumbnails, in step with the playhead) and every still (a
+   small picture): **click one to cut to it at the current position**. Each channel keeps its own
+   slot in the grid (cameras in number order, then stills); the one on screen shows as a dashed
+   placeholder, so switching never shuffles the tiles. The timeline shows each camera, the stills, and each audio track's waveform.
    - **Channels:** the output shows one *channel* at a time: a camera or a still. Cameras are
      numbered first, then stills (each by name), and only the first nine get a number. Put the
      playhead where you want the change and press the channel's number (or click its button);

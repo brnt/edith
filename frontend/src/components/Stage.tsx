@@ -2,7 +2,7 @@ import type { Peaks } from "../lib/api";
 import { setCut, setTrack } from "../lib/editOps";
 import { formatTime, frameState, timelineToOutput } from "../lib/timeline";
 import type { EditorApi } from "../lib/useEditor";
-import { CameraTiles } from "./CameraTiles";
+import { ChannelTiles } from "./ChannelTiles";
 import { Icon } from "./Icon";
 import { CaretRight, ColumnWidth, Pause, StepBackward, Warning, ZoomIn, ZoomOut } from "./icons";
 import { Player } from "./Player";
@@ -109,7 +109,8 @@ export function Stage({
           </div>
         </div>
 
-        <CameraTiles
+        <ChannelTiles
+          slug={slug}
           channels={ed.channels}
           activeId={frame.channel}
           elements={ed.mediaElements}
