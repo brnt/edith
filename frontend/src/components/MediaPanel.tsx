@@ -42,57 +42,56 @@ export function MediaPanel({ slug, media, onChange, onError }: Props) {
   };
 
   return (
-    <div>
-      <div class="mb-3 flex items-center gap-3">
+    <div class="flex h-full gap-4">
+      <div class="flex shrink-0 flex-col items-start gap-2">
         <Button variant="primary" onClick={() => setBrowsing(true)}>
           Add media…
         </Button>
         <Button disabled={missing === 0 || job !== null} onClick={buildProxies}>
-          Build preview proxies{missing ? ` (${missing})` : ""}
+          Build proxies{missing ? ` (${missing})` : ""}
         </Button>
         {job && <Progress value={job.progress} label={job.message} />}
       </div>
       {media.length === 0 ? (
-        <p class="text-sm text-neutral-500">
+        <p class="self-center text-sm text-neutral-500">
           No media yet. Add the camera and audio files from this session; they stay where they are.
         </p>
       ) : (
-        <table class="w-full text-sm">
-          <tbody>
-            {media.map((m) => (
-              <tr key={m.id} class="border-t border-neutral-800">
-                <td class="py-1 pr-3">{m.label}</td>
-                <td class="pr-3">
-                  <Badge>{m.kind}</Badge>
-                </td>
-                <td class="pr-3 text-neutral-400">
-                  {m.duration_s ? formatTime(m.duration_s) : "—"}
-                  {m.width ? ` · ${m.width}×${m.height}` : ""}
-                  {m.fps ? ` · ${m.fps.toFixed(2)} fps` : ""}
-                </td>
-                <td class="pr-3">
-                  {m.proxy_ready ? (
-                    <Badge tone="good">proxy</Badge>
-                  ) : (
-                    <Badge tone="warn">no proxy</Badge>
-                  )}
-                </td>
-                <td class="text-right">
-                  <Button
-                    variant="ghost"
-                    onClick={() =>
-                      removeMedia(slug, m.id).then(onChange, (e: unknown) => onError(String(e)))
-                    }
-                  >
-                    Remove
-                  </Button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <ul class="grid min-w-0 auto-cols-[17rem] grid-flow-col grid-rows-4 content-start gap-x-4 gap-y-1 text-sm">
+          {media.map((m) => (
+            <li key={m.id} class="flex items-center gap-2" title={details(m)}>
+              <Badge>{m.kind}</Badge>
+              <span class="min-w-0 flex-1 truncate">{m.label}</span>
+              {m.proxy_ready ? (
+                <Badge tone="good">proxy</Badge>
+              ) : (
+                <Badge tone="warn">no proxy</Badge>
+              )}
+              <button
+                class="text-neutral-500 hover:text-red-400"
+                aria-label={`Remove ${m.label}`}
+                onClick={() =>
+                  removeMedia(slug, m.id).then(onChange, (e: unknown) => onError(String(e)))
+                }
+              >
+                ✕
+              </button>
+            </li>
+          ))}
+        </ul>
       )}
       {browsing && <LibraryBrowser onAdd={add} onClose={() => setBrowsing(false)} />}
     </div>
   );
+}
+
+function details(m: MediaItem): string {
+  return [
+    m.label,
+    m.duration_s ? formatTime(m.duration_s) : "",
+    m.width ? `${m.width}×${m.height}` : "",
+    m.fps ? `${m.fps.toFixed(2)} fps` : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
 }

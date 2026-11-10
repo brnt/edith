@@ -1,0 +1,227 @@
+import type { ComponentChildren } from "preact";
+
+import { addCuts, addStill, removeCut, removeStill, removeSwitch, setRange } from "../lib/editOps";
+import { formatTime, type Range } from "../lib/timeline";
+import type { EditorApi } from "../lib/useEditor";
+import { Button, Dropdown } from "./ui";
+
+/** A ribbon group: controls wrap within `width`, with the group's name underneath. */
+function Group({
+  title,
+  width,
+  column = false,
+  children,
+}: {
+  title: string;
+  width?: string;
+  column?: boolean;
+  children: ComponentChildren;
+}) {
+  return (
+    <div
+      class={`flex h-full shrink-0 flex-col justify-between border-r border-neutral-700 pr-3 text-sm ${width ?? ""}`}
+    >
+      <div
+        class={`flex content-start gap-2 ${column ? "flex-col items-start" : "flex-wrap items-center"}`}
+      >
+        {children}
+      </div>
+      <div
+        class="truncate pt-1 text-center text-[10px] uppercase tracking-wide text-neutral-500"
+        title={title}
+      >
+        {title}
+      </div>
+    </div>
+  );
+}
+
+interface Item {
+  key: string;
+  text: string;
+  title?: string;
+  onSeek: () => void;
+  onRemove: () => void;
+}
+
+/** A menu of edit decisions: click one to jump to it, ✕ to remove it. */
+function ItemsMenu({ name, empty, items }: { name: string; empty: string; items: Item[] }) {
+  return (
+    <Dropdown label={`${name} (${items.length})`}>
+      {items.length === 0 ? (
+        <p class="text-neutral-500">{empty}</p>
+      ) : (
+        <ul class="space-y-1">
+          {items.map((item) => (
+            <li key={item.key} class="flex items-center justify-between gap-2">
+              <button
+                class="truncate text-left text-sky-300"
+                title={item.title}
+                onClick={item.onSeek}
+              >
+                {item.text}
+              </button>
+              <button
+                class="text-neutral-500 hover:text-red-400"
+                aria-label={`Remove ${item.text}`}
+                onClick={item.onRemove}
+              >
+                ✕
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Dropdown>
+  );
+}
+
+export function EditTools({ ed }: { ed: EditorApi }) {
+  const { edit, media, onEdit, selection, silence, suggestions } = ed;
+  const label = (id: string) => media.find((m) => m.id === id)?.label ?? id;
+  // Same numbering as the camera buttons, timeline rows, and number keys.
+  const cameraNumber = (id: string) => ed.cameras.findIndex((m) => m.id === id) + 1;
+
+  const num = (key: keyof typeof silence, step: number) => (
+    <input
+      type="number"
+      step={step}
+      class="w-14 rounded bg-neutral-900 px-1 py-0.5"
+      value={silence[key]}
+      aria-label={key}
+      onChange={(e) => ed.setSilence({ ...silence, [key]: Number(e.currentTarget.value) })}
+    />
+  );
+
+  const selectionText = selection
+    ? `${formatTime(selection[0], 2)} – ${formatTime(selection[1], 2)}`
+    : "drag on the timeline";
+
+  return (
+    <div class="flex h-full gap-3">
+      <Group title="Camera at playhead" width="w-32">
+        {ed.cameras.map((m, i) => (
+          <Button
+            key={m.id}
+            title={m.label}
+            aria-label={`Switch to camera ${i + 1}`}
+            onClick={() => ed.cutTo(m.id)}
+          >
+            {i + 1}
+          </Button>
+        ))}
+        {ed.cameras.length === 0 && <span class="text-neutral-500">No video</span>}
+      </Group>
+
+      <Group title={`Selection: ${selectionText}`} width="w-60">
+        <Button disabled={!selection} onClick={ed.cutSelection}>
+          Cut (x)
+        </Button>
+        <Button
+          disabled={!selection}
+          onClick={() => {
+            if (!selection) return;
+            onEdit(setRange(edit, selection[0], selection[1]));
+            ed.setSelection(null);
+          }}
+        >
+          Keep only
+        </Button>
+        <select
+          class="w-32 rounded bg-neutral-900 px-1 py-1"
+          aria-label="Still image"
+          title="Still image"
+          value={ed.stillId}
+          onChange={(e) => ed.setStillId(e.currentTarget.value)}
+        >
+          {ed.images.map((m) => (
+            <option key={m.id} value={m.id}>
+              {m.label}
+            </option>
+          ))}
+        </select>
+        <Button
+          disabled={!selection || !ed.stillId}
+          onClick={() => {
+            if (!selection) return;
+            onEdit(addStill(edit, ed.stillId, selection[0], selection[1]));
+            ed.setSelection(null);
+          }}
+        >
+          Show still
+        </Button>
+      </Group>
+
+      <Group title="Range" width="w-28">
+        <Button onClick={() => onEdit(setRange(edit, ed.t, edit.range_out_s))}>In (i)</Button>
+        <Button onClick={() => onEdit(setRange(edit, edit.range_in_s, ed.t))}>Out (o)</Button>
+        <Button variant="ghost" onClick={() => onEdit(setRange(edit, null, null))}>
+          Clear
+        </Button>
+      </Group>
+
+      <Group title="Dead time (uses saved range and tracks)" width="w-52">
+        <label>&lt; {num("threshold", 1)} dB</label>
+        <label>≥ {num("minS", 0.5)} s</label>
+        <label>keep {num("pad", 0.1)} s</label>
+        <Button onClick={ed.findDeadTime}>Find</Button>
+        {suggestions.length > 0 && (
+          <>
+            <span class="text-amber-300">{suggestions.length} found</span>
+            <Button
+              variant="primary"
+              onClick={() => {
+                onEdit(
+                  addCuts(
+                    edit,
+                    suggestions.map(([a, b]: Range) => ({ start_s: a, end_s: b })),
+                  ),
+                );
+                ed.setSuggestions([]);
+              }}
+            >
+              Cut all
+            </Button>
+            <Button variant="ghost" onClick={() => ed.setSuggestions([])}>
+              Dismiss
+            </Button>
+          </>
+        )}
+      </Group>
+
+      <Group title="Edit list" column>
+        <ItemsMenu
+          name="Switches"
+          empty="Starts on the earliest camera."
+          items={edit.switches.map((s, i) => ({
+            key: `${s.at_s}-${s.media_id}`,
+            text: `${formatTime(s.at_s, 1)} → Camera ${cameraNumber(s.media_id)}`,
+            title: label(s.media_id),
+            onSeek: () => ed.setT(s.at_s),
+            onRemove: () => onEdit(removeSwitch(edit, i)),
+          }))}
+        />
+        <ItemsMenu
+          name="Cuts"
+          empty="Nothing cut."
+          items={edit.cuts.map((c, i) => ({
+            key: `${c.start_s}-${c.end_s}`,
+            text: `${formatTime(c.start_s, 1)} – ${formatTime(c.end_s, 1)} (${(c.end_s - c.start_s).toFixed(1)} s)`,
+            onSeek: () => ed.setT(c.start_s),
+            onRemove: () => onEdit(removeCut(edit, i)),
+          }))}
+        />
+        <ItemsMenu
+          name="Stills"
+          empty="No stills."
+          items={edit.stills.map((s) => ({
+            key: s.id,
+            text: `${formatTime(s.start_s, 1)} – ${formatTime(s.end_s, 1)} ${label(s.media_id)}`,
+            onSeek: () => ed.setT(s.start_s),
+            onRemove: () => onEdit(removeStill(edit, s.id)),
+          }))}
+        />
+      </Group>
+    </div>
+  );
+}
