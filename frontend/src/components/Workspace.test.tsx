@@ -165,7 +165,7 @@ test("switching camera marks the edit unsaved; saving sends it and clears the ma
 
   fireEvent.click(await screen.findByRole("button", { name: "2 · Cam B" }));
   expect(screen.getByText("unsaved changes")).toBeInTheDocument();
-  expect(screen.getByText(/→ Cam B/)).toBeInTheDocument();
+  expect(screen.getByText(/→ Camera 2/)).toBeInTheDocument();
 
   fireEvent.click(screen.getByRole("button", { name: "Save" }));
   await waitFor(() => expect(puts).toHaveLength(1));
@@ -193,7 +193,7 @@ test("muting a track and the number keys edit the timeline", async () => {
   ]);
 
   fireEvent.keyDown(window, { key: "2" });
-  await waitFor(() => expect(screen.getByText(/→ Cam B/)).toBeInTheDocument());
+  await waitFor(() => expect(screen.getByText(/→ Camera 2/)).toBeInTheDocument());
 });
 
 test("renders from the export section and lists finished renders", async () => {

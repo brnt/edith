@@ -146,6 +146,8 @@ export function Editor({ slug, media, sync, edit, peaks, onEdit, onError }: Prop
     />
   );
 
+  // Same numbering as the camera buttons, timeline rows, and number keys.
+  const cameraNumber = (id: string) => cameras.findIndex((m) => m.id === id) + 1;
   const label = (id: string) => media.find((m) => m.id === id)?.label ?? id;
   const activeEdits = edit.switches.length + edit.cuts.length + edit.stills.length;
 
@@ -303,7 +305,8 @@ export function Editor({ slug, media, sync, edit, peaks, onEdit, onError }: Prop
           empty="Starts on the earliest camera."
           items={edit.switches.map((s, i) => ({
             key: `${s.at_s}-${s.media_id}`,
-            text: `${formatTime(s.at_s, 1)} → ${label(s.media_id)}`,
+            text: `${formatTime(s.at_s, 1)} → Camera ${cameraNumber(s.media_id)}`,
+            title: label(s.media_id),
             onSeek: () => setT(s.at_s),
             onRemove: () => onEdit(removeSwitch(edit, i)),
           }))}
@@ -345,7 +348,7 @@ function DecisionList({
 }: {
   title: string;
   empty: string;
-  items: { key: string; text: string; onSeek: () => void; onRemove: () => void }[];
+  items: { key: string; text: string; title?: string; onSeek: () => void; onRemove: () => void }[];
 }) {
   return (
     <div class="rounded border border-neutral-800 p-3">
@@ -356,7 +359,11 @@ function DecisionList({
         <ul class="space-y-1">
           {items.map((item) => (
             <li key={item.key} class="flex items-center justify-between gap-2">
-              <button class="truncate text-left text-sky-300" onClick={item.onSeek}>
+              <button
+                class="truncate text-left text-sky-300"
+                title={item.title}
+                onClick={item.onSeek}
+              >
                 {item.text}
               </button>
               <button
