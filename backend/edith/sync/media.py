@@ -10,7 +10,7 @@ import numpy as np
 from edith.core.errors import MediaError
 from edith.sync.registration import SAMPLE_RATE
 
-__all__ = ["MediaError", "MediaInfo", "extract_mono", "probe"]
+__all__ = ["MediaError", "MediaInfo", "details", "extract_mono", "probe"]
 
 
 @dataclass(frozen=True)
@@ -75,6 +75,82 @@ def probe(path: Path) -> MediaInfo:
         audio_start_s=start_of(audio),
         video_start_s=start_of(video),
     )
+
+
+def _num(value: object) -> float | None:
+    try:
+        return float(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return None
+
+
+def _bit_depth(stream: dict) -> int | None:
+    raw = _num(stream.get("bits_per_raw_sample"))
+    if raw:
+        return int(raw)
+    pix = stream.get("pix_fmt") or ""  # e.g. yuv420p10le: the digits after the planes are the depth
+    for depth in (16, 14, 12, 10, 9):
+        if f"p{depth}" in pix or f"{depth}le" in pix or f"{depth}be" in pix:
+            return depth
+    return 8 if pix else None
+
+
+def details(path: Path) -> dict:
+    """Everything worth showing about a file: container, video and audio streams (read-only)."""
+    result = subprocess.run(
+        ["ffprobe", "-v", "error", "-of", "json", "-show_format", "-show_streams", str(path)],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        raise MediaError(f"ffprobe failed for {path.name}: {result.stderr.strip()}")
+    info = json.loads(result.stdout)
+    fmt = info.get("format", {})
+    streams = info.get("streams", [])
+    video = next(
+        (
+            s
+            for s in streams
+            if s.get("codec_type") == "video" and not s.get("disposition", {}).get("attached_pic")
+        ),
+        None,
+    )
+    audio = next((s for s in streams if s.get("codec_type") == "audio"), None)
+    out: dict = {
+        "container": fmt.get("format_long_name") or fmt.get("format_name"),
+        "size_bytes": int(fmt["size"]) if fmt.get("size") else None,
+        "duration_s": _num(fmt.get("duration")),
+        "bit_rate": _num(fmt.get("bit_rate")),
+        "created": (fmt.get("tags") or {}).get("creation_time"),
+        "video": None,
+        "audio": None,
+    }
+    if video:
+        avg, real = _fps(video.get("avg_frame_rate")), _fps(video.get("r_frame_rate"))
+        out["video"] = {
+            "codec": video.get("codec_name"),
+            "profile": video.get("profile"),
+            "width": video.get("width"),
+            "height": video.get("height"),
+            "fps": avg,
+            "fps_variable": bool(avg and real and abs(avg - real) / real > 0.01),
+            "pix_fmt": video.get("pix_fmt"),
+            "bit_depth": _bit_depth(video),
+            "color_space": video.get("color_space"),
+            "color_range": video.get("color_range"),
+            "color_transfer": video.get("color_transfer"),
+            "bit_rate": _num(video.get("bit_rate")),
+        }
+    if audio:
+        out["audio"] = {
+            "codec": audio.get("codec_name"),
+            "sample_rate": _num(audio.get("sample_rate")),
+            "channels": audio.get("channels"),
+            "channel_layout": audio.get("channel_layout"),
+            "bit_rate": _num(audio.get("bit_rate")),
+            "bit_depth": int(audio["bits_per_sample"]) if audio.get("bits_per_sample") else None,
+        }
+    return out
 
 
 def extract_mono(

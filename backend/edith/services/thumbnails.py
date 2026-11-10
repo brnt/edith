@@ -8,11 +8,11 @@ from edith.core.errors import MediaError
 from edith.db.documents import MediaItem
 from edith.services.proxies import cache_dir
 
-THUMB_HEIGHT = 72  # shown at about 36 px; 2x for sharp screens
+THUMB_HEIGHT = 144  # cards show it at about 65 px tall; 2x for sharp screens
 
 
 def thumb_path(project_folder: Path, item: MediaItem) -> Path:
-    return cache_dir(project_folder) / "thumbs" / f"{item.id}.jpg"
+    return cache_dir(project_folder) / f"thumbs-{THUMB_HEIGHT}" / f"{item.id}.jpg"
 
 
 def build_thumbnail(source: Path, item: MediaItem, project_folder: Path) -> Path | None:

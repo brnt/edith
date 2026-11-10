@@ -377,3 +377,53 @@ export function stageLayout(a: {
   const playerH = clamp(Math.min(usableH - boxH - a.below, fullView), PLAYER_MIN_PX, PLAYER_MAX_PX);
   return { boxH, playerH };
 }
+
+/** Channels (cameras and stills) that some segment of the edit shows, the default camera included. */
+export function usedChannelIds(
+  switches: CameraSwitch[],
+  fallback: string | null,
+  end: number,
+): Set<string> {
+  const used = new Set<string>();
+  for (const seg of segments(switches, fallback, end)) {
+    if (seg.channel !== null && seg.end > seg.start) used.add(seg.channel);
+  }
+  return used;
+}
+
+/** Media of one folder (a directory of the project folder, or somewhere else in the library). */
+export interface MediaGroup {
+  key: string;
+  /** The folder as a breadcrumb, e.g. "day 1 / camera A"; empty for the project folder itself. */
+  title: string;
+  external: boolean;
+  items: MediaItem[];
+}
+
+const naturalOrder = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
+
+/**
+ * The media view's folder hierarchy: the project folder first, then its subfolders by name, then
+ * media referenced from elsewhere in the library. Within a folder: cameras, audio, then stills.
+ */
+export function groupMedia(media: MediaItem[]): MediaGroup[] {
+  const groups = new Map<string, MediaGroup>();
+  for (const m of media) {
+    const key = `${m.external ? "~" : ""}${m.folder}`;
+    let group = groups.get(key);
+    if (!group) {
+      group = {
+        key,
+        title: m.folder.split("/").filter(Boolean).join(" / "),
+        external: m.external,
+        items: [],
+      };
+      groups.set(key, group);
+    }
+    group.items.push(m);
+  }
+  const rank = (g: MediaGroup) => (g.external ? 2 : g.key === "" ? 0 : 1);
+  return [...groups.values()]
+    .map((g) => ({ ...g, items: sortMedia(g.items) }))
+    .sort((a, b) => rank(a) - rank(b) || naturalOrder.compare(a.key, b.key));
+}

@@ -100,6 +100,12 @@ Root `justfile` delegates to both; Compose runs `api` (:8000) and `web` (:8080).
   every render (a hidden page delivers no observer callbacks).
 - **The timeline is one scroller (both axes)**: the ruler and label column are `sticky`. Keep every
   row's content inside its fixed height (1px of overflow is enough to make it scroll).
+- **Media discovery is read-only** (`services/discovery.py`): the project folder is walked (links
+  followed; `cache/`, `renders/`, dotfiles and temp names skipped; files touched in the last 2s are
+  ignored until they settle) and unincluded files are listed with `included: false`, probed once
+  into `cache/probe/`. Looking never writes `project.edith`; including a file (`POST /media`) is the
+  edit that does. The frontend polls `GET /media` (5s, and on focus). Only `included` media go to
+  the editor; the Media tab gets all of them (`available`).
 - **Clicking a tile or pressing a number while a range is selected is a cutaway** (`showOver` in
   `lib/editOps.ts`, via `cutTo` in `useEditor`): the channel is shown over the range, then the edit
   returns to what was showing at its end, and the selection clears. No selection: switch at the playhead.

@@ -20,6 +20,7 @@ export { default as Eye } from "@ant-design/icons-svg/es/asn/EyeOutlined";
 export { default as EyeInvisible } from "@ant-design/icons-svg/es/asn/EyeInvisibleOutlined";
 export { default as Folder } from "@ant-design/icons-svg/es/asn/FolderOutlined";
 export { default as FolderOpen } from "@ant-design/icons-svg/es/asn/FolderOpenOutlined";
+export { default as InfoCircle } from "@ant-design/icons-svg/es/asn/InfoCircleOutlined";
 export { default as Pause } from "@ant-design/icons-svg/es/asn/PauseOutlined";
 export { default as Picture } from "@ant-design/icons-svg/es/asn/PictureOutlined";
 export { default as PlayCircle } from "@ant-design/icons-svg/es/asn/PlayCircleOutlined";

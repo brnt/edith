@@ -37,10 +37,26 @@ The video preview and the timeline are always on screen. The tools live in a fix
 above them with four tabs (**Media**, **Sync**, **Edit**, **Export**); it opens on whichever step
 comes next.
 
-1. **Media.** Create a project, then **Add media…** and pick the camera, audio, and still-image
-   files (each shows a tiny thumbnail). **Build proxies** (low-res copies the browser can scrub;
-   originals are untouched). The speaker checkbox beside a file says whether its audio goes into
-   the output: audio-only files are on by default, a camera's own audio is off until you tick it.
+1. **Media.** Every project has a folder (`<library>/<project>/`). Put the camera, audio and
+   still-image files in it (subfolders are fine: the media view keeps your folder hierarchy) and
+   they turn up in the **Media** tab by themselves within a few seconds. Footage that lives
+   elsewhere (an external drive) can be linked into the folder, or added with **Add media…**.
+   Each file is a card: a thumbnail (a waveform for audio) with its name, the grid number it has,
+   a sync dot for video and audio (green synced, amber check, red not found), and:
+   - **Include:** a file found in the folder is marked *new* and is **not part of the project**
+     until you include it (click its eye). Looking never writes to the project; including is the
+     edit that does. The tab shows how many are waiting.
+   - **The eye:** for a camera or still it shows or hides it in the grid and the timeline (a
+     hidden one stays on the timeline only while a segment still shows it). For an audio file it
+     is the single control for whether its sound is in the output.
+   - **The speaker (cameras):** whether the camera's own audio is used, independent of the eye
+     (a camera's own audio is off until you turn it on).
+   - **Details (i):** codec, resolution, frame rate (flagged when variable or different from the
+     project's), colour depth, bit rate, audio format, size; also *Remove from project* (the
+     file itself is never touched).
+   - **Build proxies** makes low-res copies the browser can scrub (originals are untouched); a
+     bolt on a card means its proxy isn't built yet. A file that goes missing (moved, or its
+     drive unplugged) is marked on its card and stays in the project.
 2. **Sync.** Every device should have recorded a registration sound once shortly after it started
    and once shortly before it stopped. Tell Edith what it sounds like, then **Find the sound in
    every file**. Three ways:

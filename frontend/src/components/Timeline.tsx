@@ -10,6 +10,7 @@ import {
   formatTime,
   movedSwitches,
   segments,
+  usedChannelIds,
   TIMELINE_LABEL_W as LABEL_W,
   type Channel,
   type Picked,
@@ -83,17 +84,20 @@ export function Timeline(props: Props) {
   const { picked } = props;
 
   const channels = channelsOf(media, edit.disabled);
-  // A disabled channel stays on the timeline (the edit may use it), but dimmed.
+  const fallback = defaultCamera(media, offsets);
+  // A disabled channel is off the timeline, unless some segment of the edit still shows it: then it
+  // stays (dimmed) so the segment is visible and can be worked on.
+  const used = usedChannelIds(edit.switches, fallback, end);
+  const shown = (c: Channel) => c.enabled || used.has(c.item.id);
   const dim = (c: Channel) => (c.enabled ? "" : "opacity-50");
-  const cameras = channels.filter((c) => c.item.kind === "video");
-  const stills = channels.filter((c) => c.item.kind === "image");
+  const cameras = channels.filter((c) => c.item.kind === "video" && shown(c));
+  const stills = channels.filter((c) => c.item.kind === "image" && shown(c));
   // Stills sit in a disclosure group; open by default unless there are a lot of them.
   const [stillsChoice, setStillsChoice] = useState<boolean | null>(null);
   const stillsOpen = stillsChoice ?? stills.length <= 4;
   const tracks = effectiveTracks(edit, media);
   // Only audio that is in the output gets a row; include or exclude files in the Media tab.
   const audioRows = media.filter((m) => tracks.some((t) => t.media_id === m.id && !t.muted));
-  const fallback = defaultCamera(media, offsets);
   const lo = edit.range_in_s ?? 0;
   const hi = edit.range_out_s ?? end;
   const step = STEPS.find((s) => s * px >= 70) ?? STEPS[STEPS.length - 1];

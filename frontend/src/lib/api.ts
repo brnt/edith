@@ -21,6 +21,44 @@ export interface MediaItem {
   fps: number | null;
   has_audio: boolean;
   proxy_ready: boolean;
+  /** False: found in the project folder but not part of the project until included (an edit). */
+  included: boolean;
+  /** The file is no longer where the project says it is (moved, deleted, drive unplugged). */
+  missing: boolean;
+  /** Its directory within the project folder (or its own directory if outside it). */
+  folder: string;
+  external: boolean;
+  size_bytes: number | null;
+}
+
+export interface MediaDetails {
+  container: string | null;
+  size_bytes: number | null;
+  duration_s: number | null;
+  bit_rate: number | null;
+  created: string | null;
+  video: {
+    codec: string | null;
+    profile: string | null;
+    width: number | null;
+    height: number | null;
+    fps: number | null;
+    fps_variable: boolean;
+    pix_fmt: string | null;
+    bit_depth: number | null;
+    color_space: string | null;
+    color_range: string | null;
+    color_transfer: string | null;
+    bit_rate: number | null;
+  } | null;
+  audio: {
+    codec: string | null;
+    sample_rate: number | null;
+    channels: number | null;
+    channel_layout: string | null;
+    bit_rate: number | null;
+    bit_depth: number | null;
+  } | null;
 }
 
 export interface SyncResult {
@@ -169,6 +207,9 @@ export const addMedia = (slug: string, path: string) =>
 export const removeMedia = (slug: string, id: string) =>
   request<void>(`${p(slug)}/media/${id}`, json("DELETE"));
 export const startProxies = (slug: string) => request<Job>(`${p(slug)}/proxies`, json("POST"));
+export const fetchMediaDetails = (slug: string, id: string) =>
+  request<MediaDetails>(`${p(slug)}/media/${id}/details`);
+
 export const fetchPeaks = (slug: string, id: string) =>
   request<Peaks>(`${p(slug)}/media/${id}/peaks`);
 export const thumbUrl = (slug: string, id: string) => `${BASE_URL}${p(slug)}/media/${id}/thumb`;
