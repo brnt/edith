@@ -80,9 +80,11 @@ comes next.
      stretch where that channel is on screen) or a **cut** to select it (white outline).
      Clicking anywhere else still moves the playhead; `Esc` deselects. A selected item can be
      **dragged by its edges** (the playhead follows the edge and the preview shows the edit as it would be
-     if you dropped it now: the first frame of the segment at its start edge, its last frame at its
-     end edge; the grid shows every other channel at that same moment; a readout shows the time;
-     one drag is one undo step) or removed
+     if you dropped it now. At a boundary between two **videos** the grid steps aside and the two
+     are shown side by side, in timeline order: the last frame before the boundary on the left, the
+     first frame after it on the right. Between a **video and a still**, the video is shown (its
+     frame at the boundary); between two **stills**, the one being resized. A readout shows the
+     time; one drag is one undo step) or removed
      with `Delete`. Moving a segment's edge moves the neighbouring segment's edge with it, and
      it can't pass the next one. Deleting a segment lets the one before it carry on. A cut's
      edges set where it starts and ends (the first and last cuts set the start and end of the

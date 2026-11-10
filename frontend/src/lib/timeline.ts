@@ -216,6 +216,50 @@ export function frameState(
 
 export const MIN_SEGMENT_S = 0.1; // a dragged edge cannot squeeze a segment below this
 
+/** Two videos shown side by side while the boundary between them is dragged. */
+export interface Compare {
+  before: string;
+  after: string;
+  /** When each is shown: the last frame before the boundary, the first frame after it. */
+  tBefore: number;
+  tAfter: number;
+}
+
+/** What the preview shows while an edge is dragged: the edit as it would be dropped now. */
+export interface Preview {
+  edit: EditList;
+  compare: Compare | null;
+}
+
+/**
+ * Where the playhead goes, and whether to compare two videos, while the boundary at `at` between
+ * the segment `before` and the segment `after` is dragged:
+ * - two different videos: both, side by side (before on the left), at the frames either side;
+ * - a video next to a still: the video (its frame at the boundary);
+ * - otherwise (two stills): the one being resized (`resizing`).
+ * At the boundary itself the playhead is on the first frame of what follows it, or one frame earlier
+ * (`frameS`) to show the last frame of what precedes it.
+ */
+export function boundaryPreview(args: {
+  before: string | null;
+  after: string | null;
+  at: number;
+  resizing: "before" | "after";
+  isVideo: (id: string) => boolean;
+  frameS: number;
+}): { t: number; compare: Compare | null } {
+  const { before, after, at, resizing, isVideo, frameS } = args;
+  const last = Math.max(0, at - frameS);
+  const videoBefore = before !== null && isVideo(before);
+  const videoAfter = after !== null && isVideo(after);
+  if (videoBefore && videoAfter && before !== after) {
+    return { t: at, compare: { before: before!, after: after!, tBefore: last, tAfter: at } };
+  }
+  if (videoAfter && !videoBefore) return { t: at, compare: null };
+  if (videoBefore && !videoAfter) return { t: last, compare: null };
+  return { t: resizing === "after" ? at : last, compare: null };
+}
+
 /** The switches in time order (the order segment indexes refer to). */
 export const inTimeOrder = (switches: CameraSwitch[]) =>
   [...switches].sort((a, b) => a.at_s - b.at_s);

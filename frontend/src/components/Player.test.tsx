@@ -74,3 +74,31 @@ test("and if its own audio is in the mix, because the audio needs the player", (
   });
   expect(videos(audioMuted)).not.toContain("c");
 });
+
+test("a comparison shows two videos side by side, before on the left, each at its own moment", () => {
+  const elements: { current: Record<string, HTMLMediaElement | null> } = { current: {} };
+  const { container, getAllByTestId } = render(
+    <Player
+      slug="s"
+      media={media}
+      offsets={{ a: 0, b: 2, c: 0, mic: 0 }}
+      edit={edit()}
+      t={10}
+      playing={false}
+      compare={{ before: "a", after: "b", tBefore: 9.97, tAfter: 10 }}
+      elements={elements}
+    />,
+  );
+  const cls = (id: string) =>
+    [...container.querySelectorAll("video")].find((v) => v.src.includes(`/${id}/`))!.className;
+  expect(cls("a")).toContain("left-0 w-1/2 opacity-100");
+  expect(cls("b")).toContain("right-0 w-1/2 opacity-100");
+  expect(cls("c")).toContain("opacity-0");
+  expect(getAllByTestId("compare-label").map((l) => l.textContent)).toEqual([
+    "a · last frame",
+    "b · first frame",
+  ]);
+  // b starts 2 s into the timeline, so its first frame at 10 s is 8 s into the file.
+  expect(elements.current.a?.currentTime).toBeCloseTo(9.97);
+  expect(elements.current.b?.currentTime).toBeCloseTo(8);
+});

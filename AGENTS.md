@@ -80,9 +80,12 @@ Root `justfile` delegates to both; Compose runs `api` (:8000) and `web` (:8080).
   opening stretch with no switch). Edge drags and deletes are switch edits (`moveSegmentEdge`,
   `deleteSegment`); handles show only on the picked item. Click targets carry `data-pick`/`data-index`,
   read at pointer-up (the lanes hold pointer capture, so `e.target` there is the lanes).
-- **Edge drags are previewed, not committed:** the Timeline reports the would-be edit through
-  `onPreview` and `useEditor.preview` overrides `edit` for the player and tiles until release. At a
-  start edge the playhead sits on the segment's first frame; at an end edge, one frame earlier.
+- **Edge drags are previewed, not committed:** the Timeline reports a `Preview` (the would-be edit
+  plus an optional `Compare`) through `onPreview`; `useEditor.preview` overrides `edit` for the player
+  until release. `boundaryPreview` (`lib/timeline.ts`) decides what to show: two different videos are
+  compared side by side (`Player`'s `compare` prop, each element at its own time, grid hidden);
+  video|still shows the video; still|still the one being resized. The playhead sits on the first frame
+  after the boundary, or one frame earlier to show the last frame before it.
 - **Clicking a tile or pressing a number while a range is selected is a cutaway** (`showOver` in
   `lib/editOps.ts`, via `cutTo` in `useEditor`): the channel is shown over the range, then the edit
   returns to what was showing at its end, and the selection clears. No selection: switch at the playhead.

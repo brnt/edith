@@ -196,9 +196,18 @@ test("dragging an edge (segment or cut) moves the playhead with it", () => {
   expect(h.onScrub).toHaveBeenNthCalledWith(1, 30); // grabbing it
   expect(h.onScrub).toHaveBeenLastCalledWith(38);
   // The preview is the edit as it would be if dropped now: the switch has moved to 38.
-  expect(h.onPreview).toHaveBeenLastCalledWith(
-    expect.objectContaining({ switches: [expect.objectContaining({ at_s: 38 }), SWITCHES[1]] }),
-  );
+  expect(h.onPreview).toHaveBeenLastCalledWith({
+    edit: expect.objectContaining({
+      switches: [expect.objectContaining({ at_s: 38 }), SWITCHES[1]],
+    }),
+    // Cam (before) and Cam 2 (after) are both videos: shown side by side at the frames either side.
+    compare: {
+      before: "cam",
+      after: "cam2",
+      tBefore: expect.closeTo(38 - 1001 / 30000, 5),
+      tAfter: 38,
+    },
+  });
   fireEvent.pointerUp(start, { clientX: 380, pointerId: 1 });
   expect(h.onPreview).toHaveBeenLastCalledWith(null);
 

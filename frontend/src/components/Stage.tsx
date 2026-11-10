@@ -29,7 +29,8 @@ export function Stage({
   warnings: string[];
 }) {
   // While an edge is being dragged, show the result of dropping it now, not the old edit.
-  const shown = ed.preview ?? ed.edit;
+  const shown = ed.preview?.edit ?? ed.edit;
+  const compare = ed.preview?.compare ?? null;
   const frame = frameState(ed.t, shown, ed.media, ed.offsets);
 
   const zoom = (
@@ -67,7 +68,7 @@ export function Stage({
       <div class="flex shrink-0 gap-3" style={{ height: `calc(${PLAYER_H} + ${BELOW_PLAYER})` }}>
         <div
           class="flex h-full shrink-0 flex-col gap-1.5"
-          style={{ width: `calc(${PLAYER_H} * 16 / 9)` }}
+          style={{ width: compare ? "100%" : `calc(${PLAYER_H} * 16 / 9)` }}
         >
           <div class="w-full shrink-0" style={{ height: PLAYER_H }}>
             <Player
@@ -75,6 +76,7 @@ export function Stage({
               media={ed.media}
               offsets={ed.offsets}
               edit={shown}
+              compare={compare}
               t={ed.t}
               playing={ed.playing}
               elements={ed.mediaElements}
@@ -113,15 +115,18 @@ export function Stage({
           </div>
         </div>
 
-        <ChannelTiles
-          slug={slug}
-          channels={ed.channels}
-          activeId={frame.channel}
-          elements={ed.mediaElements}
-          local={frame.local}
-          selection={ed.selection}
-          onActivate={ed.cutTo}
-        />
+        {/* Hidden while two videos are compared side by side: they use the room. */}
+        {!compare && (
+          <ChannelTiles
+            slug={slug}
+            channels={ed.channels}
+            activeId={frame.channel}
+            elements={ed.mediaElements}
+            local={frame.local}
+            selection={ed.selection}
+            onActivate={ed.cutTo}
+          />
+        )}
       </div>
 
       <div ref={ed.timelineBox} class="min-h-0 flex-1 overflow-y-auto">
