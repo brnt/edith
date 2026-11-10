@@ -340,6 +340,18 @@ export function formatTime(seconds: number, frac = 1): string {
 /** The timeline never gets shorter than this (its ruler and about four rows), however little room there is. */
 export const TIMELINE_MIN_PX = 168;
 
+/** The most of the stage's height the timeline takes before it scrolls inside itself. */
+export const TIMELINE_MAX_SHARE = 0.4;
+
+/**
+ * Room for the timeline out of `usablePx` (the stage's height less its padding and gap): a share of
+ * it, so a long list of rows scrolls instead of squeezing the view, and never so much that the
+ * view drops below `viewMinPx`.
+ */
+export function timelineRoom(usablePx: number, viewMinPx: number): number {
+  return Math.min(TIMELINE_MAX_SHARE * usablePx, usablePx - viewMinPx);
+}
+
 /**
  * How tall the timeline box should be: all of its content if there is room (what is left after the
  * view's minimum row), else as much as there is, but never less than {@link TIMELINE_MIN_PX}.

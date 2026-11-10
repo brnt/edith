@@ -7,6 +7,7 @@ import {
   frameState,
   TIMELINE_MIN_PX,
   timelineBoxHeight,
+  timelineRoom,
   timelineToOutput,
 } from "../lib/timeline";
 import type { EditorApi } from "../lib/useEditor";
@@ -17,9 +18,9 @@ import { Player } from "./Player";
 import { Timeline } from "./Timeline";
 import { Button } from "./ui";
 
-// Vertical space is shared like this: the timeline takes what its rows need (it scrolls inside
-// itself only when that would squeeze the view below its minimum), but never less than about four
-// rows. The active view gets everything else, up to two thirds of the window's width (37.5 * 16/9).
+// Vertical space is shared like this: the timeline takes what its rows need, up to a share of the
+// height (past that it scrolls inside itself, so a long list of rows never squeezes the view), but
+// never less than about four rows. The active view gets everything else, up to two thirds of the window's width (37.5 * 16/9).
 const BELOW_PLAYER_REM = 3; // under the view: the gap and the time and buttons (about 47px), nothing spare
 const BELOW_PLAYER = `${BELOW_PLAYER_REM}rem`;
 const PLAYER_MIN = "max(140px, 27vh)"; // the smallest the view is squeezed to
@@ -58,7 +59,7 @@ export function Stage({
     const measure = () => {
       const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
       const viewMin = Math.max(140, 0.27 * window.innerHeight) + BELOW_PLAYER_REM * rem;
-      const room = root.clientHeight - STAGE_PADDING_PX - STAGE_GAP_PX - viewMin;
+      const room = timelineRoom(root.clientHeight - STAGE_PADDING_PX - STAGE_GAP_PX, viewMin);
       // All of the rows, plus the scroller's own border (and a horizontal scrollbar when shown).
       const chrome = scroller.offsetHeight - scroller.clientHeight;
       const content = Math.max(rows.getBoundingClientRect().height, scroller.scrollHeight);

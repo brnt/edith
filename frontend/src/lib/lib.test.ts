@@ -20,6 +20,7 @@ import {
   advancePlayhead,
   boundaryPreview,
   timelineBoxHeight,
+  timelineRoom,
   movedSwitches,
   segments,
   channelsOf,
@@ -425,6 +426,16 @@ describe("boundaryPreview", () => {
 
   test("one camera on both sides has nothing to compare: it shows the one being resized", () => {
     expect(at("camA", "camA", "before")).toEqual({ t: 10 - f, compare: null });
+  });
+});
+
+describe("timelineRoom", () => {
+  test("a long list of rows is capped at a share of the height, so the view keeps its size", () => {
+    expect(timelineRoom(800, 200)).toBeCloseTo(320); // 40% of 800, though 600 would be free
+  });
+
+  test("in a short window the view's minimum wins over the share", () => {
+    expect(timelineRoom(400, 300)).toBe(100);
   });
 });
 
