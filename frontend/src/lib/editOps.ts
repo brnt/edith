@@ -1,6 +1,6 @@
 // Immutable edit operations. Every function returns a new EditList.
 import type { Cut, EditList, MediaItem, MixRegion } from "./api";
-import { activeChannel, EPS, effectiveTracks, mergeRanges } from "./timeline";
+import { EPS, effectiveTracks, mergeRanges } from "./timeline";
 
 const SAME_TIME = 0.05;
 
@@ -11,23 +11,6 @@ export function setCamera(edit: EditList, at_s: number, media_id: string | null)
   // A switch to the channel that is already showing changes nothing.
   const compact = switches.filter((s, i) => i === 0 || s.media_id !== switches[i - 1].media_id);
   return { ...edit, switches: compact };
-}
-
-/**
- * Show a still over a range, then go back to whatever was showing at its end. Switches that fall
- * inside the range are hidden by the still, so they are dropped (the one in force at the end is
- * what we return to).
- */
-export function showStill(
-  edit: EditList,
-  fallback: string | null,
-  stillId: string,
-  start_s: number,
-  end_s: number,
-): EditList {
-  const returnTo = activeChannel(edit.switches, end_s, fallback);
-  const outside = edit.switches.filter((s) => s.at_s <= start_s || s.at_s >= end_s);
-  return setCamera(setCamera({ ...edit, switches: outside }, start_s, stillId), end_s, returnTo);
 }
 
 export function removeSwitch(edit: EditList, index: number): EditList {

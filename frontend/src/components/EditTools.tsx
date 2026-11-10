@@ -1,20 +1,12 @@
 import type { ComponentChildren } from "preact";
 import { useState } from "preact/hooks";
 
-import {
-  addCuts,
-  addMix,
-  removeCut,
-  removeMix,
-  removeSwitch,
-  setRange,
-  showStill,
-} from "../lib/editOps";
+import { addCuts, addMix, removeCut, removeMix, removeSwitch, setRange } from "../lib/editOps";
 import { effectiveTracks, formatTime, type Range } from "../lib/timeline";
 import type { EditorApi } from "../lib/useEditor";
 import { Button, Dropdown } from "./ui";
 import { Icon } from "./Icon";
-import { AudioMuted, Check, Clear, Close, Picture, Scissor, Search, Sound } from "./icons";
+import { AudioMuted, Check, Clear, Close, Scissor, Search, Sound } from "./icons";
 
 /** A ribbon group: controls wrap within `width`, with the group's name underneath. */
 function Group({
@@ -152,31 +144,6 @@ export function EditTools({ ed }: { ed: EditorApi }) {
           }}
         >
           Keep only
-        </Button>
-        <select
-          class="w-32 rounded bg-neutral-900 px-1 py-1"
-          aria-label="Still image"
-          title="Still image"
-          value={ed.stillId}
-          onChange={(e) => ed.setStillId(e.currentTarget.value)}
-        >
-          {ed.images.map((m) => (
-            <option key={m.id} value={m.id}>
-              {m.label}
-            </option>
-          ))}
-        </select>
-        <Button
-          size="sm"
-          icon={Picture}
-          disabled={!selection || !ed.stillId}
-          onClick={() => {
-            if (!selection) return;
-            onEdit(showStill(edit, ed.fallback, ed.stillId, selection[0], selection[1]));
-            ed.setSelection(null);
-          }}
-        >
-          Show still
         </Button>
       </Group>
 
