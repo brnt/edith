@@ -1,0 +1,9 @@
+.git
+node_modules
+dist
+.direnv
+.envrc
+coverage
+.env
+*.local
+.DS_Store

@@ -1,0 +1,26 @@
+# Frontend tasks. The repo-root justfile delegates here.
+
+set dotenv-load := true
+
+default:
+    @just --list
+
+init:
+    pnpm install
+
+run:
+    pnpm dev
+
+test:
+    pnpm test
+
+lint:
+    pnpm lint
+
+fmt:
+    pnpm format
+
+build:
+    pnpm build
+
+ci: lint test build

@@ -1,0 +1,23 @@
+services:
+  api:
+    build: ./backend
+    environment:
+      ENVIRONMENT: production
+      API_TOKEN: ${API_TOKEN:-dev-token}
+      LIBRARY_DIR: /library
+    ports:
+      - "8000:8000"
+    # Host-owned bind mount: the app user (uid 1000) can write project files. Point
+    # LIBRARY_DIR in .env at a folder on the SSD to work on real media.
+    volumes:
+      - ${LIBRARY_DIR:-./.library}:/library
+
+  web:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_TOKEN: ${API_TOKEN:-dev-token}
+    ports:
+      - "8080:80"
+    depends_on:
+      - api

@@ -1,0 +1,10 @@
+# Both local and container pnpm must agree on this, or a lockfile resolved locally can be
+# rejected in the image build. Value is minutes: never resolve a release younger than a day.
+minimumReleaseAge: 1440
+
+# esbuild's postinstall is the only build script we run. pnpm <=10 reads
+# onlyBuiltDependencies; pnpm >=11 reads allowBuilds.
+onlyBuiltDependencies:
+  - esbuild
+allowBuilds:
+  esbuild: true

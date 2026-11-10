@@ -1,0 +1,29 @@
+# Backend tasks. The repo-root justfile delegates here. Recipes are CI-safe (uv run).
+
+set dotenv-load := true
+
+default:
+    @just --list
+
+init:
+    uv sync
+
+run:
+    uv run uvicorn edith.main:app --reload
+
+test:
+    uv run pytest -m "not live"
+
+# HTTP against a running stack (`just up` from the repo root). Skips if it is down.
+test-live:
+    uv run pytest -m live
+
+lint:
+    uv run ruff check .
+    uv run ruff format --check .
+
+fmt:
+    uv run ruff check --fix .
+    uv run ruff format .
+
+ci: lint test
