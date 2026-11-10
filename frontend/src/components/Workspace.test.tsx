@@ -207,7 +207,7 @@ test("switching camera marks the edit unsaved; saving sends it and clears the ma
   await screen.findByTestId("timeline");
   expect(screen.queryByText("unsaved changes")).toBeNull();
 
-  fireEvent.click(await screen.findByRole("button", { name: "Switch to camera 2" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Preview of camera 2: switch to it" }));
   expect(screen.getByText("unsaved changes")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: /Switches \(1\)/ }));
   expect(screen.getByText(/→ Camera 2/)).toBeInTheDocument();
@@ -221,7 +221,7 @@ test("switching camera marks the edit unsaved; saving sends it and clears the ma
 test("undo reverts a change", async () => {
   render(<Workspace slug="show" />);
   await screen.findByTestId("timeline");
-  fireEvent.click(await screen.findByRole("button", { name: "Switch to camera 2" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Preview of camera 2: switch to it" }));
   fireEvent.click(screen.getByRole("button", { name: "Undo" }));
   expect(screen.queryByText("unsaved changes")).toBeNull();
 });
@@ -281,7 +281,7 @@ test("the ribbon opens on the next step, switches tabs, and never changes height
 
   // Synced project: it opens on Edit, and the timeline and player stay on screen throughout.
   expect(screen.getByRole("tab", { name: "Edit" })).toHaveAttribute("aria-selected", "true");
-  expect(screen.getByRole("button", { name: "Switch to camera 1" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /Cut \(x\)/ })).toBeInTheDocument(); // the Edit tools
 
   const tabs: [string, RegExp][] = [
     ["Media (4)", /Add media/],
@@ -329,7 +329,9 @@ test("stills are numbered after the cameras; their number key cuts to the still"
   render(<Workspace slug="show" />);
   await screen.findByTestId("timeline");
   // Cam A = 1, Cam B = 2, car.png = 3
-  expect(await screen.findByRole("button", { name: "Switch to still 3" })).toBeInTheDocument();
+  expect(
+    await screen.findByRole("button", { name: "Preview of still 3: switch to it" }),
+  ).toBeInTheDocument();
 
   fireEvent.keyDown(window, { key: "3" });
   fireEvent.click(await screen.findByRole("button", { name: /Switches \(1\)/ }));
@@ -368,8 +370,14 @@ test("with many stills the group starts collapsed, and only nine channels get nu
   const toggle = await within(timeline).findByRole("button", { name: /Stills \(8\)/ });
   expect(toggle).toHaveAttribute("aria-expanded", "false");
   // 2 cameras + 8 stills: stills 3-9 are numbered, the last one is not.
-  expect(screen.getByRole("button", { name: "Switch to still 9" })).toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: "Switch to still 10" })).toBeNull();
+  expect(
+    screen.getByRole("button", { name: "Preview of still 9: switch to it" }),
+  ).toBeInTheDocument();
+  // ...the 10th channel has no number, so its tile is labelled by name.
+  expect(screen.queryByRole("button", { name: "Preview of still 10: switch to it" })).toBeNull();
+  expect(
+    screen.getByRole("button", { name: "Preview of still s7.jpg: switch to it" }),
+  ).toBeInTheDocument();
 });
 
 describe("choosing the registration sound", () => {
@@ -493,19 +501,32 @@ describe("where the playhead starts", () => {
   });
 });
 
-test("channel buttons share one palette in the ribbon and on the timeline", async () => {
+test("channels share one palette on the grid tiles and on the timeline rows", async () => {
   render(<Workspace slug="show" />);
   const timeline = await screen.findByTestId("timeline");
-  const ribbonCamera = await screen.findByRole("button", { name: "Switch to camera 1" });
-  const ribbonStill = screen.getByRole("button", { name: "Switch to still 3" });
+  const tiles = await screen.findByTestId("channel-tiles");
+  const chipOf = (tile: HTMLElement) => tile.querySelector("span.bottom-1") as HTMLElement; // the label chip
+  const tileCamera = await within(tiles).findByRole("button", {
+    name: "Preview of camera 2: switch to it",
+  });
+  const tileStill = within(tiles).getByRole("button", { name: "Preview of still 3: switch to it" });
   const rowCamera = within(timeline).getByRole("button", { name: "Switch to Cam A" });
   const rowStill = within(timeline).getByRole("button", { name: "Switch to car.png" });
 
-  for (const chip of [ribbonCamera, rowCamera]) expect(chip.className).toContain("bg-sky");
-  for (const chip of [ribbonStill, rowStill]) expect(chip.className).toContain("bg-teal");
-  for (const chip of [ribbonCamera, ribbonStill, rowCamera, rowStill]) {
+  for (const chip of [chipOf(tileCamera), rowCamera]) expect(chip.className).toContain("bg-sky");
+  for (const chip of [chipOf(tileStill), rowStill]) expect(chip.className).toContain("bg-teal");
+  for (const chip of [chipOf(tileCamera), chipOf(tileStill), rowCamera, rowStill]) {
     expect(chip.className).not.toMatch(/neutral|fuchsia|purple|violet/);
   }
+});
+
+test("the Edit tab no longer has its own channel buttons: the grid and the number keys do that job", async () => {
+  render(<Workspace slug="show" />);
+  await screen.findByTestId("timeline");
+  const panel = screen.getByRole("tabpanel");
+  expect(within(panel).queryByRole("button", { name: /^Switch to (camera|still)/ })).toBeNull();
+  expect(panel).not.toHaveTextContent(/number keys/i);
+  expect(within(panel).getByRole("button", { name: /Cut \(x\)/ })).toBeInTheDocument(); // first group now
 });
 
 describe("icons", () => {
