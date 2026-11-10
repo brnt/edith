@@ -21,7 +21,7 @@ import { AUDIO_WAVEFORM, channelStyle } from "../lib/channelStyle";
 import { ChannelChip } from "./ChannelChip";
 import { MAX_CANVAS_PX, Waveform } from "./Waveform";
 import { Icon } from "./Icon";
-import { CaretDown, CaretRight, Holder } from "./icons";
+import { CaretDown, CaretRight, Ellipsis } from "./icons";
 
 const ROW = { ruler: 24, video: 34, still: 28, audio: 56 };
 
@@ -219,22 +219,22 @@ export function Timeline(props: Props) {
       >
         {on && canStart && segHandle(seg.index, "start", seg.start)}
         {on && canEnd && segHandle(seg.index + 1, "end", seg.end)}
-        {/* Grips inside the extremes say the edges (not the whole segment) can be dragged; they are
-            shifted so the outer column of dots is centred on the 2px side border (the glyph has padding). */}
+        {/* A vertical row of dots (an ellipsis turned on its side) inside each draggable edge, close to
+            the border, says the edge (not the whole segment) can be dragged. */}
         {on && canStart && (
           <span
             data-grip="start"
-            class="pointer-events-none absolute inset-y-0 -left-[0.41em] flex items-center text-xs text-neutral-700/50"
+            class="pointer-events-none absolute inset-y-0 -left-[0.2em] flex items-center text-xs text-neutral-700/50"
           >
-            <Icon icon={Holder} />
+            <Icon icon={Ellipsis} class="rotate-90" />
           </span>
         )}
         {on && canEnd && (
           <span
             data-grip="end"
-            class="pointer-events-none absolute inset-y-0 -right-[0.38em] flex items-center text-xs text-neutral-700/50"
+            class="pointer-events-none absolute inset-y-0 -right-[0.2em] flex items-center text-xs text-neutral-700/50"
           >
-            <Icon icon={Holder} />
+            <Icon icon={Ellipsis} class="rotate-90" />
           </span>
         )}
         {on && segDrag && (segDrag.index === seg.index || segDrag.index === seg.index + 1) && (
