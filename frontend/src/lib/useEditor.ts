@@ -53,11 +53,9 @@ export function useEditor({ slug, media, sync, edit, onEdit, onError, ready }: A
   const mediaElements = useRef<Record<string, HTMLMediaElement | null>>({});
   const [suggestions, setSuggestions] = useState<Range[]>([]);
   const [silence, setSilence] = useState({ threshold: -50, minS: 2, pad: 0.4 });
-  const [stillId, setStillId] = useState("");
 
   const channels = useMemo(() => channelsOf(media, edit.disabled), [media, edit.disabled]);
   const fallback = defaultCamera(media, offsets);
-  const images = media.filter((m) => m.kind === "image");
   const fitPx = fitPxPerSec(width, end);
   const pxPerSec = zoom ?? fitPx;
 
@@ -81,10 +79,6 @@ export function useEditor({ slug, media, sync, edit, onEdit, onError, ready }: A
     placed.current = true;
     setT(firstKept);
   }, [ready, firstKept]);
-
-  useEffect(() => {
-    if (!stillId && images.length) setStillId(images[0].id);
-  }, [images.length]);
 
   // Playback: advance a wall clock, jumping cuts and stopping at the last kept moment.
   useEffect(() => {
@@ -177,11 +171,8 @@ export function useEditor({ slug, media, sync, edit, onEdit, onError, ready }: A
     silence,
     setSilence,
     findDeadTime,
-    stillId,
-    setStillId,
     channels,
     fallback,
-    images,
     cutTo,
     cutSelection,
   };

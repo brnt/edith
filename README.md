@@ -75,8 +75,8 @@ comes next.
      Cuts ripple. **Drag a cut's edges** in the timeline to fine-tune where it starts and ends
      (the first and last cuts set the start and end of the final clip); a readout shows the time
      while you drag, and one drag is one undo step.
-   - **Still over a range:** drag-select, pick an image, *Show still*: it switches to the still at
-     the start and back to whatever was showing at the end. The audio always continues.
+   - **Stills:** a still is a channel: cut to it from the grid or its number key, and cut away
+     again the same way. The audio always continues.
    - **Audio:** each included file gets a track on the timeline with an overall gain slider. To
      change the level over just a stretch, drag-select it, pick the track under **Mix the
      selection**, and press **Set** (a dB change added to the track) or **Mute**. It shows on the

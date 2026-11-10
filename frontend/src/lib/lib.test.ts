@@ -10,7 +10,6 @@ import {
   setCut,
   setEnabled,
   setTrack,
-  showStill,
 } from "./editOps";
 import * as history from "./history";
 import {
@@ -336,36 +335,6 @@ describe("channels: cameras and stills", () => {
     ];
     expect(activeChannel(switches, 15, "camA")).toBe("car");
     expect(activeChannel(switches, 25, "camA")).toBe("camA");
-  });
-
-  test("showStill puts a still over a range and returns to what was showing at its end", () => {
-    const base = edit({ switches: [{ at_s: 5, media_id: "camB" }] });
-    expect(showStill(base, "camA", "car", 10, 14).switches).toEqual([
-      { at_s: 5, media_id: "camB" },
-      { at_s: 10, media_id: "car" },
-      { at_s: 14, media_id: "camB" },
-    ]);
-  });
-
-  test("showStill drops switches hidden under the still but keeps the one in force at its end", () => {
-    const base = edit({
-      switches: [
-        { at_s: 5, media_id: "camB" },
-        { at_s: 12, media_id: "camA" },
-      ],
-    });
-    expect(showStill(base, "camB", "car", 10, 14).switches).toEqual([
-      { at_s: 5, media_id: "camB" },
-      { at_s: 10, media_id: "car" },
-      { at_s: 14, media_id: "camA" },
-    ]);
-  });
-
-  test("showStill with no earlier switch returns to the default camera", () => {
-    expect(showStill(edit(), "camA", "car", 10, 14).switches).toEqual([
-      { at_s: 10, media_id: "car" },
-      { at_s: 14, media_id: "camA" },
-    ]);
   });
 });
 
