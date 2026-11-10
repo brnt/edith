@@ -11,8 +11,8 @@ def env(*segments):
 def test_finds_long_silences_and_leaves_padding():
     audio = env((5, -80), (10, -20), (4, -80), (10, -20), (6, -80))
     cuts = suggest_cuts([(0.0, audio)], min_s=2.0, pad_s=0.5)
-    # Silent 0-5, 15-19 and 29-35 s; each cut keeps 0.5 s of air on both sides.
-    assert cuts == [(0.5, 4.5), (15.5, 18.5), (29.5, 34.5)]
+    # Silent 0-5, 15-19 and 29-35 s. Cuts keep 0.5 s of air next to content, none at the ends.
+    assert cuts == [(0.0, 4.5), (15.5, 18.5), (29.5, 35.0)]
 
 
 def test_short_gaps_are_kept():

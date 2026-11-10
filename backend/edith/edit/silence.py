@@ -17,8 +17,8 @@ def suggest_cuts(
 ) -> list[tuple[float, float]]:
     """`tracks` are (timeline offset in s, dB envelope at RATE). Returns (start, end) ranges.
 
-    Each silent stretch of at least `min_s` is shrunk by `pad_s` on both sides so the cut
-    leaves a little air around the speech.
+    Each silent stretch of at least `min_s` is shrunk by `pad_s` where it meets content, so
+    the cut leaves a little air around the speech.
     """
     if not tracks:
         return []
@@ -41,7 +41,9 @@ def suggest_cuts(
     for start, stop in zip(edges[::2], edges[1::2], strict=False):
         if (stop - start) / RATE < min_s:
             continue
-        a, b = start / RATE + pad_s, min(stop, last) / RATE - pad_s
+        # Air is only kept where a cut meets content, not at the edges of the range.
+        a = start / RATE + (0.0 if start <= first else pad_s)
+        b = min(stop, last) / RATE - (0.0 if stop >= last else pad_s)
         if b - a >= MIN_CUT_S:
             cuts.append((round(a, 3), round(b, 3)))
     return cuts
