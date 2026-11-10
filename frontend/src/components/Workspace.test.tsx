@@ -203,6 +203,31 @@ test("loads a project, shows its media, timeline rows, warnings and the format n
   expect(screen.getByText(/Saved by an older Edith/)).toBeInTheDocument();
 });
 
+test("a waveform that can't be read says which file, and Retry loads it once it is back", async () => {
+  const working = globalThis.fetch;
+  let peakCalls = 0;
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (url: string, init?: RequestInit) => {
+      if (String(url).includes("/peaks") && peakCalls++ === 0)
+        return new Response(
+          JSON.stringify({ detail: "MediaNotFound", message: "Can't read mic.wav" }),
+          {
+            status: 404,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      return working(url, init);
+    }),
+  );
+  render(<Workspace slug="show" />);
+  expect(await screen.findByText("Can't read mic.wav")).toBeInTheDocument(); // no status-code prefix
+
+  fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+  await waitFor(() => expect(screen.queryByText("Can't read mic.wav")).toBeNull());
+  expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
+});
+
 test("switching camera marks the edit unsaved; saving sends it and clears the mark", async () => {
   render(<Workspace slug="show" />);
   await screen.findByTestId("timeline");

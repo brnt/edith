@@ -32,6 +32,7 @@ export function Workspace({ slug }: { slug: string }) {
   const [peaks, setPeaks] = useState<Record<string, Peaks>>({});
   const [plan, setPlan] = useState<Plan | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [retry, setRetry] = useState<(() => void) | null>(null);
   const [saving, setSaving] = useState(false);
   const [ready, setReady] = useState(false);
   const requested = useRef(new Set<string>());
@@ -69,14 +70,37 @@ export function Workspace({ slug }: { slug: string }) {
       .catch(fail);
   }, [slug]);
 
-  // Waveforms for everything that has audio, loaded once per file.
+  // Waveforms for everything that has audio, loaded once per file (again on Retry after a failure).
+  const failedPeaks = useRef(new Set<string>());
+  const loadPeaks = useCallback(
+    (id: string) => {
+      requested.current.add(id);
+      fetchPeaks(slug, id)
+        .then((data) => {
+          setPeaks((current) => ({ ...current, [id]: data }));
+          const wasFailed = failedPeaks.current.delete(id);
+          if (wasFailed && failedPeaks.current.size === 0) {
+            setError(null);
+            setRetry(null);
+          }
+        })
+        .catch((e) => {
+          requested.current.delete(id); // so Retry can try again
+          failedPeaks.current.add(id);
+          fail(e);
+          setRetry(() => () => {
+            setError(null);
+            setRetry(null);
+            for (const failed of [...failedPeaks.current]) loadPeaks(failed);
+          });
+        });
+    },
+    [slug, fail],
+  );
   useEffect(() => {
     for (const m of media) {
       if (!m.has_audio || m.kind === "image" || requested.current.has(m.id)) continue;
-      requested.current.add(m.id);
-      fetchPeaks(slug, m.id)
-        .then((data) => setPeaks((current) => ({ ...current, [m.id]: data })))
-        .catch(fail);
+      loadPeaks(m.id);
     }
   }, [media, slug]);
 
@@ -174,9 +198,23 @@ export function Workspace({ slug }: { slug: string }) {
       {error && (
         <div class="mx-3 mb-2 flex shrink-0 items-center justify-between rounded border border-red-800 bg-red-950 p-2 text-sm text-red-200">
           {error}
-          <Button variant="ghost" icon={Close} onClick={() => setError(null)}>
-            Dismiss
-          </Button>
+          <span class="flex gap-1">
+            {retry && (
+              <Button variant="ghost" icon={Sync} onClick={retry}>
+                Retry
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              icon={Close}
+              onClick={() => {
+                setError(null);
+                setRetry(null);
+              }}
+            >
+              Dismiss
+            </Button>
+          </span>
         </div>
       )}
 
