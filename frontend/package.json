@@ -12,6 +12,7 @@
     "format": "prettier --write ."
   },
   "dependencies": {
+    "@ant-design/icons-svg": "^4.6.0",
     "preact": "^10.24.0"
   },
   "devDependencies": {

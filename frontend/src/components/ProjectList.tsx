@@ -2,6 +2,7 @@ import { useEffect, useState } from "preact/hooks";
 
 import { createProject, fetchProjects, type Project } from "../lib/api";
 import { Badge, Button } from "./ui";
+import { Plus } from "./icons";
 
 export function ProjectList() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -42,7 +43,7 @@ export function ProjectList() {
           value={name}
           onInput={(e) => setName(e.currentTarget.value)}
         />
-        <Button variant="primary" type="submit">
+        <Button variant="primary" icon={Plus} type="submit">
           Create
         </Button>
       </form>

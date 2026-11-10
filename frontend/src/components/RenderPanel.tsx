@@ -3,6 +3,7 @@ import { useEffect, useState } from "preact/hooks";
 import { fetchRenders, renderUrl, startRender, type Job, type RenderFile } from "../lib/api";
 import { waitForJob } from "../lib/jobs";
 import { Button, Dropdown, Progress } from "./ui";
+import { PlayCircle } from "./icons";
 
 export function RenderPanel({
   slug,
@@ -36,7 +37,12 @@ export function RenderPanel({
 
   return (
     <>
-      <Button variant="primary" disabled={disabled || job !== null} onClick={render}>
+      <Button
+        variant="primary"
+        icon={PlayCircle}
+        disabled={disabled || job !== null}
+        onClick={render}
+      >
         Render MP4 (1080p)
       </Button>
       {job && <Progress value={job.progress} label={job.message} />}

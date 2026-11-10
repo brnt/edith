@@ -15,6 +15,8 @@ import { waitForJob } from "../lib/jobs";
 import { formatTime } from "../lib/timeline";
 import { LibraryBrowser } from "./LibraryBrowser";
 import { Badge, Button, Progress } from "./ui";
+import { Icon } from "./Icon";
+import { Close, CustomerService, Picture, Plus, Sound, Thunderbolt, VideoCamera } from "./icons";
 
 interface Props {
   slug: string;
@@ -56,10 +58,10 @@ export function MediaPanel({ slug, media, edit, onEdit, onChange, onError }: Pro
   return (
     <div class="flex h-full gap-4">
       <div class="flex shrink-0 flex-col items-start gap-2">
-        <Button variant="primary" onClick={() => setBrowsing(true)}>
+        <Button variant="primary" icon={Plus} onClick={() => setBrowsing(true)}>
           Add media…
         </Button>
-        <Button disabled={missing === 0 || job !== null} onClick={buildProxies}>
+        <Button icon={Thunderbolt} disabled={missing === 0 || job !== null} onClick={buildProxies}>
           Build proxies{missing ? ` (${missing})` : ""}
         </Button>
         {job && <Progress value={job.progress} label={job.message} />}
@@ -73,7 +75,7 @@ export function MediaPanel({ slug, media, edit, onEdit, onChange, onError }: Pro
           {media.map((m) => (
             <li key={m.id} class="flex h-9 items-center gap-2" title={details(m)}>
               <Thumb slug={slug} item={m} />
-              <Badge>{m.kind}</Badge>
+              <Badge icon={KIND_ICON[m.kind]}>{m.kind}</Badge>
               {m.has_audio && m.kind !== "image" ? (
                 <label
                   class="flex items-center gap-1 text-xs text-neutral-300"
@@ -91,7 +93,7 @@ export function MediaPanel({ slug, media, edit, onEdit, onChange, onError }: Pro
                       onEdit(setAudioIncluded(edit, media, m.id, e.currentTarget.checked))
                     }
                   />
-                  <span aria-hidden="true">🔊</span>
+                  <Icon icon={Sound} />
                 </label>
               ) : null}
               <span class="min-w-0 flex-1 truncate">{m.label}</span>
@@ -107,7 +109,7 @@ export function MediaPanel({ slug, media, edit, onEdit, onChange, onError }: Pro
                   removeMedia(slug, m.id).then(onChange, (e: unknown) => onError(String(e)))
                 }
               >
-                ✕
+                <Icon icon={Close} />
               </button>
             </li>
           ))}
@@ -130,11 +132,13 @@ function details(m: MediaItem): string {
 }
 
 /** A tiny picture of the media; audio has none, so it gets a note glyph. */
+const KIND_ICON = { video: VideoCamera, audio: Sound, image: Picture } as const;
+
 function Thumb({ slug, item }: { slug: string; item: MediaItem }) {
   return (
     <div class="flex h-8 w-14 shrink-0 items-center justify-center overflow-hidden rounded bg-neutral-900 text-neutral-500">
       {item.kind === "audio" ? (
-        <span aria-hidden="true">♪</span>
+        <Icon icon={CustomerService} class="text-base" />
       ) : (
         <img
           src={thumbUrl(slug, item.id)}

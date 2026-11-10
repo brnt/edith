@@ -5,6 +5,8 @@ import { formatTime, timelineToOutput } from "../lib/timeline";
 import { Player } from "./Player";
 import { Timeline } from "./Timeline";
 import { Button } from "./ui";
+import { Icon } from "./Icon";
+import { CaretRight, ColumnWidth, Pause, StepBackward, Warning, ZoomIn, ZoomOut } from "./icons";
 
 /** The part that is always on screen: the preview, transport, and the timeline. */
 export function Stage({
@@ -39,24 +41,42 @@ export function Stage({
               {formatTime(ed.outputLength, 1)}
             </div>
             <div class="mt-2 flex flex-wrap gap-2">
-              <Button variant="primary" onClick={ed.togglePlay}>
+              <Button
+                variant="primary"
+                icon={ed.playing ? Pause : CaretRight}
+                onClick={ed.togglePlay}
+              >
                 {ed.playing ? "Pause (space)" : "Play (space)"}
               </Button>
-              <Button onClick={() => ed.setT(ed.firstKept)}>⏮ Start</Button>
+              <Button icon={StepBackward} onClick={() => ed.setT(ed.firstKept)}>
+                Start
+              </Button>
             </div>
           </div>
           <div class="space-y-1">
             <div class="flex items-center gap-2">
-              <Button onClick={() => ed.setZoom(Math.min(ed.pxPerSec * 1.5, 400))}>Zoom in</Button>
-              <Button onClick={() => ed.setZoom(Math.max(ed.pxPerSec / 1.5, 1))}>Zoom out</Button>
-              <Button disabled={ed.zoom === null} onClick={() => ed.setZoom(null)}>
+              <Button icon={ZoomIn} onClick={() => ed.setZoom(Math.min(ed.pxPerSec * 1.5, 400))}>
+                Zoom in
+              </Button>
+              <Button icon={ZoomOut} onClick={() => ed.setZoom(Math.max(ed.pxPerSec / 1.5, 1))}>
+                Zoom out
+              </Button>
+              <Button
+                icon={ColumnWidth}
+                disabled={ed.zoom === null}
+                onClick={() => ed.setZoom(null)}
+              >
                 Fit
               </Button>
             </div>
             <div class="text-xs text-neutral-500">Click to place the playhead, drag to select.</div>
             {warnings.length > 0 && (
-              <div class="truncate text-xs text-amber-300" title={warnings.join("\n")}>
-                ⚠ {warnings[0]}
+              <div
+                class="flex items-center gap-1 truncate text-xs text-amber-300"
+                title={warnings.join("\n")}
+              >
+                <Icon icon={Warning} />
+                {warnings[0]}
                 {warnings.length > 1 ? ` (+${warnings.length - 1} more)` : ""}
               </div>
             )}

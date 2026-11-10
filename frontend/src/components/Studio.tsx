@@ -16,6 +16,8 @@ import { Ribbon } from "./Ribbon";
 import { Stage } from "./Stage";
 import { SyncPanel } from "./SyncPanel";
 import { Badge } from "./ui";
+import { Icon } from "./Icon";
+import { Download, Export, Scissor, Sync, VideoCamera } from "./icons";
 
 const FORMATS: { format: ExportFormat; label: string; hint: string }[] = [
   { format: "fcpxml", label: "Resolve / Final Cut", hint: "FCPXML: video + audio tracks" },
@@ -76,16 +78,17 @@ export function Studio(props: Props) {
         active={active}
         onSelect={(id) => setChosen(id as TabId)}
         tabs={[
-          { id: "media", label: `Media (${media.length})` },
+          { id: "media", label: `Media (${media.length})`, icon: VideoCamera },
           {
             id: "sync",
             label: "Sync",
+            icon: Sync,
             badge: synced ? (
               <Badge tone={unsynced ? "warn" : "good"}>{unsynced ? "incomplete" : "synced"}</Badge>
             ) : undefined,
           },
-          { id: "edit", label: "Edit" },
-          { id: "export", label: "Export" },
+          { id: "edit", label: "Edit", icon: Scissor },
+          { id: "export", label: "Export", icon: Export },
         ]}
       >
         {active === "media" && (
@@ -119,12 +122,13 @@ export function Studio(props: Props) {
                     href={exportUrl(slug, f.format)}
                     download
                     title={f.hint}
-                    class={`rounded px-3 py-1 ${
+                    class={`inline-flex items-center gap-1.5 rounded px-3 py-1 ${
                       dirty
                         ? "pointer-events-none bg-neutral-800 text-neutral-600"
                         : "bg-neutral-700 text-neutral-100 hover:bg-neutral-600"
                     }`}
                   >
+                    <Icon icon={Download} />
                     {f.label}
                   </a>
                 ))}

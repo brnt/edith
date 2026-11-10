@@ -14,6 +14,8 @@ import {
 import { AUDIO_WAVEFORM, channelStyle } from "../lib/channelStyle";
 import { ChannelChip } from "./ChannelChip";
 import { MAX_CANVAS_PX, Waveform } from "./Waveform";
+import { Icon } from "./Icon";
+import { CaretDown, CaretRight } from "./icons";
 
 const ROW = { ruler: 24, video: 34, still: 28, audio: 56 };
 
@@ -136,7 +138,7 @@ export function Timeline(props: Props) {
                   aria-expanded={stillsOpen}
                   onClick={() => setStillsChoice(!stillsOpen)}
                 >
-                  <span aria-hidden="true">{stillsOpen ? "▾" : "▸"}</span>
+                  <Icon icon={stillsOpen ? CaretDown : CaretRight} />
                   Stills ({stills.length})
                 </button>
               </div>

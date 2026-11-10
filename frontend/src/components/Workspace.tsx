@@ -20,6 +20,8 @@ import * as history from "../lib/history";
 import { sortMedia } from "../lib/timeline";
 import { Studio } from "./Studio";
 import { Badge, Button } from "./ui";
+import { Icon } from "./Icon";
+import { ArrowLeft, Close, Redo, Save, Sync, Undo } from "./icons";
 
 export function Workspace({ slug }: { slug: string }) {
   const [project, setProject] = useState<Project | null>(null);
@@ -133,25 +135,28 @@ export function Workspace({ slug }: { slug: string }) {
   return (
     <div class="flex h-screen flex-col">
       <header class="flex shrink-0 flex-wrap items-center gap-3 px-3 py-2">
-        <a href="#/" class="text-sky-300">
-          ← Projects
+        <a href="#/" class="inline-flex items-center gap-1.5 text-sky-300">
+          <Icon icon={ArrowLeft} />
+          Projects
         </a>
         <h1 class="text-xl font-bold">{project?.name ?? slug}</h1>
         {dirty && <Badge tone="warn">unsaved changes</Badge>}
         <div class="ml-auto flex items-center gap-2">
           <Button
+            icon={Undo}
             disabled={!hist || hist.past.length === 0}
             onClick={() => setHist((h) => (h ? history.undo(h) : h))}
           >
             Undo
           </Button>
           <Button
+            icon={Redo}
             disabled={!hist || hist.future.length === 0}
             onClick={() => setHist((h) => (h ? history.redo(h) : h))}
           >
             Redo
           </Button>
-          <Button variant="primary" disabled={!dirty || saving} onClick={save}>
+          <Button variant="primary" icon={Save} disabled={!dirty || saving} onClick={save}>
             {saving ? "Saving…" : "Save"}
           </Button>
         </div>
@@ -161,13 +166,15 @@ export function Workspace({ slug }: { slug: string }) {
         <div class="mx-3 mb-2 flex shrink-0 items-center gap-3 rounded border border-amber-700 bg-amber-950 px-2 py-1 text-sm text-amber-200">
           Saved by an older Edith. It opened unchanged; saving or upgrading rewrites it in the
           current format.
-          <Button onClick={upgrade}>Upgrade now</Button>
+          <Button icon={Sync} onClick={upgrade}>
+            Upgrade now
+          </Button>
         </div>
       )}
       {error && (
         <div class="mx-3 mb-2 flex shrink-0 items-center justify-between rounded border border-red-800 bg-red-950 p-2 text-sm text-red-200">
           {error}
-          <Button variant="ghost" onClick={() => setError(null)}>
+          <Button variant="ghost" icon={Close} onClick={() => setError(null)}>
             Dismiss
           </Button>
         </div>

@@ -12,7 +12,7 @@ EDL for finishing elsewhere, or a 1080p H.264 render straight from the app.
 ## Stack
 
 Python 3.12+ · FastAPI · Pydantic v2 · SQLite (one file per project) · numpy/scipy · structlog ·
-`uv` · `ruff` · `pytest` — Preact · Vite · TypeScript · Tailwind v4 · Vitest · `pnpm` — Docker
+`uv` · `ruff` · `pytest` — Preact · Vite · TypeScript · Tailwind v4 · Ant Design icons · Vitest · `pnpm` — Docker
 Compose. `ffmpeg`/`ffprobe` do all media work server-side
 ([ADR 0002](docs/adr/0002-ffmpeg-on-the-backend.md)).
 

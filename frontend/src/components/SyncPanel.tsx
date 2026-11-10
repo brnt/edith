@@ -15,6 +15,17 @@ import { formatTime } from "../lib/timeline";
 import { LibraryBrowser } from "./LibraryBrowser";
 import { MAX_CANVAS_PX, Waveform } from "./Waveform";
 import { Badge, Button, Progress } from "./ui";
+import { Icon } from "./Icon";
+import {
+  CheckCircle,
+  CloseCircle,
+  Download,
+  FolderOpen,
+  Search,
+  Warning,
+  ZoomIn,
+  ZoomOut,
+} from "./icons";
 
 interface Props {
   slug: string;
@@ -37,9 +48,19 @@ const MODES: { id: Mode; label: string }[] = [
   { id: "file", label: "An audio file" },
 ];
 
+const STATUS_ICON = {
+  synced: CheckCircle,
+  low_confidence: Warning,
+  unsynced: CloseCircle,
+} as const;
+
 function describe(result: SyncResult | undefined) {
   if (!result) return null;
-  return <Badge tone={TONES[result.status]}>{LABELS[result.status]}</Badge>;
+  return (
+    <Badge tone={TONES[result.status]} icon={STATUS_ICON[result.status]}>
+      {LABELS[result.status]}
+    </Badge>
+  );
 }
 
 export function SyncPanel({ slug, media, sync, peaks, onChange, onError }: Props) {
@@ -151,8 +172,12 @@ export function SyncPanel({ slug, media, sync, peaks, onChange, onError }: Props
                   </option>
                 ))}
               </select>
-              <Button onClick={() => setPxPerSec((v) => Math.min(v * 2, 2000))}>Zoom in</Button>
-              <Button onClick={() => setPxPerSec((v) => Math.max(v / 2, 2))}>Zoom out</Button>
+              <Button icon={ZoomIn} onClick={() => setPxPerSec((v) => Math.min(v * 2, 2000))}>
+                Zoom in
+              </Button>
+              <Button icon={ZoomOut} onClick={() => setPxPerSec((v) => Math.max(v / 2, 2))}>
+                Zoom out
+              </Button>
             </>
           )}
 
@@ -167,7 +192,7 @@ export function SyncPanel({ slug, media, sync, peaks, onChange, onError }: Props
                 onInput={(e) => setSeed(e.currentTarget.value)}
               />
               <a
-                class={`rounded px-3 py-1 ${
+                class={`inline-flex items-center gap-1.5 rounded px-3 py-1 ${
                   seed.trim()
                     ? "bg-neutral-700 text-neutral-100 hover:bg-neutral-600"
                     : "pointer-events-none bg-neutral-800 text-neutral-600"
@@ -176,6 +201,7 @@ export function SyncPanel({ slug, media, sync, peaks, onChange, onError }: Props
                 download="registration.wav"
                 title="Download the sound to play on set"
               >
+                <Icon icon={Download} />
                 Download .wav
               </a>
             </>
@@ -183,7 +209,9 @@ export function SyncPanel({ slug, media, sync, peaks, onChange, onError }: Props
 
           {mode === "file" && (
             <>
-              <Button onClick={() => setChoosing(true)}>Choose file…</Button>
+              <Button icon={FolderOpen} onClick={() => setChoosing(true)}>
+                Choose file…
+              </Button>
               <span class="min-w-0 max-w-56 truncate text-neutral-300" title={filePath}>
                 {filePath || "none chosen"}
               </span>
@@ -194,6 +222,7 @@ export function SyncPanel({ slug, media, sync, peaks, onChange, onError }: Props
         <div class="flex flex-wrap items-center gap-2 text-sm">
           <Button
             variant="primary"
+            icon={Search}
             disabled={template() === null || progress !== null}
             onClick={run}
           >

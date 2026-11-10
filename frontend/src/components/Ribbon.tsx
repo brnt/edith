@@ -1,8 +1,12 @@
 import type { ComponentChildren } from "preact";
+import type { IconDefinition } from "@ant-design/icons-svg/es/types";
+
+import { Icon } from "./Icon";
 
 export interface RibbonTab {
   id: string;
   label: string;
+  icon?: IconDefinition;
   badge?: ComponentChildren;
 }
 
@@ -48,6 +52,7 @@ export function Ribbon({
             }`}
             onClick={() => onSelect(tab.id)}
           >
+            {tab.icon && <Icon icon={tab.icon} />}
             {tab.label}
             {tab.badge}
           </button>
