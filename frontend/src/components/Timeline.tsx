@@ -21,7 +21,7 @@ import { AUDIO_WAVEFORM, channelStyle } from "../lib/channelStyle";
 import { ChannelChip } from "./ChannelChip";
 import { MAX_CANVAS_PX, Waveform } from "./Waveform";
 import { Icon } from "./Icon";
-import { CaretDown, CaretRight } from "./icons";
+import { CaretDown, CaretLeft, CaretRight } from "./icons";
 
 const ROW = { ruler: 24, video: 34, still: 28, audio: 56 };
 
@@ -203,6 +203,9 @@ export function Timeline(props: Props) {
     const to = Math.min(seg.end, hi);
     if (to <= from) return null;
     const on = picked?.kind === "segment" && picked.index === seg.index;
+    // An edge can be dragged when it is a switch (not the start of the timeline or the end of the clip).
+    const canStart = seg.index >= 0 && seg.start >= lo;
+    const canEnd = seg.index + 1 < switchCount && seg.end <= hi;
     return (
       <div
         key={`seg${seg.index}`}
@@ -214,11 +217,21 @@ export function Timeline(props: Props) {
         class={`absolute cursor-pointer ${channelStyle(kind).span} ${on ? "ring-2 ring-white" : "hover:brightness-125"}`}
         style={{ left: x(from), width: Math.max(1, x(to - from)), top, height }}
       >
-        {on && seg.index >= 0 && seg.start >= lo && segHandle(seg.index, "start", seg.start)}
-        {on &&
-          seg.index + 1 < switchCount &&
-          seg.end <= hi &&
-          segHandle(seg.index + 1, "end", seg.end)}
+        {on && canStart && segHandle(seg.index, "start", seg.start)}
+        {on && canEnd && segHandle(seg.index + 1, "end", seg.end)}
+        {/* Little arrows inside the extremes say the edges can be dragged. */}
+        {on && canStart && (
+          <Icon
+            icon={CaretLeft}
+            class="pointer-events-none absolute inset-y-0 left-0.5 text-xs text-white/90"
+          />
+        )}
+        {on && canEnd && (
+          <Icon
+            icon={CaretRight}
+            class="pointer-events-none absolute inset-y-0 right-0.5 text-xs text-white/90"
+          />
+        )}
         {on && segDrag && (segDrag.index === seg.index || segDrag.index === seg.index + 1) && (
           <div
             class="pointer-events-none absolute -top-5 z-20 whitespace-nowrap rounded bg-black/80 px-1 text-[10px] text-white"
