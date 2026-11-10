@@ -106,59 +106,90 @@ test("a project whose folder can't be found stays listed, says so, and can be fo
   expect(del![0]).toBe("/api/projects/gone/recent");
 });
 
-test("a new project is made in the folder you choose, named after it unless you say otherwise", async () => {
+test("a new project goes in the folder you select, named after it unless you say otherwise", async () => {
   render(<App />);
   await screen.findByText("Pilot");
   fireEvent.click(screen.getByRole("button", { name: /New project/ }));
   const dialog = await screen.findByRole("dialog");
   fireEvent.click(within(dialog).getByRole("button", { name: "SSD" })); // a place to start from
-  fireEvent.click(await within(dialog).findByRole("button", { name: "media" }));
-  await waitFor(() =>
-    expect(within(dialog).getByTestId("folder-path")).toHaveTextContent("/Volumes/SSD/media"),
-  );
+  fireEvent.click(await within(dialog).findByRole("button", { name: "media" })); // select it
+  expect(within(dialog).getByTestId("folder-hint")).toHaveTextContent("will live in “media”");
   fireEvent.click(within(dialog).getByRole("button", { name: "Create project here" }));
   await waitFor(() => expect(window.location.hash).toBe("#/p/new"));
   expect(posts()).toEqual([["/projects", { name: "media", folder: "/Volumes/SSD/media" }]]);
 });
 
-test("a name and a new sub-folder can be given", async () => {
+test("or in the folder you have browsed into, with a name and a new sub-folder if you like", async () => {
   render(<App />);
   await screen.findByText("Pilot");
   fireEvent.click(screen.getByRole("button", { name: /New project/ }));
   const dialog = await screen.findByRole("dialog");
   fireEvent.click(within(dialog).getByRole("button", { name: "SSD" }));
-  await within(dialog).findByRole("button", { name: "media" });
+  fireEvent.click(await within(dialog).findByRole("button", { name: "Go inside media" }));
+  await waitFor(() =>
+    expect(within(dialog).getByTestId("folder-path")).toHaveTextContent("/Volumes/SSD/media"),
+  );
   fireEvent.input(within(dialog).getByLabelText("Project name"), { target: { value: "Ep 1" } });
   fireEvent.input(within(dialog).getByLabelText("New folder name"), {
     target: { value: "Episode 1" },
   });
   fireEvent.click(within(dialog).getByRole("button", { name: "Create project here" }));
   await waitFor(() => expect(posts()).toHaveLength(1));
-  expect(posts()[0][1]).toEqual({ name: "Ep 1", folder: "/Volumes/SSD/Episode 1" });
+  expect(posts()[0][1]).toEqual({ name: "Ep 1", folder: "/Volumes/SSD/media/Episode 1" });
 });
 
-test("a folder that already holds a project can't be used for a new one", async () => {
+test("a folder that already has a project can't be used for a new one", async () => {
   render(<App />);
   await screen.findByText("Pilot");
   fireEvent.click(screen.getByRole("button", { name: /New project/ }));
   const dialog = await screen.findByRole("dialog");
   fireEvent.click(within(dialog).getByRole("button", { name: "SSD" }));
-  fireEvent.click(await within(dialog).findByRole("button", { name: /pilot/ }));
-  await within(dialog).findByText("This folder already holds a project.");
+  fireEvent.click(await within(dialog).findByRole("button", { name: "pilot .edith" }));
+  expect(within(dialog).getByTestId("folder-hint")).toHaveTextContent("already has a project");
   expect(within(dialog).getByRole("button", { name: "Create project here" })).toBeDisabled();
 });
 
-test("opening a project: browse to a folder marked as a project, then open it", async () => {
+test("opening a project: select a folder with a .edith file in it, then Open", async () => {
   render(<App />);
   await screen.findByText("Pilot");
   fireEvent.click(screen.getByRole("button", { name: /Open project/ }));
   const dialog = await screen.findByRole("dialog");
   fireEvent.click(within(dialog).getByRole("button", { name: "SSD" }));
   const open = within(dialog).getByRole("button", { name: "Open this project" });
-  expect(open).toBeDisabled(); // /Volumes/SSD itself holds no project
-  fireEvent.click(await within(dialog).findByRole("button", { name: /pilot/ })); // marked "project"
+  expect(open).toBeDisabled(); // /Volumes/SSD itself has no project in it
+
+  // Selecting a folder without one says so, and doesn't enable Open.
+  fireEvent.click(await within(dialog).findByRole("button", { name: "media" }));
+  expect(within(dialog).getByTestId("folder-hint")).toHaveTextContent(
+    "no .edith project file in “media”",
+  );
+  expect(open).toBeDisabled();
+
+  // Selecting the one that has a project is all it takes: no need to go inside it.
+  fireEvent.click(within(dialog).getByRole("button", { name: "pilot .edith" }));
+  expect(within(dialog).getByTestId("folder-hint")).toHaveTextContent(
+    "Open the project in “pilot”",
+  );
   await waitFor(() => expect(open).not.toBeDisabled());
   fireEvent.click(open);
   await waitFor(() => expect(window.location.hash).toBe("#/p/pilot"));
   expect(posts()).toEqual([["/projects/open", { folder: "/Volumes/SSD/pilot" }]]);
+});
+
+test("double-clicking a folder goes inside it, and so does its arrow", async () => {
+  render(<App />);
+  await screen.findByText("Pilot");
+  fireEvent.click(screen.getByRole("button", { name: /Open project/ }));
+  const dialog = await screen.findByRole("dialog");
+  fireEvent.click(within(dialog).getByRole("button", { name: "SSD" }));
+  fireEvent.dblClick(await within(dialog).findByRole("button", { name: "media" }));
+  await waitFor(() =>
+    expect(within(dialog).getByTestId("folder-path")).toHaveTextContent("/Volumes/SSD/media"),
+  );
+  // Inside a folder with a project, with nothing selected, Open acts on that folder.
+  fireEvent.click(within(dialog).getByRole("button", { name: "up" }));
+  fireEvent.click(await within(dialog).findByRole("button", { name: "Go inside pilot" }));
+  await waitFor(() =>
+    expect(within(dialog).getByRole("button", { name: "Open this project" })).not.toBeDisabled(),
+  );
 });

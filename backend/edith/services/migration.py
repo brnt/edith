@@ -30,7 +30,7 @@ from edith.db.documents import (
 )
 from edith.db.project_file import LAYOUT_FOLDER, ProjectFile
 from edith.services import recents
-from edith.services.projects import PROJECT_FILENAME
+from edith.services.projects import project_file_in
 
 log = structlog.get_logger()
 
@@ -83,8 +83,10 @@ class _Placer:
 
 def convert_project(library: Path, rel: str) -> Converted:
     folder = library / rel
-    project_file = folder / PROJECT_FILENAME
-    backup = folder / f"{PROJECT_FILENAME}{BACKUP_SUFFIX}"
+    project_file = project_file_in(folder)
+    if project_file is None:
+        raise FileNotFoundError(f"no project file in {folder}")
+    backup = folder / f"{project_file.name}{BACKUP_SUFFIX}"
     if not backup.exists():
         shutil.copy2(project_file, backup)
     placer = _Placer(library, folder, rel)
@@ -129,8 +131,8 @@ def import_legacy_library(library: Path, state_dir: Path) -> list[Converted]:
     if not library.is_dir():
         return converted
     for folder in sorted(library.iterdir()):
-        project_file = folder / PROJECT_FILENAME
-        if folder.name.startswith(".") or not project_file.is_file():
+        project_file = project_file_in(folder) if folder.is_dir() else None
+        if folder.name.startswith(".") or project_file is None:
             continue
         try:
             if _is_legacy(project_file):

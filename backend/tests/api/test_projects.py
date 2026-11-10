@@ -145,3 +145,32 @@ def test_upgrade_is_explicit_and_idempotent(client: TestClient, workspace: Path)
     upgraded = client.post(f"/projects/{slug}/upgrade")
     assert upgraded.status_code == 200, upgraded.text
     assert upgraded.json()["needs_upgrade"] is False
+
+
+def test_a_folder_with_an_edith_file_opens_whatever_the_file_is_called(
+    client: TestClient, workspace: Path
+):
+    made = client.post(
+        "/projects", json={"name": "Renamed", "folder": str(workspace / "ep")}
+    ).json()
+    (workspace / "ep" / "project.edith").rename(workspace / "ep" / "Miata Day.edith")
+    client.delete(f"/projects/{made['slug']}/recent")
+
+    listing = client.get("/fs/folders", params={"dir": str(workspace)}).json()
+    assert [(e["name"], e["is_project"]) for e in listing["entries"]] == [("ep", True)]
+    opened = client.post("/projects/open", json={"folder": str(workspace / "ep")})
+    assert opened.status_code == 200 and opened.json()["name"] == "Renamed"
+    assert client.get(f"/projects/{made['slug']}/media").status_code == 200  # and it works
+
+
+def test_two_edith_files_are_ambiguous_but_project_edith_wins_and_shadow_files_are_ignored(
+    client: TestClient, workspace: Path
+):
+    folder = workspace / "two"
+    client.post("/projects", json={"name": "Two", "folder": str(folder)})
+    (folder / "project.edith").rename(folder / "a.edith")
+    (folder / "b.edith").write_bytes((folder / "a.edith").read_bytes())
+    (folder / "._a.edith").write_bytes(b"AppleDouble shadow")
+    assert client.post("/projects/open", json={"folder": str(folder)}).status_code == 404
+    (folder / "b.edith").rename(folder / "project.edith")  # the default name settles it
+    assert client.post("/projects/open", json={"folder": str(folder)}).status_code == 200

@@ -27,7 +27,7 @@ just up
 
 Open http://localhost:8080 (API docs: http://localhost:8000/docs).
 
-**A project is a folder**, anywhere on your machine: the media you shoot, `project.edith`,
+**A project is a folder**, anywhere on your machine: the media you shoot, its `.edith` file (`project.edith` for new projects; any single `*.edith` file in the folder opens),
 `renders/`, and a hidden `.edith/` cache (proxies, thumbnails). Nothing else holds project state, so
 you can move or copy the folder to another drive or computer and open it there
 ([ADR 0004](docs/adr/0004-projects-are-self-contained-folders.md)). Media is never modified or
@@ -44,7 +44,8 @@ comes next.
 
 1. **Start.** The start page lists your recent projects and has **New project…** and **Open
    project…**. To create one, pick the folder that holds the media (or a new folder inside it) and
-   name it. To open one, browse to a folder marked *project*. A project whose folder can't be
+   name it. To open one, select the folder that contains its `.edith` file (click to select,
+   double-click or the arrow to go inside) and press Open. A project whose folder can't be
    found right now (an unplugged drive) stays on the list, marked, until you forget it.
 2. **Media.** Put the camera, audio and still-image files in the project folder (subfolders are
    fine: the media view keeps your folder hierarchy) and they turn up in the **Media** tab by

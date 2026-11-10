@@ -13,7 +13,7 @@ is seamless and portable: the media you shoot sits in one folder, and that folde
 
 ## Decision
 
-- A project is a folder anywhere on disk: the media (subfolders included), `project.edith`,
+- A project is a folder anywhere on disk: the media (subfolders included), its `.edith` file (`project.edith`; any one `*.edith` opens),
   `renders/`, and a hidden `.edith/` cache. Moving or copying the folder moves the project.
 - Media paths in the project file are relative to the project folder. Footage kept elsewhere is
   linked into the folder. There is no *Add media* or *Remove*: dropping a file in the folder
@@ -21,7 +21,7 @@ is seamless and portable: the media you shoot sits in one folder, and that folde
   A missing file that nothing uses just drops off the list.
 - There is no library root and no scanning. A project's id is its absolute folder path; the app
   keeps a **recent-projects list** (`STATE_DIR`, absolute paths) and offers *New project…* (choose
-  the media folder) and *Open project…* (browse to a folder that holds a project). A recent whose
+  the media folder) and *Open project…* (select a folder that contains a `.edith` file). A recent whose
   folder is gone (a drive unplugged) stays, marked, until forgotten.
 - Existing projects are converted once at startup (`LEGACY_LIBRARY_DIR`): a project's own
   prefix is dropped from its media paths, other folders of the old library are linked into the

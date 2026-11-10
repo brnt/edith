@@ -30,7 +30,8 @@ from edith.services import recents
 
 log = structlog.get_logger()
 
-PROJECT_FILENAME = "project.edith"
+PROJECT_FILENAME = "project.edith"  # what a new project's file is called
+PROJECT_SUFFIX = ".edith"
 
 
 @dataclass(frozen=True)
@@ -60,8 +61,28 @@ def project_folder(slug: str) -> Path:
     return path
 
 
+def project_file_in(folder: Path) -> Path | None:
+    """A folder's project file: `project.edith`, else the one `*.edith` file in it (any name).
+
+    More than one `.edith` file and no `project.edith` is ambiguous, so it counts as no project.
+    """
+    default = folder / PROJECT_FILENAME
+    if default.is_file():
+        return default
+    try:
+        found = sorted(
+            p
+            for p in folder.glob(f"*{PROJECT_SUFFIX}")
+            if p.is_file() and not p.name.startswith(".")  # not macOS's ._ shadow files
+        )
+    except OSError:
+        return None
+    return found[0] if len(found) == 1 else None
+
+
 def _project_file_path(slug: str) -> Path:
-    return project_folder(slug) / PROJECT_FILENAME
+    folder = project_folder(slug)
+    return project_file_in(folder) or folder / PROJECT_FILENAME
 
 
 def _summarize(slug: str, project: ProjectFile) -> ProjectSummary:
@@ -82,7 +103,7 @@ def _absolute(folder: str) -> Path:
 
 
 def _inside_a_project(folder: Path) -> bool:
-    return any((p / PROJECT_FILENAME).is_file() for p in [folder, *folder.parents])
+    return any(project_file_in(p) is not None for p in [folder, *folder.parents])
 
 
 def create_project(state_dir: Path, name: str, folder: str) -> ProjectSummary:
