@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 
 import {
-  exportUrl,
   fetchEdit,
   fetchMedia,
   fetchPeaks,
@@ -11,7 +10,6 @@ import {
   putEdit,
   upgradeProject,
   type EditList,
-  type ExportFormat,
   type MediaItem,
   type Peaks,
   type Plan,
@@ -20,18 +18,8 @@ import {
 } from "../lib/api";
 import * as history from "../lib/history";
 import { sortMedia } from "../lib/timeline";
-import { Editor } from "./Editor";
-import { MediaPanel } from "./MediaPanel";
-import { RenderPanel } from "./RenderPanel";
-import { SyncPanel } from "./SyncPanel";
-import { Badge, Button, Section } from "./ui";
-
-const FORMATS: { format: ExportFormat; label: string; hint: string }[] = [
-  { format: "fcpxml", label: "DaVinci Resolve / Final Cut (FCPXML)", hint: "video + audio tracks" },
-  { format: "xmeml", label: "Premiere Pro (XML)", hint: "video + audio tracks" },
-  { format: "edl", label: "EDL", hint: "video cuts only" },
-  { format: "json", label: "Edith project (JSON)", hint: "all project data" },
-];
+import { Studio } from "./Studio";
+import { Badge, Button } from "./ui";
 
 export function Workspace({ slug }: { slug: string }) {
   const [project, setProject] = useState<Project | null>(null);
@@ -43,6 +31,7 @@ export function Workspace({ slug }: { slug: string }) {
   const [plan, setPlan] = useState<Plan | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [ready, setReady] = useState(false);
   const requested = useRef(new Set<string>());
 
   const fail = useCallback(
@@ -68,8 +57,7 @@ export function Workspace({ slug }: { slug: string }) {
 
   useEffect(() => {
     void refreshProject();
-    void refreshMedia();
-    void refreshSync();
+    Promise.all([refreshMedia(), refreshSync()]).then(() => setReady(true));
     void refreshPlan();
     fetchEdit(slug)
       .then(({ edit: loaded }) => {
@@ -142,15 +130,9 @@ export function Workspace({ slug }: { slug: string }) {
     }
   };
 
-  const unsynced = useMemo(
-    () => media.filter((m) => m.kind !== "image" && m.has_audio && !sync?.results[m.id]).length,
-    [media, sync],
-  );
-  const synced = sync !== null && Object.keys(sync.results).length > 0;
-
   return (
-    <div class="mx-auto max-w-[1400px] space-y-3 p-4">
-      <header class="flex flex-wrap items-center gap-3">
+    <div class="flex h-screen flex-col">
+      <header class="flex shrink-0 flex-wrap items-center gap-3 px-3 py-2">
         <a href="#/" class="text-sky-300">
           ← Projects
         </a>
@@ -176,14 +158,14 @@ export function Workspace({ slug }: { slug: string }) {
       </header>
 
       {project?.needs_upgrade && (
-        <div class="flex items-center gap-3 rounded border border-amber-700 bg-amber-950 p-3 text-sm text-amber-200">
+        <div class="mx-3 mb-2 flex shrink-0 items-center gap-3 rounded border border-amber-700 bg-amber-950 p-2 text-sm text-amber-200">
           This project was saved by an older version of Edith. It opened as it was; saving your edit
           or upgrading rewrites it in the current format.
           <Button onClick={upgrade}>Upgrade now</Button>
         </div>
       )}
       {error && (
-        <div class="flex items-center justify-between rounded border border-red-800 bg-red-950 p-3 text-sm text-red-200">
+        <div class="mx-3 mb-2 flex shrink-0 items-center justify-between rounded border border-red-800 bg-red-950 p-2 text-sm text-red-200">
           {error}
           <Button variant="ghost" onClick={() => setError(null)}>
             Dismiss
@@ -191,97 +173,32 @@ export function Workspace({ slug }: { slug: string }) {
         </div>
       )}
 
-      <Section
-        title={`1 · Media (${media.length})`}
-        open={media.length === 0 || media.some((m) => !m.proxy_ready)}
-      >
-        <MediaPanel
+      {edit ? (
+        <Studio
           slug={slug}
           media={media}
-          onChange={() => {
+          sync={sync}
+          edit={edit}
+          peaks={peaks}
+          warnings={plan?.warnings ?? []}
+          outputSeconds={plan?.duration_s ?? null}
+          dirty={dirty}
+          ready={ready}
+          onEdit={onEdit}
+          onMediaChange={() => {
             void refreshMedia();
             void refreshSync();
             void refreshPlan();
           }}
-          onError={setError}
-        />
-      </Section>
-
-      <Section
-        title="2 · Sync"
-        open={!synced}
-        right={
-          synced ? (
-            <Badge tone={unsynced ? "warn" : "good"}>
-              {unsynced ? "some files missing" : "synced"}
-            </Badge>
-          ) : null
-        }
-      >
-        <SyncPanel
-          slug={slug}
-          media={media}
-          sync={sync}
-          peaks={peaks}
-          onChange={() => {
+          onSyncChange={() => {
             void refreshSync();
             void refreshPlan();
           }}
           onError={setError}
         />
-      </Section>
-
-      <Section title="3 · Edit">
-        {edit ? (
-          <Editor
-            slug={slug}
-            media={media}
-            sync={sync}
-            edit={edit}
-            peaks={peaks}
-            onEdit={onEdit}
-            onError={setError}
-          />
-        ) : (
-          <p class="text-neutral-500">Loading…</p>
-        )}
-        {plan && plan.warnings.length > 0 && (
-          <ul class="mt-3 space-y-1 text-sm text-amber-300">
-            {plan.warnings.map((w) => (
-              <li key={w}>⚠ {w}</li>
-            ))}
-          </ul>
-        )}
-      </Section>
-
-      <Section title="4 · Export and render" open={false}>
-        <p class="mb-2 text-sm text-neutral-400">
-          Exports use the saved edit
-          {dirty ? " — save your changes first." : "."}
-          {plan ? ` Output length ${Math.round(plan.duration_s)} s.` : ""}
-        </p>
-        <ul class="space-y-1 text-sm">
-          {FORMATS.map((f) => (
-            <li key={f.format}>
-              <a
-                class={dirty ? "pointer-events-none text-neutral-600" : "text-sky-300 underline"}
-                href={exportUrl(slug, f.format)}
-                download
-              >
-                {f.label}
-              </a>{" "}
-              <span class="text-neutral-500">{f.hint}</span>
-            </li>
-          ))}
-        </ul>
-        <div class="mt-4 border-t border-neutral-800 pt-3">
-          <RenderPanel
-            slug={slug}
-            disabled={dirty || !plan || plan.duration_s <= 0}
-            onError={setError}
-          />
-        </div>
-      </Section>
+      ) : (
+        <p class="p-3 text-neutral-500">Loading…</p>
+      )}
     </div>
   );
 }

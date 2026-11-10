@@ -163,8 +163,9 @@ test("switching camera marks the edit unsaved; saving sends it and clears the ma
   await screen.findByTestId("timeline");
   expect(screen.queryByText("unsaved changes")).toBeNull();
 
-  fireEvent.click(await screen.findByRole("button", { name: "2 · Cam B" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Switch to camera 2" }));
   expect(screen.getByText("unsaved changes")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: /Switches \(1\)/ }));
   expect(screen.getByText(/→ Camera 2/)).toBeInTheDocument();
 
   fireEvent.click(screen.getByRole("button", { name: "Save" }));
@@ -176,7 +177,7 @@ test("switching camera marks the edit unsaved; saving sends it and clears the ma
 test("undo reverts a change", async () => {
   render(<Workspace slug="show" />);
   await screen.findByTestId("timeline");
-  fireEvent.click(await screen.findByRole("button", { name: "2 · Cam B" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Switch to camera 2" }));
   fireEvent.click(screen.getByRole("button", { name: "Undo" }));
   expect(screen.queryByText("unsaved changes")).toBeNull();
 });
@@ -193,12 +194,16 @@ test("muting a track and the number keys edit the timeline", async () => {
   ]);
 
   fireEvent.keyDown(window, { key: "2" });
-  await waitFor(() => expect(screen.getByText(/→ Camera 2/)).toBeInTheDocument());
+  await waitFor(() =>
+    expect(screen.getByRole("button", { name: /Switches \(1\)/ })).toBeInTheDocument(),
+  );
 });
 
 test("renders from the export section and lists finished renders", async () => {
   render(<Workspace slug="show" />);
   await screen.findByTestId("timeline");
+  fireEvent.click(await screen.findByRole("tab", { name: "Export" }));
+  fireEvent.click(await screen.findByRole("button", { name: /Renders \(1\)/ }));
   expect(await screen.findByText("show-20260101-000000.mp4")).toBeInTheDocument();
   fireEvent.click(await screen.findByRole("button", { name: "Render MP4 (1080p)" }));
   const calls = () => (fetch as unknown as { mock: { calls: unknown[][] } }).mock.calls;
@@ -210,4 +215,30 @@ test("renders from the export section and lists finished renders", async () => {
       ),
     ).toBe(true),
   );
+});
+
+test("the ribbon opens on the next step, switches tabs, and never changes height", async () => {
+  render(<Workspace slug="show" />);
+  await screen.findByTestId("timeline");
+  const ribbon = screen.getByTestId("ribbon");
+  const height = ribbon.style.height;
+  expect(height).not.toBe("");
+
+  // Synced project: it opens on Edit, and the timeline and player stay on screen throughout.
+  expect(screen.getByRole("tab", { name: "Edit" })).toHaveAttribute("aria-selected", "true");
+  expect(screen.getByRole("button", { name: "Switch to camera 1" })).toBeInTheDocument();
+
+  const tabs: [string, RegExp][] = [
+    ["Media (4)", /Add media/],
+    ["Sync", /Find the sound in every file/],
+    ["Export", /Render MP4/],
+    ["Edit", /Cut \(x\)/],
+  ];
+  for (const [tab, content] of tabs) {
+    fireEvent.click(screen.getByRole("tab", { name: new RegExp(tab.replace(/[()]/g, "\\$&")) }));
+    expect(await screen.findByRole("button", { name: content })).toBeInTheDocument();
+    expect(screen.getByTestId("ribbon").style.height).toBe(height);
+    expect(screen.getByTestId("timeline")).toBeInTheDocument();
+    expect(screen.getByTestId("player")).toBeInTheDocument();
+  }
 });

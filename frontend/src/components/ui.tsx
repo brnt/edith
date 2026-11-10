@@ -1,4 +1,5 @@
 import type { ComponentChildren, JSX } from "preact";
+import { useEffect, useRef, useState } from "preact/hooks";
 
 type ButtonProps = JSX.IntrinsicElements["button"] & {
   variant?: "default" | "primary" | "danger" | "ghost";
@@ -37,25 +38,52 @@ export function Badge({
   return <span class={`rounded px-2 py-0.5 text-xs ${tones[tone]}`}>{children}</span>;
 }
 
-export function Section({
-  title,
-  right,
+/** A button that opens a menu over the page. Fixed-positioned, so no ancestor can clip it. */
+export function Dropdown({
+  label,
   children,
-  open = true,
 }: {
-  title: string;
-  right?: ComponentChildren;
+  label: ComponentChildren;
   children: ComponentChildren;
-  open?: boolean;
 }) {
+  const [open, setOpen] = useState(false);
+  const [at, setAt] = useState({ left: 0, top: 0 });
+  const box = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => {
+      if (!box.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [open]);
+
+  const toggle = () => {
+    const rect = box.current?.getBoundingClientRect();
+    // 296 = the menu's width plus a margin, so it never runs off the right edge.
+    if (rect)
+      setAt({
+        left: Math.max(8, Math.min(rect.left, window.innerWidth - 296)),
+        top: rect.bottom + 4,
+      });
+    setOpen((v) => !v);
+  };
+
   return (
-    <details open={open} class="rounded border border-neutral-800 bg-neutral-900">
-      <summary class="flex cursor-pointer items-center justify-between px-4 py-2 text-sm font-semibold">
-        <span>{title}</span>
-        <span onClick={(e) => e.stopPropagation()}>{right}</span>
-      </summary>
-      <div class="border-t border-neutral-800 p-4">{children}</div>
-    </details>
+    <div ref={box} class="relative">
+      <Button onClick={toggle} aria-expanded={open}>
+        {label} ▾
+      </Button>
+      {open && (
+        <div
+          class="fixed z-50 max-h-72 w-72 overflow-y-auto rounded border border-neutral-600 bg-neutral-900 p-2 text-sm shadow-xl"
+          style={{ left: at.left, top: at.top }}
+        >
+          {children}
+        </div>
+      )}
+    </div>
   );
 }
 

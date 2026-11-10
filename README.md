@@ -33,29 +33,35 @@ Media is referenced in place and never modified or copied.
 
 ## How to use it
 
-1. **Create a project**, then **Media → Add media…** and pick the camera, audio, and still-image
-   files. **Build preview proxies** (low-res copies the browser can scrub; originals are untouched).
+The video preview and the timeline are always on screen. The tools live in a fixed-height ribbon
+above them with four tabs (**Media**, **Sync**, **Edit**, **Export**); it opens on whichever step
+comes next.
+
+1. **Media.** Create a project, then **Add media…** and pick the camera, audio, and still-image
+   files. **Build proxies** (low-res copies the browser can scrub; originals are untouched).
 2. **Sync.** Every device should have recorded a registration sound once shortly after it started
    and once shortly before it stopped. Pick any recording that contains it and drag across the
    sound on the waveform (a quiet beep is visible as a small bump), then **Find the sound in every
    file**. Each file gets a start offset, drift, and a result: *synced*, *check* (weak or
    inconsistent: review it), or *not found*. Nudge any file by hand in milliseconds.
-3. **Edit.** The preview plays the synced proxies; the timeline shows each camera, the stills, and
-   each audio track's waveform.
+3. **Edit** (the preview plays the synced proxies; the timeline shows each camera, the stills, and
+   each audio track's waveform).
    - **Camera:** put the playhead where you want the switch and press the camera's number
      (or click its button). It stays active until the next switch.
-   - **Dead time:** *Find dead time* outlines silent stretches (all output tracks quiet) and
-     always includes the registration sounds, which are sync marks and not content (it cuts
-     them even when speech follows right after). *Cut all*, or drag-select and press `x` to cut
-     by hand. Cuts ripple.
+   - **Dead time:** *Find* outlines silent stretches (all output tracks quiet) and always
+     includes the registration sounds, which are sync marks and not content (it cuts them even
+     when speech follows right after). *Cut all*, or drag-select and press `x` to cut by hand.
+     Cuts ripple.
    - **Stills:** drag-select a range, pick an image, *Show still*. The photo takes over the
      video; audio continues.
-   - **Audio:** per-track gain and mute. By default every audio-only file is used; camera audio
-     is discarded.
+   - **Audio:** per-track gain and mute on the timeline. By default every audio-only file is
+     used; camera audio is discarded.
    - **Range:** `i` / `o` set the in and out points.
+   - **Edit list:** the Switches, Cuts and Stills menus list every decision; click one to jump to
+     it, ✕ to remove it.
    - **Save** (⌘/Ctrl+S) writes the edit into the project file. Undo/redo with ⌘/Ctrl+Z.
-4. **Export or render.** FCPXML (DaVinci Resolve, Final Cut), Premiere XML, EDL (video only), the
-   Edith JSON, or **Render MP4 (1080p)**. Exports and renders use the *saved* edit.
+4. **Export.** FCPXML (DaVinci Resolve, Final Cut), Premiere XML, EDL (video only), the Edith
+   JSON, or **Render MP4 (1080p)**. Exports and renders use the *saved* edit.
 
 Keys: `space` play · `1`–`9` camera · `x` cut selection · `i`/`o` range · `←`/`→` step (shift = 10 s).
 

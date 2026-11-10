@@ -71,14 +71,14 @@ export function Player({ slug, media, offsets, edit, t, playing }: Props) {
 
   if (playable.length === 0) {
     return (
-      <div class="flex aspect-video items-center justify-center rounded bg-black text-sm text-neutral-500">
+      <div class="flex h-full w-full items-center justify-center rounded bg-black text-sm text-neutral-500">
         Build preview proxies to play the edit.
       </div>
     );
   }
 
   return (
-    <div class="relative aspect-video overflow-hidden rounded bg-black" data-testid="player">
+    <div class="relative h-full w-full overflow-hidden rounded bg-black" data-testid="player">
       {playable.map((m) =>
         m.kind === "video" ? (
           <video
