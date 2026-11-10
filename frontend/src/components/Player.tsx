@@ -10,6 +10,8 @@ interface Props {
   edit: EditList;
   t: number;
   playing: boolean;
+  /** Registry of the media elements, shared with the camera tiles. */
+  elements: { current: Record<string, HTMLMediaElement | null> };
 }
 
 interface Audio {
@@ -18,8 +20,7 @@ interface Audio {
 }
 
 /** Keeps one hidden <video>/<audio> per proxy in step with the playhead; shows the active one. */
-export function Player({ slug, media, offsets, edit, t, playing }: Props) {
-  const elements = useRef<Record<string, HTMLMediaElement | null>>({});
+export function Player({ slug, media, offsets, edit, t, playing, elements }: Props) {
   const audio = useRef<Audio | null>(null);
   const playable = media.filter((m) => m.kind !== "image" && m.proxy_ready);
   const tracks = effectiveTracks(edit, media);

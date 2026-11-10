@@ -48,6 +48,9 @@ export function useEditor({ slug, media, sync, edit, onEdit, onError, ready }: A
   const [zoom, setZoom] = useState<number | null>(null);
   const [width, setWidth] = useState(0);
   const timelineBox = useRef<HTMLDivElement>(null);
+  // The player owns one <video>/<audio> per proxy; the camera tiles paint frames from the same
+  // elements, so showing another camera costs no extra decoding.
+  const mediaElements = useRef<Record<string, HTMLMediaElement | null>>({});
   const [suggestions, setSuggestions] = useState<Range[]>([]);
   const [silence, setSilence] = useState({ threshold: -50, minS: 2, pad: 0.4 });
   const [stillId, setStillId] = useState("");
@@ -168,6 +171,7 @@ export function useEditor({ slug, media, sync, edit, onEdit, onError, ready }: A
     setZoom,
     pxPerSec,
     timelineBox,
+    mediaElements,
     suggestions,
     setSuggestions,
     silence,

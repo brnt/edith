@@ -1,14 +1,20 @@
-import { setCut, setTrack } from "../lib/editOps";
 import type { Peaks } from "../lib/api";
+import { setCut, setTrack } from "../lib/editOps";
+import { formatTime, frameState, timelineToOutput } from "../lib/timeline";
 import type { EditorApi } from "../lib/useEditor";
-import { formatTime, timelineToOutput } from "../lib/timeline";
+import { CameraTiles } from "./CameraTiles";
+import { Icon } from "./Icon";
+import { CaretRight, ColumnWidth, Pause, StepBackward, Warning, ZoomIn, ZoomOut } from "./icons";
 import { Player } from "./Player";
 import { Timeline } from "./Timeline";
 import { Button } from "./ui";
-import { Icon } from "./Icon";
-import { CaretRight, ColumnWidth, Pause, StepBackward, Warning, ZoomIn, ZoomOut } from "./icons";
 
-/** The part that is always on screen: the preview, transport, and the timeline. */
+// The active view's height; its width (16:9) and the column around it follow from this one value.
+const PLAYER_H = "clamp(140px, 27vh, 360px)";
+// Room under the view for the time, the buttons, and one line of warning.
+const BELOW_PLAYER = "5.5rem";
+
+/** The part that is always on screen: the active view, the other cameras, transport, timeline. */
 export function Stage({
   slug,
   ed,
@@ -20,59 +26,79 @@ export function Stage({
   peaks: Record<string, Peaks>;
   warnings: string[];
 }) {
+  const frame = frameState(ed.t, ed.edit, ed.media, ed.offsets);
+
+  const zoom = (
+    <>
+      <Button
+        size="sm"
+        variant="ghost"
+        icon={ZoomIn}
+        aria-label="Zoom in"
+        title="Zoom in"
+        onClick={() => ed.setZoom(Math.min(ed.pxPerSec * 1.5, 400))}
+      />
+      <Button
+        size="sm"
+        variant="ghost"
+        icon={ZoomOut}
+        aria-label="Zoom out"
+        title="Zoom out"
+        onClick={() => ed.setZoom(Math.max(ed.pxPerSec / 1.5, 1))}
+      />
+      <Button
+        size="sm"
+        variant="ghost"
+        icon={ColumnWidth}
+        aria-label="Fit"
+        title="Fit the whole timeline to the window"
+        disabled={ed.zoom === null}
+        onClick={() => ed.setZoom(null)}
+      />
+    </>
+  );
+
   return (
     <div class="flex min-h-0 flex-1 flex-col gap-2 p-3">
-      <div class="flex shrink-0 gap-4" style={{ height: "36vh", minHeight: 150 }}>
-        <div class="aspect-video h-full shrink-0">
-          <Player
-            slug={slug}
-            media={ed.media}
-            offsets={ed.offsets}
-            edit={ed.edit}
-            t={ed.t}
-            playing={ed.playing}
-          />
-        </div>
-        <div class="flex min-w-0 flex-col justify-between text-sm">
-          <div>
-            <div class="font-mono text-2xl">{formatTime(ed.t, 2)}</div>
-            <div class="text-xs text-neutral-500">
-              output {formatTime(timelineToOutput(ed.t, ed.keeps), 2)} /{" "}
-              {formatTime(ed.outputLength, 1)}
-            </div>
-            <div class="mt-2 flex flex-wrap gap-2">
-              <Button
-                variant="primary"
-                icon={ed.playing ? Pause : CaretRight}
-                onClick={ed.togglePlay}
-              >
-                {ed.playing ? "Pause (space)" : "Play (space)"}
-              </Button>
-              <Button icon={StepBackward} onClick={() => ed.setT(ed.firstKept)}>
-                Start
-              </Button>
-            </div>
+      <div class="flex shrink-0 gap-3" style={{ height: `calc(${PLAYER_H} + ${BELOW_PLAYER})` }}>
+        <div
+          class="flex h-full shrink-0 flex-col gap-1.5"
+          style={{ width: `calc(${PLAYER_H} * 16 / 9)` }}
+        >
+          <div class="w-full shrink-0" style={{ height: PLAYER_H }}>
+            <Player
+              slug={slug}
+              media={ed.media}
+              offsets={ed.offsets}
+              edit={ed.edit}
+              t={ed.t}
+              playing={ed.playing}
+              elements={ed.mediaElements}
+            />
           </div>
-          <div class="space-y-1">
-            <div class="flex items-center gap-2">
-              <Button icon={ZoomIn} onClick={() => ed.setZoom(Math.min(ed.pxPerSec * 1.5, 400))}>
-                Zoom in
-              </Button>
-              <Button icon={ZoomOut} onClick={() => ed.setZoom(Math.max(ed.pxPerSec / 1.5, 1))}>
-                Zoom out
-              </Button>
-              <Button
-                icon={ColumnWidth}
-                disabled={ed.zoom === null}
-                onClick={() => ed.setZoom(null)}
-              >
-                Fit
-              </Button>
+          <div class="flex shrink-0 items-center gap-3 text-sm">
+            <div>
+              <div class="font-mono text-xl leading-tight">{formatTime(ed.t, 2)}</div>
+              <div class="text-xs text-neutral-500">
+                output {formatTime(timelineToOutput(ed.t, ed.keeps), 2)} /{" "}
+                {formatTime(ed.outputLength, 1)}
+              </div>
             </div>
-            <div class="text-xs text-neutral-500">Click to place the playhead, drag to select.</div>
+            <Button
+              variant="primary"
+              icon={ed.playing ? Pause : CaretRight}
+              onClick={ed.togglePlay}
+            >
+              {ed.playing ? "Pause (space)" : "Play (space)"}
+            </Button>
+            <Button icon={StepBackward} onClick={() => ed.setT(ed.firstKept)}>
+              Start
+            </Button>
+          </div>
+          <div class="h-4 shrink-0">
             {warnings.length > 0 && (
               <div
-                class="flex items-center gap-1 truncate text-xs text-amber-300"
+                class="flex w-0 min-w-full items-center gap-1 truncate text-xs text-amber-300"
                 title={warnings.join("\n")}
               >
                 <Icon icon={Warning} />
@@ -82,6 +108,14 @@ export function Stage({
             )}
           </div>
         </div>
+
+        <CameraTiles
+          channels={ed.channels}
+          activeId={frame.channel}
+          elements={ed.mediaElements}
+          local={frame.local}
+          onActivate={ed.cutTo}
+        />
       </div>
 
       <div ref={ed.timelineBox} class="min-h-0 flex-1 overflow-y-auto">
@@ -95,6 +129,7 @@ export function Stage({
           pxPerSec={ed.pxPerSec}
           selection={ed.selection}
           suggestions={ed.suggestions}
+          corner={zoom}
           onSeek={ed.setT}
           onSelect={ed.setSelection}
           onCamera={ed.cutTo}
