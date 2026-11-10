@@ -214,17 +214,17 @@ export function Timeline(props: Props) {
         data-testid="segment"
         aria-selected={on}
         title={on ? undefined : "Click to select"}
-        class={`absolute cursor-pointer ${channelStyle(kind).span} ${on ? "border-x-2 border-y border-white" : "hover:brightness-125"}`}
+        class={`absolute cursor-pointer ${channelStyle(kind).span} ${on ? "shadow-[0_0_6px_2px_rgb(255_255_255/0.9)]" : "hover:brightness-125"}`}
         style={{ left: x(from), width: Math.max(1, x(to - from)), top, height }}
       >
         {on && canStart && segHandle(seg.index, "start", seg.start)}
         {on && canEnd && segHandle(seg.index + 1, "end", seg.end)}
-        {/* A vertical row of dots (an ellipsis turned on its side) inside each draggable edge, close to
-            the border, says the edge (not the whole segment) can be dragged. */}
+        {/* A vertical row of dots (an ellipsis turned on its side) inside each draggable edge, this far in from
+            the edge, says the edge (not the whole segment) can be dragged. */}
         {on && canStart && (
           <span
             data-grip="start"
-            class="pointer-events-none absolute inset-y-0 -left-[0.2em] flex items-center text-xs text-neutral-700/50"
+            class="pointer-events-none absolute inset-y-0 -left-[0.03em] flex items-center text-xs text-neutral-700/65"
           >
             <Icon icon={Ellipsis} class="rotate-90" />
           </span>
@@ -232,7 +232,7 @@ export function Timeline(props: Props) {
         {on && canEnd && (
           <span
             data-grip="end"
-            class="pointer-events-none absolute inset-y-0 -right-[0.2em] flex items-center text-xs text-neutral-700/50"
+            class="pointer-events-none absolute inset-y-0 -right-[0.03em] flex items-center text-xs text-neutral-700/65"
           >
             <Icon icon={Ellipsis} class="rotate-90" />
           </span>
