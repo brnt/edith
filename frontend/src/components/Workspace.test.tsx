@@ -79,6 +79,7 @@ const baseEdit = {
 };
 
 let media = baseMedia;
+let savedEdit: Record<string, unknown> = baseEdit;
 let puts: unknown[] = [];
 let syncPosts: { template: Record<string, unknown> }[] = [];
 
@@ -93,6 +94,7 @@ function respond(body: unknown, status = 200) {
 
 beforeEach(() => {
   media = baseMedia;
+  savedEdit = baseEdit;
   puts = [];
   syncPosts = [];
   vi.stubGlobal(
@@ -170,7 +172,7 @@ beforeEach(() => {
           needs_upgrade: false,
           results: { camA: synced(5), camB: synced(10), mic: synced(0) },
         });
-      if (path.endsWith("/edit")) return respond({ edit: baseEdit, needs_upgrade: false });
+      if (path.endsWith("/edit")) return respond({ edit: savedEdit, needs_upgrade: false });
       if (path.endsWith("/plan"))
         return respond({
           duration_s: 70,
@@ -459,4 +461,31 @@ test("muting a stretch shows it as muted on the track", async () => {
   fireEvent.pointerUp(lanes, { clientX: 160, pointerId: 1 });
   fireEvent.click(screen.getByRole("button", { name: "Mute" }));
   expect(within(timeline).getByText("muted")).toBeInTheDocument();
+});
+
+describe("where the playhead starts", () => {
+  test("on the first moment that is not cut when the project opens", async () => {
+    savedEdit = { ...baseEdit, cuts: [{ start_s: 0, end_s: 14.05 }] };
+    render(<Workspace slug="show" />);
+    await screen.findByTestId("timeline");
+    await waitFor(() => expect(screen.getByText("0:14.05")).toBeInTheDocument());
+    expect(screen.getByText(/output 0:00\.00/)).toBeInTheDocument(); // the start of the output
+  });
+
+  test("at zero when nothing is cut at the start", async () => {
+    savedEdit = { ...baseEdit, cuts: [{ start_s: 20, end_s: 30 }] };
+    render(<Workspace slug="show" />);
+    await screen.findByTestId("timeline");
+    expect(screen.getByText("0:00.00")).toBeInTheDocument();
+  });
+
+  test("Start returns to the first kept moment, not to zero", async () => {
+    savedEdit = { ...baseEdit, cuts: [{ start_s: 0, end_s: 14.05 }] };
+    render(<Workspace slug="show" />);
+    await waitFor(() => expect(screen.getByText("0:14.05")).toBeInTheDocument());
+    fireEvent.keyDown(window, { key: "ArrowRight" });
+    await waitFor(() => expect(screen.getByText("0:15.05")).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: /Start/ }));
+    await waitFor(() => expect(screen.getByText("0:14.05")).toBeInTheDocument());
+  });
 });

@@ -42,7 +42,7 @@ export function Stage({
               <Button variant="primary" onClick={ed.togglePlay}>
                 {ed.playing ? "Pause (space)" : "Play (space)"}
               </Button>
-              <Button onClick={() => ed.setT(ed.lo)}>⏮ Start</Button>
+              <Button onClick={() => ed.setT(ed.firstKept)}>⏮ Start</Button>
             </div>
           </div>
           <div class="space-y-1">

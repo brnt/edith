@@ -19,7 +19,7 @@ export function App() {
 
   return (
     <div class="min-h-screen bg-neutral-950 text-neutral-200">
-      {slug ? <Workspace slug={slug} /> : <ProjectList />}
+      {slug ? <Workspace key={slug} slug={slug} /> : <ProjectList />}
     </div>
   );
 }

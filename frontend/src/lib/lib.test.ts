@@ -18,6 +18,7 @@ import {
   channelSpans,
   channelsOf,
   effectiveTracks,
+  firstKeptMoment,
   fitPxPerSec,
   formatTime,
   frameState,
@@ -141,6 +142,15 @@ describe("ranges and cuts", () => {
     expect(skipCuts(5, keeps)).toBe(10);
     expect(skipCuts(7, keeps)).toBe(10);
     expect(skipCuts(25, keeps)).toBe(20);
+  });
+});
+
+describe("where the playhead starts", () => {
+  test("the first kept moment: after a leading cut, otherwise the start of the range", () => {
+    expect(firstKeptMoment(keepIntervals(0, 60, [[0, 14]]), 0)).toBe(14);
+    expect(firstKeptMoment(keepIntervals(0, 60, [[20, 30]]), 0)).toBe(0);
+    expect(firstKeptMoment(keepIntervals(5, 60, [[5, 9]]), 5)).toBe(9);
+    expect(firstKeptMoment([], 3)).toBe(3); // nothing kept: stay at the start
   });
 });
 

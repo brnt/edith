@@ -45,7 +45,15 @@ interface Props {
 /** The tool ribbon (fixed height, one tab at a time) over the always-visible stage. */
 export function Studio(props: Props) {
   const { slug, media, sync, edit, dirty } = props;
-  const ed = useEditor({ slug, media, sync, edit, onEdit: props.onEdit, onError: props.onError });
+  const ed = useEditor({
+    slug,
+    media,
+    sync,
+    edit,
+    onEdit: props.onEdit,
+    onError: props.onError,
+    ready: props.ready,
+  });
   const [chosen, setChosen] = useState<TabId | null>(null);
 
   const synced = sync !== null && Object.keys(sync.results).length > 0;
