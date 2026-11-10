@@ -62,11 +62,11 @@ comes next.
    small picture): **click one to cut to it at the current position**. Each channel keeps its own
    slot in the grid (cameras in number order, then stills); the one on screen is a dimmed live copy with an "on screen" overlay
    (not clickable), so switching never shuffles the tiles. The timeline shows each camera, the stills, and each audio track's waveform.
-   **Vertical space is shared** so the timeline gets what its rows need (it only scrolls inside
-   itself when that would squeeze the view too small, and never shrinks below about four rows); the
-   large view gets the rest, growing up to two thirds of the window's width. A project with few
-   files has a short timeline and a bigger view. When the timeline does scroll, the time ruler and
-   the row labels stay pinned.
+   **Vertical space is shared:** the timeline takes what its rows need, up to about 40% of the
+   height (and never less than about four rows); past that it scrolls inside itself, so a long
+   list of files never squeezes the view. The large view gets the rest, growing up to two thirds
+   of the window's width, so a project with few files has a short timeline and a bigger view. When
+   the timeline does scroll, the time ruler and the row labels stay pinned.
    - **Channels:** the output shows one *channel* at a time: a camera or a still. Cameras are
      numbered first, then stills (each by name), and only the first nine get a number. Put the
      playhead where you want the change and press the channel's number (or click its button);

@@ -94,7 +94,8 @@ Root `justfile` delegates to both; Compose runs `api` (:8000) and `web` (:8080).
 - **Stage layout is a vertical split** (`Stage.tsx`): the view's row is `flex: 1` with
   `container-type: size`, and the view's height is `--player-h` in `cqh`/`cqw` units, so it fills
   whatever the timeline leaves (don't size it from `vh`). The timeline box's height is **measured in
-  script** (`timelineBoxHeight`, a ResizeObserver on the stage and the timeline content), not set
+  script** (`timelineBoxHeight`/`timelineRoom`: content-sized up to `TIMELINE_MAX_SHARE` of the
+  stage, so many rows scroll instead of shrinking the view; a ResizeObserver on the stage and the timeline content), not set
   with CSS percentages: a `max-height: calc(100% - …)` version resolved differently in the user's
   browser and left the timeline at its minimum with room to spare.
   The `Timeline` root is the one scroller (both axes): the ruler and label column are `sticky`. Keep
