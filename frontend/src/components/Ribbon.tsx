@@ -14,7 +14,7 @@ export interface RibbonTab {
  * A tab bar over a content area of fixed height. The selected tab and the panel share one
  * background so the tab reads as the folder tab of the panel it opens.
  */
-export const RIBBON_HEIGHT = "13.5rem";
+export const RIBBON_HEIGHT = "12.95rem";
 const TABS_HEIGHT = "2rem";
 
 export function Ribbon({
@@ -56,7 +56,7 @@ export function Ribbon({
           </button>
         ))}
       </div>
-      <div role="tabpanel" class="min-h-0 flex-1 overflow-auto bg-ribbon p-3">
+      <div role="tabpanel" class="min-h-0 flex-1 overflow-auto bg-ribbon px-3 pb-1 pt-3">
         {children}
       </div>
     </section>
