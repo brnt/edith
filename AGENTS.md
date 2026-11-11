@@ -117,7 +117,7 @@ Root `justfile` delegates to both; Compose runs `api` (:8000) and `web` (:8080).
   so a relinked file gets a new id and the edit and sync documents are rewritten server-side; the
   client mirrors it with `renameMedia` over the saved edit and every undo step (`history.mapAll`),
   which returns the same object when nothing refers to the id, so "unsaved changes" stays accurate.
-- **The ribbon is 13.5rem** (the media cards need two rows plus a folder header); keep card sizes in
+- **The ribbon is 12.95rem** (the media cards need two rows plus a folder header; the panel has 4px of bottom padding, matching the header-to-card gap); keep card sizes in
   step with it (`CARD` in `MediaPanel.tsx`).
 - **Icons carry no line height** (`Icon` is `leading-none`; icon chips are fixed `h-5 w-5` squares)
   so they never drag a line's worth of space under them. Ant has no "speaker with a crossed circle",
