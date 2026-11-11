@@ -146,6 +146,12 @@ export function useEditor({ slug, media, sync, edit, onEdit, onError, ready }: A
     setPicked(null);
   };
 
+  /** Select a range; it replaces a picked segment or cut (the two don't coexist). */
+  const select = (range: Range | null) => {
+    setSelection(range);
+    if (range) setPicked(null);
+  };
+
   /** Pick something to work on; a range selection and a picked item don't coexist. */
   const pick = (next: Picked | null) => {
     setPicked(next);
@@ -217,7 +223,7 @@ export function useEditor({ slug, media, sync, edit, onEdit, onError, ready }: A
     playing,
     togglePlay,
     selection,
-    setSelection,
+    setSelection: select,
     picked,
     pick,
     changeSegmentEdge,

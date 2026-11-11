@@ -770,6 +770,30 @@ describe("the other cameras beside the active view", () => {
     );
   });
 
+  test("dragging across the timeline selects a span and deselects a picked segment", async () => {
+    render(<Workspace slug="show" />);
+    const tiles = await screen.findByTestId("channel-tiles");
+    const timeline = screen.getByTestId("timeline");
+    await within(tiles).findByRole("button", { name: "Preview of camera 2: switch to it" });
+    await screen.findByText("synced");
+    fireEvent.keyDown(window, { key: "ArrowRight" });
+    await waitFor(() => expect(screen.getByText("0:01.00")).toBeInTheDocument());
+    fireEvent.click(
+      within(tiles).getByRole("button", { name: "Preview of camera 2: switch to it" }),
+    );
+    const lanes = timeline.querySelector(".cursor-crosshair") as HTMLElement;
+    const seg = () => within(timeline).getAllByTestId("segment")[1];
+    fireEvent.pointerDown(seg(), { clientX: 30, pointerId: 1 });
+    fireEvent.pointerUp(lanes, { clientX: 30, pointerId: 1 });
+    expect(seg()).toHaveAttribute("aria-selected", "true");
+
+    fireEvent.pointerDown(lanes, { clientX: 100, pointerId: 1 });
+    fireEvent.pointerMove(lanes, { clientX: 160, pointerId: 1 });
+    fireEvent.pointerUp(lanes, { clientX: 160, pointerId: 1 });
+    expect(seg()).toHaveAttribute("aria-selected", "false");
+    expect(screen.getByRole("button", { name: /Cut \(x\)/ })).toBeEnabled(); // a span is selected
+  });
+
   test("dragging the boundary between two videos compares them side by side and hides the grid", async () => {
     render(<Workspace slug="show" />);
     const tiles = await screen.findByTestId("channel-tiles");
