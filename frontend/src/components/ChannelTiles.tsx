@@ -1,10 +1,16 @@
 import type { ComponentChildren } from "preact";
-import { useEffect, useRef } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 
 import { proxyUrl, thumbUrl, type MediaItem } from "../lib/api";
 import { channelStyle } from "../lib/channelStyle";
+import { KEYPAD_COLS, keypadCell, keypadRows, overflowCell, tileWidth } from "../lib/keypad";
 import { formatTime, type Channel, type Range } from "../lib/timeline";
 
+type Cell = { row: number; col: number };
+/** Put a tile in its keypad cell (a style, so the DOM stays a flat list in number order). */
+const cellStyle = (cell?: Cell) => (cell ? { gridRow: cell.row, gridColumn: cell.col } : undefined);
+
+const TILE_GAP = 8; // gap-2, in pixels: the keypad's tile sizing needs it
 const TILE_W = 320; // canvas pixels; shown smaller, so it stays sharp
 const TILE_H = 180;
 
@@ -51,12 +57,15 @@ function TileShell({
   channel,
   active,
   selection,
+  cell,
   onActivate,
   children,
 }: {
   channel: Channel;
   active: boolean;
   selection: Range | null;
+  /** Its cell in the keypad grid. */
+  cell?: Cell;
   onActivate: () => void;
   children: ComponentChildren;
 }) {
@@ -69,6 +78,7 @@ function TileShell({
         aria-label={`${name[0].toUpperCase()}${name.slice(1)} is on screen`}
         data-testid="tile-active"
         class={TILE_BASE}
+        style={cellStyle(cell)}
       >
         <div class="h-full w-full opacity-40">{children}</div>
         <span class="absolute inset-0 flex items-center justify-center text-xs font-semibold uppercase tracking-wide text-white">
@@ -88,6 +98,7 @@ function TileShell({
           : `Switch to ${channel.item.label}${channel.number ? ` (${channel.number})` : ""} at the playhead`
       }
       onClick={onActivate}
+      style={cellStyle(cell)}
     >
       {children}
     </button>
@@ -101,6 +112,7 @@ interface TileProps {
   proxyReady: boolean;
   active?: boolean;
   selection?: Range | null;
+  cell?: Cell;
   onActivate: () => void;
 }
 
@@ -115,6 +127,7 @@ export function CameraTile({
   proxyReady,
   active = false,
   selection = null,
+  cell,
   onActivate,
 }: TileProps) {
   const canvas = useRef<HTMLCanvasElement>(null);
@@ -157,7 +170,13 @@ export function CameraTile({
   useEffect(() => () => attached.current?.off(), []);
 
   return (
-    <TileShell channel={channel} active={active} selection={selection} onActivate={onActivate}>
+    <TileShell
+      channel={channel}
+      active={active}
+      selection={selection}
+      cell={cell}
+      onActivate={onActivate}
+    >
       <canvas ref={canvas} width={TILE_W} height={TILE_H} class="h-full w-full" />
       {(!hasFootage || !proxyReady) && (
         <span class="absolute inset-0 flex items-center justify-center text-xs text-neutral-400">
@@ -175,17 +194,25 @@ export function StillTile({
   slug,
   active = false,
   selection = null,
+  cell,
   onActivate,
 }: {
   channel: Channel;
   slug: string;
   active?: boolean;
   selection?: Range | null;
+  cell?: Cell;
   onActivate: () => void;
 }) {
   const item = channel.item;
   return (
-    <TileShell channel={channel} active={active} selection={selection} onActivate={onActivate}>
+    <TileShell
+      channel={channel}
+      active={active}
+      selection={selection}
+      cell={cell}
+      onActivate={onActivate}
+    >
       <img
         src={item.proxy_ready ? proxyUrl(slug, item.id) : thumbUrl(slug, item.id)}
         alt=""
@@ -200,6 +227,12 @@ export function StillTile({
 /**
  * Every camera and still, each in a fixed slot (cameras by number, then stills). The one on screen
  * is a highlighted, live copy that can't be clicked, so switching never re-orders the grid.
+ */
+/**
+ * Every enabled camera and still, laid out like a numeric keypad (7 8 9 / 4 5 6 / 1 2 3), so a
+ * channel's number key is where its thumbnail is. Each keeps a fixed cell (so switching never
+ * re-orders the grid); the one on screen is a dimmed live copy. Tiles are sized so the whole keypad
+ * fits the room without scrolling. Channels beyond the nine numbers follow below.
  */
 export function ChannelTiles({
   slug,
@@ -220,41 +253,68 @@ export function ChannelTiles({
   selection?: Range | null;
   onActivate: (mediaId: string) => void;
 }) {
+  const box = useRef<HTMLDivElement>(null);
+  const [room, setRoom] = useState<{ w: number; h: number } | null>(null);
+  useEffect(() => {
+    const el = box.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const measure = () => setRoom({ w: el.clientWidth, h: el.clientHeight });
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    measure();
+    return () => observer.disconnect();
+  }, []);
+
+  const enabled = channels.filter((c) => c.enabled);
+  const numbered = enabled.filter((c) => c.number !== null);
+  const loose = enabled.filter((c) => c.number === null);
+  const rows = keypadRows(Math.max(0, ...numbered.map((c) => c.number ?? 0)));
+  const totalRows = rows + Math.ceil(loose.length / KEYPAD_COLS);
+  const width = room ? tileWidth(room.w, room.h, totalRows, TILE_GAP) : 0;
+
+  const cellOf = (c: Channel) =>
+    c.number !== null ? keypadCell(c.number, rows) : overflowCell(loose.indexOf(c), rows);
+
   return (
     <div
-      class="grid h-full min-w-0 flex-1 content-start gap-2 overflow-y-auto"
-      style={{ gridTemplateColumns: "repeat(auto-fill, minmax(9.5rem, 1fr))" }}
+      ref={box}
+      class="grid h-full min-w-0 flex-1 content-start justify-start gap-2"
+      style={{
+        // Until the room is measured, share the width; then fixed tiles that fit the height.
+        gridTemplateColumns: `repeat(${KEYPAD_COLS}, ${width ? `${width}px` : "minmax(0, 1fr)"})`,
+      }}
       data-testid="channel-tiles"
     >
-      {channels
-        .filter((c) => c.enabled)
-        .map((c) => {
-          const active = c.item.id === activeId;
-          if (c.item.kind === "image") {
-            return (
-              <StillTile
-                key={c.item.id}
-                channel={c}
-                slug={slug}
-                active={active}
-                selection={selection}
-                onActivate={() => onActivate(c.item.id)}
-              />
-            );
-          }
+      {[...numbered, ...loose].map((c) => {
+        const active = c.item.id === activeId;
+        const cell = cellOf(c);
+        if (c.item.kind === "image") {
           return (
-            <CameraTile
+            <StillTile
               key={c.item.id}
               channel={c}
-              elements={elements}
-              hasFootage={local[c.item.id] !== null && local[c.item.id] !== undefined}
-              proxyReady={c.item.proxy_ready}
+              slug={slug}
               active={active}
               selection={selection}
+              cell={cell}
               onActivate={() => onActivate(c.item.id)}
             />
           );
-        })}
+        }
+        return (
+          <CameraTile
+            key={c.item.id}
+            channel={c}
+            elements={elements}
+            hasFootage={local[c.item.id] !== null && local[c.item.id] !== undefined}
+            proxyReady={c.item.proxy_ready}
+            active={active}
+            selection={selection}
+            cell={cell}
+            onActivate={() => onActivate(c.item.id)}
+          />
+        );
+      })}
     </div>
   );
 }

@@ -128,6 +128,10 @@ Root `justfile` delegates to both; Compose runs `api` (:8000) and `web` (:8080).
   per media folder for anything without a proxy, the project's own media first; `proxy_building`
   drives the card spinner. A still's proxy is also built on first request. Tests set
   `AUTO_PROXIES=false` and call `build_pending` instead of racing a thread.
+- **The channel grid is a 10-key** (`lib/keypad.ts`, `ChannelTiles.tsx`): channel n sits where key n is
+  (1 bottom-left, 9 top-right, unused rows dropped), placed with `grid-row/column` on each tile so the DOM
+  stays a flat list in number order; tile width is measured so all rows fit the height (no scrolling).
+  Channels past the ninth have no number and go in rows below.
 - **Clicking a tile or pressing a number while a range is selected is a cutaway** (`showOver` in
   `lib/editOps.ts`, via `cutTo` in `useEditor`): the channel is shown over the range, then the edit
   returns to what was showing at its end, and the selection clears. No selection: switch at the playhead.

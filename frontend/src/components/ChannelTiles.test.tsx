@@ -243,3 +243,77 @@ test("a disabled channel has no slot at all, and the rest keep their order", () 
   expect(slots().map((s) => s.slot)).toEqual(["camera 1", "camera 2", "still 3"]); // Cam B is gone; Cam C is now 2
   expect(screen.getByTestId("channel-tiles")).not.toHaveTextContent("Cam B");
 });
+
+test("the grid is a keypad: 1 2 3 on the bottom row, then 4 5 6, then 7 8 9, trimmed to the rows used", () => {
+  const nine = Array.from({ length: 9 }, (_, i) => cam(`c${i + 1}`, `Cam ${i + 1}`));
+  const place = (n: number) => {
+    const tile = screen.getByRole("button", { name: `Preview of camera ${n}: switch to it` });
+    return [Number(tile.style.gridRow), Number(tile.style.gridColumn)];
+  };
+  const { unmount } = render(
+    <ChannelTiles
+      slug="show"
+      channels={channelsOf(nine)}
+      activeId={null}
+      elements={{ current: {} }}
+      local={{}}
+      onActivate={vi.fn()}
+    />,
+  );
+  // [row, column] with row 1 at the top: 7 8 9 / 4 5 6 / 1 2 3.
+  expect([7, 8, 9].map(place)).toEqual([
+    [1, 1],
+    [1, 2],
+    [1, 3],
+  ]);
+  expect([4, 5, 6].map(place)).toEqual([
+    [2, 1],
+    [2, 2],
+    [2, 3],
+  ]);
+  expect([1, 2, 3].map(place)).toEqual([
+    [3, 1],
+    [3, 2],
+    [3, 3],
+  ]);
+  unmount();
+
+  // Five channels: no empty row on top; 4 sits above 1 and 5 above 2.
+  render(
+    <ChannelTiles
+      slug="show"
+      channels={channelsOf(nine.slice(0, 5))}
+      activeId={null}
+      elements={{ current: {} }}
+      local={{}}
+      onActivate={vi.fn()}
+    />,
+  );
+  expect([1, 2, 3, 4, 5].map(place)).toEqual([
+    [2, 1],
+    [2, 2],
+    [2, 3],
+    [1, 1],
+    [1, 2],
+  ]);
+});
+
+test("a channel past the ninth has no number and goes below the keypad", () => {
+  const eleven = Array.from({ length: 11 }, (_, i) =>
+    cam(`c${i + 1}`, `Cam ${String(i + 1).padStart(2, "0")}`),
+  );
+  render(
+    <ChannelTiles
+      slug="show"
+      channels={channelsOf(eleven)}
+      activeId={null}
+      elements={{ current: {} }}
+      local={{}}
+      onActivate={vi.fn()}
+    />,
+  );
+  const extra = screen.getByRole("button", { name: "Preview of camera Cam 10: switch to it" });
+  expect([Number(extra.style.gridRow), Number(extra.style.gridColumn)]).toEqual([4, 1]);
+  const next = screen.getByRole("button", { name: "Preview of camera Cam 11: switch to it" });
+  expect([Number(next.style.gridRow), Number(next.style.gridColumn)]).toEqual([4, 2]);
+});
