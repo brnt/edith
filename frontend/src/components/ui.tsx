@@ -40,6 +40,18 @@ export function Button({
   );
 }
 
+/**
+ * Buttons that belong together (undo/redo): a hairline apart. Separate groups, and
+ * loose buttons, sit a full gap apart (`gap-3`) in whatever holds them.
+ */
+export function ButtonGroup({ children }: { children: ComponentChildren }) {
+  return (
+    <div role="group" class="flex items-center gap-0.5">
+      {children}
+    </div>
+  );
+}
+
 export function Badge({
   tone = "neutral",
   icon,

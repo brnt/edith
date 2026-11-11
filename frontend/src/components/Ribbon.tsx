@@ -21,11 +21,14 @@ export function Ribbon({
   tabs,
   active,
   onSelect,
+  actions,
   children,
 }: {
   tabs: RibbonTab[];
   active: string;
   onSelect: (id: string) => void;
+  /** Controls at the right end of the tab strip (undo, redo, save). */
+  actions?: ComponentChildren;
   children: ComponentChildren;
 }) {
   return (
@@ -55,6 +58,7 @@ export function Ribbon({
             {tab.badge}
           </button>
         ))}
+        {actions && <div class="ml-auto flex items-center gap-3 self-center">{actions}</div>}
       </div>
       <div role="tabpanel" class="min-h-0 flex-1 overflow-auto bg-ribbon px-3 pb-1 pt-3">
         {children}

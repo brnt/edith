@@ -1,3 +1,4 @@
+import type { ComponentChildren } from "preact";
 import { useState } from "preact/hooks";
 
 import {
@@ -30,6 +31,8 @@ const FORMATS: { format: ExportFormat; label: string; hint: string }[] = [
 type TabId = "media" | "sync" | "edit" | "export";
 
 interface Props {
+  /** Undo, redo and save: shown at the right of the ribbon's tab strip. */
+  actions?: ComponentChildren;
   slug: string;
   /** The project's folder (absolute), where its media goes. */
   folder: string;
@@ -85,6 +88,7 @@ export function Studio(props: Props) {
     <>
       <Ribbon
         active={active}
+        actions={props.actions}
         onSelect={(id) => setChosen(id as TabId)}
         tabs={[
           {
