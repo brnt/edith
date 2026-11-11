@@ -157,7 +157,7 @@ export function Stage({
           <div class="flex shrink-0 items-center gap-3 text-sm">
             <div>
               <div class="font-mono text-xl leading-tight">{formatTime(ed.t, 2)}</div>
-              <div class="text-xs text-neutral-500">
+              <div class="font-mono text-xs text-neutral-500">
                 output {formatTime(timelineToOutput(ed.t, ed.keeps), 2)} /{" "}
                 {formatTime(ed.outputLength, 1)}
               </div>
