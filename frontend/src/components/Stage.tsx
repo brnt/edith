@@ -205,6 +205,7 @@ export function Stage({
           suggestions={ed.suggestions}
           corner={zoom}
           onSeek={ed.setT}
+          onShowProblem={onOpenMedia}
           onSelect={ed.setSelection}
           onCamera={ed.cutTo}
           onTrack={(id, patch) => ed.onEdit(setTrack(ed.edit, ed.media, id, patch))}

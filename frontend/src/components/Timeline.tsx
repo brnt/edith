@@ -22,6 +22,7 @@ import { AUDIO_WAVEFORM, channelStyle } from "../lib/channelStyle";
 import { ChannelChip } from "./ChannelChip";
 import { MAX_CANVAS_PX, Waveform } from "./Waveform";
 import { Icon } from "./Icon";
+import { MissingFlag } from "./MissingFlag";
 import { CaretDown, CaretRight, Ellipsis } from "./icons";
 
 const ROW = { ruler: 24, video: 34, still: 28, audio: 56 };
@@ -37,6 +38,8 @@ interface Props {
   selection: Range | null;
   suggestions: Range[];
   onSeek: (t: number) => void;
+  /** Shows where a media file that can't be read is dealt with (the Media tab). */
+  onShowProblem?: () => void;
   onSelect: (range: Range | null) => void;
   onCamera: (mediaId: string) => void;
   onTrack: (mediaId: string, patch: { gain_db?: number }) => void;
@@ -276,6 +279,7 @@ export function Timeline(props: Props) {
             >
               <ChannelButton channel={c} onClick={() => props.onCamera(c.item.id)} />
               <span class="truncate">{c.item.label}</span>
+              <MissingFlag item={c.item} onShow={props.onShowProblem} class="ml-auto" />
             </div>
           ))}
           {stills.length > 0 && (
@@ -302,6 +306,7 @@ export function Timeline(props: Props) {
                   >
                     <ChannelButton channel={c} onClick={() => props.onCamera(c.item.id)} />
                     <span class="truncate">{c.item.label}</span>
+                    <MissingFlag item={c.item} onShow={props.onShowProblem} class="ml-auto" />
                   </div>
                 ))}
             </>
@@ -314,8 +319,11 @@ export function Timeline(props: Props) {
                 class="overflow-hidden border-t border-neutral-800 px-2 py-0.5 text-xs leading-4"
                 style={{ height: ROW.audio }}
               >
-                <div class="truncate" title={m.label}>
-                  {m.label}
+                <div class="flex items-center gap-1">
+                  <span class="truncate" title={m.label}>
+                    {m.label}
+                  </span>
+                  <MissingFlag item={m} onShow={props.onShowProblem} class="ml-auto" />
                 </div>
                 <input
                   type="range"
