@@ -46,9 +46,7 @@ export function Ribbon({
             type="button"
             aria-selected={tab.id === active}
             class={`flex items-center gap-2 rounded-t px-4 py-1 text-sm ${
-              tab.id === active
-                ? "bg-neutral-800 text-white"
-                : "text-neutral-400 hover:bg-neutral-800/60"
+              tab.id === active ? "bg-ribbon text-white" : "text-neutral-400 hover:bg-ribbon/60"
             }`}
             onClick={() => onSelect(tab.id)}
           >
@@ -58,7 +56,7 @@ export function Ribbon({
           </button>
         ))}
       </div>
-      <div role="tabpanel" class="min-h-0 flex-1 overflow-auto bg-neutral-800 p-3">
+      <div role="tabpanel" class="min-h-0 flex-1 overflow-auto bg-ribbon p-3">
         {children}
       </div>
     </section>

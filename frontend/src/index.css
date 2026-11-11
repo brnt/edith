@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+@theme {
+  /* The ribbon's panel and its active tab (a touch lighter than neutral-800). */
+  --color-ribbon: #333;
+}
+
 :root {
   color-scheme: dark;
 }

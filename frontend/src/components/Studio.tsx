@@ -143,7 +143,7 @@ export function Studio(props: Props) {
                     title={f.hint}
                     class={`inline-flex items-center gap-1.5 rounded px-3 py-1 ${
                       dirty
-                        ? "pointer-events-none bg-neutral-800 text-neutral-600"
+                        ? "pointer-events-none bg-neutral-700/60 text-neutral-400"
                         : "bg-neutral-700 text-neutral-100 hover:bg-neutral-600"
                     }`}
                   >
