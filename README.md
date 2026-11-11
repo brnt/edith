@@ -106,8 +106,7 @@ comes next.
    milliseconds.
 4. **Edit.** The large view plays the synced proxies, with the time and play controls under it. Beside
    it is a grid of every camera (live thumbnails, in step with the playhead) and every still (a
-   small picture): **click one to cut to it at the current position**. Each channel keeps its own
-   slot in the grid (cameras in number order, then stills); the one on screen is a dimmed live copy with an "on screen" overlay
+   small picture): **click one to cut to it at the current position**. The grid is laid out like a **10-key**: 1 2 3 on the bottom row, 4 5 6 above, 7 8 9 on top (rows nobody uses are left out), so a channel's number key is where its thumbnail is and you can cut without looking. Each channel keeps its own cell; the one on screen is a dimmed live copy with an "on screen" overlay
    (not clickable), so switching never shuffles the tiles. The timeline shows each camera, the stills, and each audio track's waveform.
    **Vertical space is shared with the view first:** the large view takes as much as it can use
    (up to two thirds of the window's width), and the timeline gets what is left. It scrolls inside
