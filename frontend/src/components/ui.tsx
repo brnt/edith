@@ -32,7 +32,7 @@ export function Button({
     <button
       type="button"
       {...props}
-      class={`inline-flex items-center rounded disabled:opacity-40 disabled:cursor-not-allowed ${size === "sm" ? "gap-1 px-2 py-0.5 text-[13px]" : "gap-1.5 px-3 py-1 text-sm"} ${VARIANTS[variant]} ${cls ?? ""}`}
+      class={`inline-flex items-center rounded disabled:opacity-70 disabled:cursor-not-allowed ${size === "sm" ? "gap-1 px-2 py-0.5 text-[13px]" : "gap-1.5 px-3 py-1 text-sm"} ${VARIANTS[variant]} ${cls ?? ""}`}
     >
       {icon && <Icon icon={icon} />}
       {children}
