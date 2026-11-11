@@ -5,8 +5,7 @@ import { proxyUrl, thumbUrl, type MediaItem } from "../lib/api";
 import { channelStyle } from "../lib/channelStyle";
 import { KEYPAD_COLS, keypadCell, keypadRows, overflowCell, tileWidth } from "../lib/keypad";
 import { formatTime, type Channel, type Range } from "../lib/timeline";
-import { Icon } from "./Icon";
-import { Warning } from "./icons";
+import { MissingFlag } from "./MissingFlag";
 
 type Cell = { row: number; col: number };
 /** Put a tile in its keypad cell (a style, so the DOM stays a flat list in number order). */
@@ -52,30 +51,6 @@ function TileLabel({ channel }: { channel: Channel }) {
   );
 }
 
-/**
- * A flag on a tile whose source file can't be read (a drive unplugged, a file moved). The tile may
- * still play from its proxy, so this is the only hint; clicking it goes to the Media tab, where the
- * file can be relinked. (A span, not a button: it sits inside the tile's own button.)
- */
-function MissingFlag({ channel, onShow }: { channel: Channel; onShow?: () => void }) {
-  if (!channel.item.missing) return null;
-  return (
-    <span
-      role="img"
-      data-testid="missing-flag"
-      aria-label={`${channel.item.label} can't be read`}
-      title={`Can't read ${channel.item.path}: the file is missing (a drive unplugged, or it moved). Click to see the Media tab.`}
-      class="absolute right-1 top-1 z-10 grid h-[18px] w-[18px] cursor-pointer place-items-center rounded bg-black/70 text-sm leading-none text-red-400 hover:bg-black"
-      onClick={(e) => {
-        e.stopPropagation(); // not a click on the tile (which would cut to it)
-        onShow?.();
-      }}
-    >
-      <Icon icon={Warning} />
-    </span>
-  );
-}
-
 const TILE_BASE = "group relative block aspect-video w-full overflow-hidden rounded bg-black";
 
 /** The tile's frame: a button that cuts to the channel, or (when it is the one on screen) a highlighted, inert copy. */
@@ -113,7 +88,11 @@ function TileShell({
         <span class="absolute inset-0 flex items-center justify-center text-xs font-semibold uppercase tracking-wide text-white">
           on screen
         </span>
-        <MissingFlag channel={channel} onShow={onShowProblem} />
+        <MissingFlag
+          item={channel.item}
+          onShow={onShowProblem}
+          class="absolute right-1 top-1 z-10"
+        />
       </div>
     );
   }
@@ -131,7 +110,7 @@ function TileShell({
       style={cellStyle(cell)}
     >
       {children}
-      <MissingFlag channel={channel} onShow={onShowProblem} />
+      <MissingFlag item={channel.item} onShow={onShowProblem} class="absolute right-1 top-1 z-10" />
     </button>
   );
 }

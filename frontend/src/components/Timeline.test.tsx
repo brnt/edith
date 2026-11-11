@@ -355,3 +355,35 @@ test("a disabled camera that no segment shows is off the timeline; a used one st
   expect(offTimeline("cam2", [])).toBe(true); // nothing shows it
   expect(offTimeline("cam2", [{ at_s: 10, media_id: "cam2" }])).toBe(false); // a segment does
 });
+
+test("rows for media that can't be read carry a warning flag (cameras and audio); clicking it asks to show the problem", () => {
+  const lost = media.map((m) => (m.id === "cam2" || m.id === "mic" ? { ...m, missing: true } : m));
+  const onShowProblem = vi.fn();
+  const onCamera = vi.fn();
+  render(
+    <Timeline
+      media={lost}
+      offsets={{ cam: 0, cam2: 0, mic: 0 }}
+      edit={edit}
+      peaks={{}}
+      playhead={0}
+      end={100}
+      pxPerSec={10}
+      selection={null}
+      suggestions={[]}
+      onSeek={vi.fn()}
+      onSelect={vi.fn()}
+      onCamera={onCamera}
+      onTrack={vi.fn()}
+      picked={null}
+      onPick={vi.fn()}
+      onShowProblem={onShowProblem}
+    />,
+  );
+  expect(screen.getAllByTestId("missing-flag")).toHaveLength(2);
+  expect(screen.queryByRole("img", { name: "Cam can't be read" })).toBeNull();
+  expect(screen.getByRole("img", { name: "mic can't be read" })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("img", { name: "Cam 2 can't be read" }));
+  expect(onShowProblem).toHaveBeenCalledTimes(1);
+  expect(onCamera).not.toHaveBeenCalled();
+});
