@@ -13,7 +13,7 @@ import {
 import { waitForJob } from "../lib/jobs";
 import { formatTime } from "../lib/timeline";
 import { MAX_CANVAS_PX, Waveform } from "./Waveform";
-import { Badge, Button, Progress } from "./ui";
+import { Badge, Button, neutralLink, Progress } from "./ui";
 import { Icon } from "./Icon";
 import { CheckCircle, CloseCircle, Download, Search, Warning, ZoomIn, ZoomOut } from "./icons";
 
@@ -186,11 +186,9 @@ export function SyncPanel(props: Props) {
                 onInput={(e) => setSeed(e.currentTarget.value)}
               />
               <a
-                class={`inline-flex items-center gap-1.5 rounded px-3 py-1 ${
-                  seed.trim()
-                    ? "bg-neutral-700 text-neutral-100 hover:bg-neutral-600"
-                    : "pointer-events-none bg-neutral-700/60 text-neutral-400"
-                }`}
+                class={`inline-flex items-center gap-1.5 rounded px-3 py-1 ${neutralLink(
+                  seed.trim() !== "",
+                )}`}
                 href={seed.trim() ? registrationSoundUrl(seed.trim()) : undefined}
                 download="registration.wav"
                 title="Download the sound to play on set"
@@ -223,12 +221,7 @@ export function SyncPanel(props: Props) {
         </div>
 
         <div class="flex flex-wrap items-center gap-2 text-sm">
-          <Button
-            variant="primary"
-            icon={Search}
-            disabled={template() === null || progress !== null}
-            onClick={run}
-          >
+          <Button icon={Search} disabled={template() === null || progress !== null} onClick={run}>
             Find the sound in every file
           </Button>
           {progress && <Progress value={progress.value} label={progress.label} />}

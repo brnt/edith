@@ -37,12 +37,7 @@ export function RenderPanel({
 
   return (
     <>
-      <Button
-        variant="primary"
-        icon={PlayCircle}
-        disabled={disabled || job !== null}
-        onClick={render}
-      >
+      <Button icon={PlayCircle} disabled={disabled || job !== null} onClick={render}>
         Render MP4 (1080p)
       </Button>
       {job && <Progress value={job.progress} label={job.message} />}

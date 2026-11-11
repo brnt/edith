@@ -5,38 +5,25 @@ import { addCuts, addMix, removeCut, removeMix, removeSwitch, setRange } from ".
 import { effectiveTracks, formatTime, type Range } from "../lib/timeline";
 import type { EditorApi } from "../lib/useEditor";
 import { Button, Dropdown } from "./ui";
+import { GroupFrame, RibbonButton, RibbonCell, RibbonGroup } from "./RibbonGrid";
 import { Icon } from "./Icon";
 import { Check, Clear, Close, Scissor, Search, Sound } from "./icons";
 import { SoundOff } from "./SoundOff";
 
-/** A ribbon group: controls wrap within `width`, with the group's name underneath. */
+/** A free-flowing ribbon group (for controls that aren't unit-grid buttons): they wrap within `width`. */
 function Group({
   title,
   width,
-  column = false,
   children,
 }: {
   title: string;
   width?: string;
-  column?: boolean;
   children: ComponentChildren;
 }) {
   return (
-    <div
-      class={`flex h-full shrink-0 flex-col justify-between border-r border-neutral-700 pr-3 text-sm ${width ?? ""}`}
-    >
-      <div
-        class={`flex content-start gap-2 ${column ? "flex-col items-start" : "flex-wrap items-center"}`}
-      >
-        {children}
-      </div>
-      <div
-        class="truncate pt-1 text-center text-[10px] uppercase tracking-wide text-neutral-500"
-        title={title}
-      >
-        {title}
-      </div>
-    </div>
+    <GroupFrame title={title} width={width}>
+      <div class="flex flex-wrap content-start items-center gap-2">{children}</div>
+    </GroupFrame>
   );
 }
 
@@ -51,7 +38,7 @@ interface Item {
 /** A menu of edit decisions: click one to jump to it, the cross to remove it. */
 function ItemsMenu({ name, empty, items }: { name: string; empty: string; items: Item[] }) {
   return (
-    <Dropdown label={`${name} (${items.length})`}>
+    <Dropdown block label={`${name} (${items.length})`}>
       {items.length === 0 ? (
         <p class="text-neutral-500">{empty}</p>
       ) : (
@@ -125,45 +112,63 @@ export function EditTools({ ed }: { ed: EditorApi }) {
   );
 
   const selectionText = selection
-    ? `${formatTime(selection[0], 2)} – ${formatTime(selection[1], 2)}`
-    : "drag on the timeline";
+    ? `${formatTime(selection[0], 2)}–${formatTime(selection[1], 2)}`
+    : "";
 
   return (
     <div class="flex h-full gap-3">
-      <Group title={`Selection: ${selectionText}`} width="w-52">
-        <Button size="sm" icon={Scissor} disabled={!selection} onClick={ed.cutSelection}>
-          Cut (x)
-        </Button>
-        <Button
-          size="sm"
+      <RibbonGroup title={selection ? selectionText : "Selection"} columns={4}>
+        <RibbonButton
+          size={2}
+          icon={Scissor}
+          label="Cut"
+          text="Cut"
+          hotkey="x"
+          at={{ row: 1, col: 1 }}
+          disabled={!selection}
+          onClick={ed.cutSelection}
+        />
+        <RibbonButton
+          size={2}
           icon={Check}
+          label="Keep only"
+          text="Keep"
+          at={{ row: 1, col: 3 }}
           disabled={!selection}
           onClick={() => {
             if (!selection) return;
             onEdit(setRange(edit, selection[0], selection[1]));
             ed.setSelection(null);
           }}
-        >
-          Keep only
-        </Button>
-      </Group>
+        />
+      </RibbonGroup>
 
-      <Group title="Range" width="w-28">
-        <Button size="sm" onClick={() => onEdit(setRange(edit, ed.t, edit.range_out_s))}>
-          In (i)
-        </Button>
-        <Button size="sm" onClick={() => onEdit(setRange(edit, edit.range_in_s, ed.t))}>
-          Out (o)
-        </Button>
-        <Button
-          size="sm"
-          variant="ghost"
+      <RibbonGroup title="Range" columns={5}>
+        <RibbonButton
+          size={2}
+          glyph="["
+          label="Range in"
+          text="In"
+          hotkey="i"
+          at={{ row: 1, col: 1 }}
+          onClick={() => onEdit(setRange(edit, ed.t, edit.range_out_s))}
+        />
+        <RibbonButton
+          size={2}
+          glyph="]"
+          label="Range out"
+          text="Out"
+          hotkey="o"
+          at={{ row: 1, col: 3 }}
+          onClick={() => onEdit(setRange(edit, edit.range_in_s, ed.t))}
+        />
+        <RibbonButton
           icon={Clear}
+          label="Clear range"
+          at={{ row: 1, col: 5 }}
           onClick={() => onEdit(setRange(edit, null, null))}
-        >
-          Clear
-        </Button>
-      </Group>
+        />
+      </RibbonGroup>
 
       <Group title="Mix the selection" width="w-44">
         <select
@@ -213,7 +218,6 @@ export function EditTools({ ed }: { ed: EditorApi }) {
           <>
             <Button
               size="sm"
-              variant="primary"
               icon={Scissor}
               onClick={() => {
                 onEdit(
@@ -239,41 +243,47 @@ export function EditTools({ ed }: { ed: EditorApi }) {
         )}
       </Group>
 
-      <Group title="Edit list" column>
-        <ItemsMenu
-          name="Switches"
-          empty="Starts on the earliest camera."
-          items={edit.switches.map((s, i) => ({
-            key: `${s.at_s}-${s.media_id}`,
-            text: `${formatTime(s.at_s, 1)} → ${channelName(s.media_id)}`,
-            title: s.media_id ? label(s.media_id) : undefined,
-            onSeek: () => ed.setT(s.at_s),
-            onRemove: () => onEdit(removeSwitch(edit, i)),
-          }))}
-        />
-        <ItemsMenu
-          name="Mix"
-          empty="No level changes."
-          items={edit.mix.map((r, i) => ({
-            key: `${r.media_id}-${r.start_s}-${r.end_s}`,
-            text: `${formatTime(r.start_s, 1)} – ${formatTime(r.end_s, 1)} ${label(r.media_id)} ${
-              r.muted ? "muted" : `${r.gain_db > 0 ? "+" : ""}${r.gain_db} dB`
-            }`,
-            onSeek: () => ed.setT(r.start_s),
-            onRemove: () => onEdit(removeMix(edit, i)),
-          }))}
-        />
-        <ItemsMenu
-          name="Cuts"
-          empty="Nothing cut."
-          items={edit.cuts.map((c, i) => ({
-            key: `${c.start_s}-${c.end_s}`,
-            text: `${formatTime(c.start_s, 1)} – ${formatTime(c.end_s, 1)} (${(c.end_s - c.start_s).toFixed(1)} s)`,
-            onSeek: () => ed.setT(c.start_s),
-            onRemove: () => onEdit(removeCut(edit, i)),
-          }))}
-        />
-      </Group>
+      <RibbonGroup title="Edit list" columns={4}>
+        <RibbonCell at={{ row: 1, col: 1, cols: 4 }}>
+          <ItemsMenu
+            name="Switches"
+            empty="Starts on the earliest camera."
+            items={edit.switches.map((s, i) => ({
+              key: `${s.at_s}-${s.media_id}`,
+              text: `${formatTime(s.at_s, 1)} → ${channelName(s.media_id)}`,
+              title: s.media_id ? label(s.media_id) : undefined,
+              onSeek: () => ed.setT(s.at_s),
+              onRemove: () => onEdit(removeSwitch(edit, i)),
+            }))}
+          />
+        </RibbonCell>
+        <RibbonCell at={{ row: 2, col: 1, cols: 4 }}>
+          <ItemsMenu
+            name="Mix"
+            empty="No level changes."
+            items={edit.mix.map((r, i) => ({
+              key: `${r.media_id}-${r.start_s}-${r.end_s}`,
+              text: `${formatTime(r.start_s, 1)} – ${formatTime(r.end_s, 1)} ${label(r.media_id)} ${
+                r.muted ? "muted" : `${r.gain_db > 0 ? "+" : ""}${r.gain_db} dB`
+              }`,
+              onSeek: () => ed.setT(r.start_s),
+              onRemove: () => onEdit(removeMix(edit, i)),
+            }))}
+          />
+        </RibbonCell>
+        <RibbonCell at={{ row: 3, col: 1, cols: 4 }}>
+          <ItemsMenu
+            name="Cuts"
+            empty="Nothing cut."
+            items={edit.cuts.map((c, i) => ({
+              key: `${c.start_s}-${c.end_s}`,
+              text: `${formatTime(c.start_s, 1)} – ${formatTime(c.end_s, 1)} (${(c.end_s - c.start_s).toFixed(1)} s)`,
+              onSeek: () => ed.setT(c.start_s),
+              onRemove: () => onEdit(removeCut(edit, i)),
+            }))}
+          />
+        </RibbonCell>
+      </RibbonGroup>
     </div>
   );
 }

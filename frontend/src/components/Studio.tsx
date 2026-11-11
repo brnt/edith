@@ -17,7 +17,7 @@ import { RenderPanel } from "./RenderPanel";
 import { Ribbon } from "./Ribbon";
 import { Stage } from "./Stage";
 import { SyncPanel } from "./SyncPanel";
-import { Badge } from "./ui";
+import { Badge, neutralLink } from "./ui";
 import { Icon } from "./Icon";
 import { Download, Export, Scissor, Sync, VideoCamera } from "./icons";
 
@@ -145,11 +145,9 @@ export function Studio(props: Props) {
                     href={exportUrl(slug, f.format)}
                     download
                     title={f.hint}
-                    class={`inline-flex items-center gap-1.5 rounded px-3 py-1 ${
-                      dirty
-                        ? "pointer-events-none bg-neutral-700/60 text-neutral-400"
-                        : "bg-neutral-700 text-neutral-100 hover:bg-neutral-600"
-                    }`}
+                    class={`inline-flex items-center gap-1.5 rounded px-3 py-1 ${neutralLink(
+                      !dirty,
+                    )}`}
                   >
                     <Icon icon={Download} />
                     {f.label}

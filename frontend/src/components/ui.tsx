@@ -13,8 +13,21 @@ type ButtonProps = JSX.IntrinsicElements["button"] & {
   size?: "sm" | "md";
 };
 
+/**
+ * The neutral button: a raised, lighter fill when enabled (top highlight); sunken, darker than the
+ * ribbon, with a dim icon and a hairline when disabled. The hairline is an inset shadow so the
+ * button's size doesn't change.
+ */
+export const NEUTRAL_BUTTON =
+  "bg-[#505050] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.14)] hover:bg-[#5c5c5c] disabled:bg-[#292929] disabled:text-[#5e5e5e] disabled:shadow-[inset_0_0_0_1px_#3a3a3a] disabled:hover:bg-[#292929]";
+/** The same look for a link that is styled as a button and can be off. */
+export const neutralLink = (on: boolean) =>
+  on
+    ? "bg-[#505050] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.14)] hover:bg-[#5c5c5c]"
+    : "pointer-events-none bg-[#292929] text-[#5e5e5e] shadow-[inset_0_0_0_1px_#3a3a3a]";
+
 const VARIANTS = {
-  default: "bg-neutral-700 hover:bg-neutral-600 text-neutral-100",
+  default: NEUTRAL_BUTTON,
   primary: "bg-sky-600 hover:bg-sky-500 text-white",
   danger: "bg-red-700 hover:bg-red-600 text-white",
   ghost: "bg-transparent hover:bg-neutral-800 text-neutral-300",
@@ -32,7 +45,7 @@ export function Button({
     <button
       type="button"
       {...props}
-      class={`inline-flex items-center rounded disabled:opacity-70 disabled:cursor-not-allowed ${size === "sm" ? "gap-1 px-2 py-0.5 text-[13px]" : "gap-1.5 px-3 py-1 text-sm"} ${VARIANTS[variant]} ${cls ?? ""}`}
+      class={`inline-flex items-center rounded disabled:cursor-not-allowed ${variant === "default" ? "" : "disabled:opacity-70"} ${size === "sm" ? "gap-1 px-2 py-0.5 text-[13px]" : "gap-1.5 px-3 py-1 text-sm"} ${VARIANTS[variant]} ${cls ?? ""}`}
     >
       {icon && <Icon icon={icon} />}
       {children}
@@ -78,9 +91,12 @@ export function Badge({
 /** A button that opens a menu over the page. Fixed-positioned, so no ancestor can clip it. */
 export function Dropdown({
   label,
+  block = false,
   children,
 }: {
   label: ComponentChildren;
+  /** Fill the width and height of the cell it sits in (the ribbon's grid), label left, caret right. */
+  block?: boolean;
   children: ComponentChildren;
 }) {
   const [open, setOpen] = useState(false);
@@ -108,9 +124,13 @@ export function Dropdown({
   };
 
   return (
-    <div ref={box} class="relative">
-      <Button onClick={toggle} aria-expanded={open}>
-        {label}
+    <div ref={box} class={`relative ${block ? "h-full w-full" : ""}`}>
+      <Button
+        onClick={toggle}
+        aria-expanded={open}
+        class={block ? "h-full w-full justify-between px-2 py-0 text-[13px]" : undefined}
+      >
+        <span class="truncate">{label}</span>
         <Icon icon={Down} class="text-xs" />
       </Button>
       {open && (
