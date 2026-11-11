@@ -30,11 +30,14 @@ export function Stage({
   ed,
   peaks,
   warnings,
+  onOpenMedia,
 }: {
   slug: string;
   ed: EditorApi;
   peaks: Record<string, Peaks>;
   warnings: string[];
+  /** Go to the Media tab (where an unreadable file can be dealt with). */
+  onOpenMedia?: () => void;
 }) {
   // While an edge is being dragged, show the result of dropping it now, not the old edit.
   const shown = ed.preview?.edit ?? ed.edit;
@@ -180,6 +183,7 @@ export function Stage({
             local={frame.local}
             selection={ed.selection}
             onActivate={ed.cutTo}
+            onShowProblem={onOpenMedia}
           />
         )}
       </div>

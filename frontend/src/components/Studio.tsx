@@ -172,7 +172,13 @@ export function Studio(props: Props) {
           </div>
         )}
       </Ribbon>
-      <Stage slug={slug} ed={ed} peaks={props.peaks} warnings={props.warnings} />
+      <Stage
+        slug={slug}
+        ed={ed}
+        peaks={props.peaks}
+        warnings={props.warnings}
+        onOpenMedia={() => setChosen("media")}
+      />
     </>
   );
 }

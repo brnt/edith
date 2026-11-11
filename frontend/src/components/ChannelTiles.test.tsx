@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/preact";
+import { fireEvent, render, screen, within } from "@testing-library/preact";
 import { afterEach, expect, test, vi } from "vitest";
 
 import type { MediaItem } from "../lib/api";
@@ -316,4 +316,50 @@ test("a channel past the ninth has no number and goes below the keypad", () => {
   expect([Number(extra.style.gridRow), Number(extra.style.gridColumn)]).toEqual([4, 1]);
   const next = screen.getByRole("button", { name: "Preview of camera Cam 11: switch to it" });
   expect([Number(next.style.gridRow), Number(next.style.gridColumn)]).toEqual([4, 2]);
+});
+
+test("a tile whose source file can't be read carries a warning flag; clicking it doesn't cut to the tile", () => {
+  const lost = [cam("a", "Cam A"), { ...cam("b", "Cam B"), missing: true, path: "day 1/b.mp4" }];
+  const onActivate = vi.fn();
+  const onShowProblem = vi.fn();
+  render(
+    <ChannelTiles
+      slug="show"
+      channels={channelsOf(lost)}
+      activeId={null}
+      elements={{ current: {} }}
+      local={{}}
+      onActivate={onActivate}
+      onShowProblem={onShowProblem}
+    />,
+  );
+  // Only the missing camera is flagged, and the flag says which file and why.
+  expect(screen.getAllByTestId("missing-flag")).toHaveLength(1);
+  const flag = screen.getByRole("img", { name: "Cam B can't be read" });
+  expect(flag).toHaveAttribute("title", expect.stringContaining("Can't read day 1/b.mp4"));
+  fireEvent.click(flag);
+  expect(onShowProblem).toHaveBeenCalledTimes(1);
+  expect(onActivate).not.toHaveBeenCalled();
+  // The tile itself still works: the preview may be playing from its proxy.
+  fireEvent.click(screen.getByRole("button", { name: "Preview of camera 2: switch to it" }));
+  expect(onActivate).toHaveBeenCalledWith("b");
+});
+
+test("the flag shows on the active tile too, and on a missing still", () => {
+  const lost = [
+    { ...cam("a", "Cam A"), missing: true },
+    { ...still, missing: true },
+  ];
+  render(
+    <ChannelTiles
+      slug="show"
+      channels={channelsOf(lost)}
+      activeId="a"
+      elements={{ current: {} }}
+      local={{}}
+      onActivate={vi.fn()}
+    />,
+  );
+  expect(within(screen.getByTestId("tile-active")).getByTestId("missing-flag")).toBeInTheDocument();
+  expect(screen.getAllByTestId("missing-flag")).toHaveLength(2);
 });
