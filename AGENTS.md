@@ -175,6 +175,17 @@ from before the folder layout are converted once at startup from `LEGACY_LIBRARY
   apart (`gap-0.5`); separate groups and loose buttons sit `gap-3` apart in the container that holds them
   (e.g. the ribbon's `actions`). Icon-only buttons are 7:4 (the transport buttons 56×32, the ribbon's
   undo/redo/save 42×24), with the name as `title` and `aria-label`.
+- **No colored button backgrounds in the ribbon's panel** (firm rule): a coloured background marks the primary
+  actions outside it (Play, Save), so every panel button has a neutral background (`RibbonButton` has no
+  variants; don't pass `variant="primary"` to a `Button` in a panel). Enabled vs disabled has to read through
+  fill lightness, border and icon brightness alone.
+- **Ribbon grid** (`RibbonGrid.tsx`): a ribbon group is a grid of 33px units (3px apart, `RIBBON_ROWS` = 4
+  tall). `RibbonButton` is 1×1 (icon only) or 2×2 (icon + one short word, `text`); size follows how prominent
+  the action is. Drop-downs (`Dropdown block`) span whole units, one unit tall, the same width within a set
+  (`RibbonCell`). Every control needs a `label` (tooltip + aria-label); a hotkey is optional and is appended to
+  both. Controls that aren't buttons (numeric inputs, selects) keep the free-flowing `Group` in `EditTools.tsx`
+  until they're converted. Don't name this file `ribbon.tsx` (it clashes with `Ribbon.tsx` on
+  case-insensitive filesystems).
 - **Pixel twiddling needs the user's eyes:** for visual tweaks (sizes, padding, gaps, colours, alignment),
   make the change, run the tests, then ask the user to check the result in their own browser *before* committing
   and merging. Measurements in the agent's browser pane can differ from the user's window.
