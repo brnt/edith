@@ -25,6 +25,8 @@ const STAGE_PAD_Y_PX = 24; // p-3 top and bottom
 const STAGE_GAP_PX = 8; // gap-2 between the view's row and the timeline
 
 /** The part that is always on screen: the active view, the other cameras, transport, timeline. */
+const TRANSPORT = "h-8 w-14 justify-center px-0 py-0 text-lg"; // 16:9
+
 export function Stage({
   slug,
   ed,
@@ -160,16 +162,22 @@ export function Stage({
                 {formatTime(ed.outputLength, 1)}
               </div>
             </div>
+            {/* Icon-only, 16:9 like the picture; the name and hotkey are the tooltip and label. */}
             <Button
               variant="primary"
               icon={ed.playing ? Pause : CaretRight}
+              class={TRANSPORT}
+              title={ed.playing ? "Pause (space)" : "Play (space)"}
+              aria-label={ed.playing ? "Pause (space)" : "Play (space)"}
               onClick={ed.togglePlay}
-            >
-              {ed.playing ? "Pause (space)" : "Play (space)"}
-            </Button>
-            <Button icon={StepBackward} onClick={() => ed.setT(ed.firstKept)}>
-              Start
-            </Button>
+            />
+            <Button
+              icon={StepBackward}
+              class={TRANSPORT}
+              title="Start"
+              aria-label="Start"
+              onClick={() => ed.setT(ed.firstKept)}
+            />
           </div>
         </div>
 
