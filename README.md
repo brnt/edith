@@ -81,7 +81,8 @@ comes next.
    - **Missing files:** if a file goes missing (moved, or its drive unplugged) its card says so
      and it stays in the project. If a file with the same name and length turns up in the folder,
      **Use found file** relinks to it in one click (or choose **Relink…**): every reference in
-     the edit and the sync results follows, and it isn't counted as a change.
+     the edit and the sync results follows, and it isn't counted as a change. The channel
+     tiles of a missing file wear a red warning icon too; click it to jump to the Media tab.
    - **Registration sound:** an audio file's details have **Use as the registration sound**, the
      same as the Sync tab's "An audio file".
    - **Previews** (low-res copies the browser can scrub; originals are untouched) are made in the

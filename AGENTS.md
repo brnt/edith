@@ -128,6 +128,9 @@ Root `justfile` delegates to both; Compose runs `api` (:8000) and `web` (:8080).
   per media folder for anything without a proxy, the project's own media first; `proxy_building`
   drives the card spinner. A still's proxy is also built on first request. Tests set
   `AUTO_PROXIES=false` and call `build_pending` instead of racing a thread.
+- **Missing sources are flagged on tiles** (`MissingFlag` in `ChannelTiles.tsx`): a channel whose
+  `item.missing` is true shows a warning icon (`data-testid=missing-flag`); clicking it calls
+  `onShowProblem` (Studio → Media tab) and does not cut to the channel.
 - **The channel grid is a 10-key** (`lib/keypad.ts`, `ChannelTiles.tsx`): channel n sits where key n is
   (1 bottom-left, 9 top-right, unused rows dropped), placed with `grid-row/column` on each tile so the DOM
   stays a flat list in number order; tile width is measured so all rows fit the height (no scrolling).

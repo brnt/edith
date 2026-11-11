@@ -1183,3 +1183,14 @@ test("previews are made on their own: the media tab shows progress, and there is
   // A file whose preview couldn't be made says so instead of spinning forever.
   expect(card.querySelector('[data-icon="thunderbolt"]')).toBeNull();
 });
+
+test("a camera whose file can't be read is flagged on its grid tile; the flag takes you to the Media tab", async () => {
+  media = media.map((m) => (m.id === "camB" ? { ...m, missing: true } : m));
+  render(<Workspace slug="show" />);
+  const tiles = await screen.findByTestId("channel-tiles");
+  const flag = await within(tiles).findByRole("img", { name: "Cam B can't be read" });
+  fireEvent.click(flag);
+  expect(screen.getByRole("tab", { name: /Media/ })).toHaveAttribute("aria-selected", "true");
+  // And there the card says the same, with the way out.
+  expect(await screen.findByText("Can't read this file")).toBeInTheDocument();
+});
