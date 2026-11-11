@@ -171,6 +171,10 @@ the same path as on the host (default: your home folder; `/Volumes` for external
 from before the folder layout are converted once at startup from `LEGACY_LIBRARY_DIR`
 (`services/migration.py`: footage is *linked* into the project folder, ids unchanged, a
 `project.edith.before-folder-layout` backup is kept).
+- **Button groups** (`ButtonGroup` in `ui.tsx`): buttons that belong together (undo/redo) sit a hairline
+  apart (`gap-0.5`); separate groups and loose buttons sit `gap-3` apart in the container that holds them
+  (e.g. the ribbon's `actions`). Icon-only buttons are 7:4 (the transport buttons 56×32, the ribbon's
+  undo/redo/save 42×24), with the name as `title` and `aria-label`.
 - **Pixel twiddling needs the user's eyes:** for visual tweaks (sizes, padding, gaps, colours, alignment),
   make the change, run the tests, then ask the user to check the result in their own browser *before* committing
   and merging. Measurements in the agent's browser pane can differ from the user's window.

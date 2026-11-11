@@ -22,11 +22,14 @@ import * as history from "../lib/history";
 import { sortMedia } from "../lib/timeline";
 import { FolderPath } from "./FolderPath";
 import { Studio } from "./Studio";
-import { Badge, Button } from "./ui";
+import { Badge, Button, ButtonGroup } from "./ui";
 import { Icon } from "./Icon";
 import { ArrowLeft, Close, Redo, Save, Sync, Undo } from "./icons";
 
 const MEDIA_POLL_MS = 5000;
+
+/** Undo, redo and save in the ribbon's tab strip: icon-only, 7:4 like the transport buttons. */
+const HISTORY = "h-6 w-[42px] justify-center px-0 py-0 text-sm";
 
 export function Workspace({ slug }: { slug: string }) {
   const [project, setProject] = useState<Project | null>(null);
@@ -207,25 +210,6 @@ export function Workspace({ slug }: { slug: string }) {
         <h1 class="text-xl font-bold">{project?.name ?? "…"}</h1>
         {project && <FolderPath path={project.folder} class="max-w-[45vw]" />}
         {dirty && <Badge tone="warn">unsaved changes</Badge>}
-        <div class="ml-auto flex items-center gap-2">
-          <Button
-            icon={Undo}
-            disabled={!hist || hist.past.length === 0}
-            onClick={() => setHist((h) => (h ? history.undo(h) : h))}
-          >
-            Undo
-          </Button>
-          <Button
-            icon={Redo}
-            disabled={!hist || hist.future.length === 0}
-            onClick={() => setHist((h) => (h ? history.redo(h) : h))}
-          >
-            Redo
-          </Button>
-          <Button variant="primary" icon={Save} disabled={!dirty || saving} onClick={save}>
-            {saving ? "Saving…" : "Save"}
-          </Button>
-        </div>
       </header>
 
       {project?.needs_upgrade && (
@@ -263,6 +247,37 @@ export function Workspace({ slug }: { slug: string }) {
       {edit ? (
         <Studio
           slug={slug}
+          actions={
+            <>
+              <ButtonGroup>
+                <Button
+                  icon={Undo}
+                  class={HISTORY}
+                  title="Undo"
+                  aria-label="Undo"
+                  disabled={!hist || hist.past.length === 0}
+                  onClick={() => setHist((h) => (h ? history.undo(h) : h))}
+                />
+                <Button
+                  icon={Redo}
+                  class={HISTORY}
+                  title="Redo"
+                  aria-label="Redo"
+                  disabled={!hist || hist.future.length === 0}
+                  onClick={() => setHist((h) => (h ? history.redo(h) : h))}
+                />
+              </ButtonGroup>
+              <Button
+                variant="primary"
+                icon={Save}
+                class={HISTORY}
+                title={saving ? "Saving…" : "Save"}
+                aria-label={saving ? "Saving…" : "Save"}
+                disabled={!dirty || saving}
+                onClick={save}
+              />
+            </>
+          }
           folder={project?.folder ?? ""}
           media={media}
           available={available}
