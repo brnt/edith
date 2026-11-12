@@ -484,6 +484,19 @@ function MediaCard({
           new
         </span>
       )}
+      {/* The alert sits on the left, level with the second row of chips on the right (4 px edge + 18 px chip
+          + 4 px gap), so the chips on the right keep the same order and positions whether or not it shows. */}
+      {notes.length > 0 && (
+        <button
+          type="button"
+          class={`${iconButton} absolute left-1 top-[26px] text-amber-300`}
+          aria-label={notes.join(". ")}
+          title={`${notes.join("\n")}\nClick for the details`}
+          onClick={(e) => onDetails((e.currentTarget as HTMLElement).getBoundingClientRect())}
+        >
+          <Icon icon={Warning} />
+        </button>
+      )}
       {/* Both rows of chips in one column, so the space between rows equals the space between chips. */}
       <div class="absolute right-1 top-1 flex flex-col items-end gap-1">
         <div class="flex gap-1">
@@ -533,17 +546,6 @@ function MediaCard({
             >
               <Icon icon={sync.icon} />
             </span>
-          )}
-          {notes.length > 0 && (
-            <button
-              type="button"
-              class={`${iconButton} text-amber-300`}
-              aria-label={notes.join(". ")}
-              title={`${notes.join("\n")}\nClick for the details`}
-              onClick={(e) => onDetails((e.currentTarget as HTMLElement).getBoundingClientRect())}
-            >
-              <Icon icon={Warning} />
-            </button>
           )}
           {m.proxy_building && (
             <span class={`${iconButton} text-sky-300`} title="Preparing the preview…">
