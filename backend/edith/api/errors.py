@@ -12,6 +12,8 @@ _STATUS: dict[type[errors.EdithError], int] = {
     errors.ProjectExists: status.HTTP_409_CONFLICT,
     errors.AmbiguousProject: status.HTTP_409_CONFLICT,
     errors.InvalidProjectName: _UNPROCESSABLE,
+    errors.InvalidFolderName: _UNPROCESSABLE,
+    errors.FolderExists: status.HTTP_409_CONFLICT,
     errors.NotAProjectFile: _UNPROCESSABLE,
     errors.UnsupportedVersion: _UNPROCESSABLE,
     errors.ReadOnlyProject: status.HTTP_409_CONFLICT,

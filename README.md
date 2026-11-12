@@ -43,11 +43,17 @@ above them with four tabs (**Media**, **Sync**, **Edit**, **Export**); it opens 
 comes next.
 
 1. **Start.** The start page lists your recent projects and has **New project…** and **Open
-   project…**. To create one, pick the folder that holds the media (or a new folder inside it) and
-   name it. To open one, select its `.edith` file, or the folder that has just one (click to
-   select, double-click or the arrow to go inside) and press Open. A folder can hold several
-   projects (say two cuts of one shoot): they share the media, and each is its own `.edith` file. A project whose folder can't be
-   found right now (an unplugged drive) stays on the list, marked, until you forget it.
+   project…**. To create one, pick the folder that holds the media, in a picker laid out like the macOS
+   Finder's (places and drives on the left, back and forward, the path on top with every folder in
+   it a link, double-click to go inside), make one with **New Folder** if you need it. The project is named
+   as you type, or after the folder you choose if you leave the name empty. A folder that already has a project can hold another (two cuts of one shoot, say): the
+   picker lists what is there (its projects, and the media files Edith can use, greyed, so you can tell you are in the folder you meant), and the new project, numbered if it would share a name, is saved beside
+   it and shares the media, the preview cache and the `renders/` folder (each project lists only its own renders). To open one, select its
+   `.edith` file, or the folder that has just one, and press Open. Clicking outside a dialog
+   dismisses it. A project's address is a short random id, not its path. A folder can hold several
+   projects (say two cuts of one shoot): they share the media, and each is its own `.edith` file. A project whose file can't be
+   found right now (an unplugged drive) is simply not listed, and is back when the drive is. **Remove
+   from list** takes a project off for good (only the list entry goes, never anything on disk).
 2. **Media.** Put the camera, audio and still-image files in the project folder (subfolders are
    fine: the media view keeps your folder hierarchy) and they turn up in the **Media** tab by
    themselves within a few seconds. There is no _Add media_ and no _Remove_: the folder is the way

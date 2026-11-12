@@ -12,7 +12,7 @@ Testing on a real three-device session (Canon, GoPro, Zoom recorder) showed:
   speaker-to-mic recording.
 - Raw cross-correlation ranked loud claps in the content above the quiet real tone; the
   strongest peak in one camera file was not the registration sound at all.
-- The sound that was actually played was *not* the seeded 600/5500 Hz FSK burst. It was found
+- The sound that was actually played was _not_ the seeded 600/5500 Hz FSK burst. It was found
   by cutting an excerpt from one recording and searching the others.
 - Devices differ in sample rate (44.1/48 kHz) and frame rate; embedded timecodes are unrelated.
 

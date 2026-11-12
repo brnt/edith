@@ -51,11 +51,14 @@ def render_project(slug: str, job: Job) -> dict:
 
 
 def list_renders(slug: str) -> list[dict]:
+    """This project's renders. Projects that share a folder share its `renders/` folder, so only
+    the files named after this project (`<name>-<date>-<time>.<ext>`) are its own."""
     folder = renders_dir(slug)
     if not folder.is_dir():
         return []
+    own = re.compile(rf"^{re.escape(file_stem(slug))}-\d{{8}}-\d{{6}}\.(mp4|mov)$", re.IGNORECASE)
     files = sorted(
-        (f for f in folder.iterdir() if _NAME_RE.match(f.name) and ".partial" not in f.name),
+        (f for f in folder.iterdir() if own.match(f.name)),
         key=lambda f: f.stat().st_mtime,
         reverse=True,
     )

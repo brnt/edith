@@ -5,11 +5,11 @@
 
 ## Context
 
-Projects started as sub-folders of a single *library* folder, each holding `project.edith` and a
+Projects started as sub-folders of a single _library_ folder, each holding `project.edith` and a
 visible `cache/`, with media named by path relative to the library and added one by one ("Add
 media…"). That made a project depend on where the library was mounted and on files scattered
 elsewhere in it, and gave no way to see or choose a project's location. The goal is a workflow that
-is seamless and portable: the media you shoot sits in one folder, and that folder *is* the project.
+is seamless and portable: the media you shoot sits in one folder, and that folder _is_ the project.
 
 ## Decision
 
@@ -17,13 +17,14 @@ is seamless and portable: the media you shoot sits in one folder, and that folde
   `renders/`, and a hidden `.edith/` cache. Moving or copying the folder moves the project. A
   folder can hold several `.edith` files (two cuts of one shoot); they share media and cache.
 - Media paths in the project file are relative to the project folder. Footage kept elsewhere is
-  linked into the folder. There is no *Add media* or *Remove*: dropping a file in the folder
+  linked into the folder. There is no _Add media_ or _Remove_: dropping a file in the folder
   makes it available (discovery polls the folder), and including it is the edit that writes it.
   A missing file that nothing uses just drops off the list.
-- There is no library root and no scanning. A project's id is its `.edith` file's absolute path; the app
-  keeps a **recent-projects list** (`STATE_DIR`, absolute paths) and offers *New project…* (choose
-  the media folder) and *Open project…* (select a `.edith` file, or a folder with exactly one). A recent whose
-  folder is gone (a drive unplugged) stays, marked, until forgotten.
+- There is no library root and no scanning. A project's id is a GUID Edith gives its `.edith` file (kept in `STATE_DIR/project-ids.json`, so the
+  URL is short; it replaced the file's absolute path, encoded, which needed no state but was long); the app
+  keeps a **recent-projects list** (`STATE_DIR`, absolute paths) and offers _New project…_ (choose
+  the media folder) and _Open project…_ (select a `.edith` file, or a folder with exactly one). A recent whose
+  file is gone (a drive unplugged) is not listed but stays in the recent file, so it returns with the file, until forgotten.
 - Existing projects are converted once at startup (`LEGACY_LIBRARY_DIR`): a project's own
   prefix is dropped from its media paths, other folders of the old library are linked into the
   project folder under the same name (so paths and media ids are unchanged), `cache/` becomes

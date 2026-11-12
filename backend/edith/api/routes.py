@@ -1,6 +1,13 @@
 from fastapi import APIRouter, Depends, status
 
-from edith.api.schemas import FolderListingRead, PlaceRead, ProjectCreate, ProjectOpen, ProjectRead
+from edith.api.schemas import (
+    FolderCreate,
+    FolderListingRead,
+    PlaceRead,
+    ProjectCreate,
+    ProjectOpen,
+    ProjectRead,
+)
 from edith.core.auth import require_token
 from edith.core.config import Settings, get_settings
 from edith.services import filesystem
@@ -74,6 +81,17 @@ def post_upgrade(slug: str):
 def get_folders(dir: str = ""):
     """Sub-folders of a folder (empty = home): how a project's folder is chosen."""
     return filesystem.list_folders(dir)
+
+
+@router.post(
+    "/fs/folders",
+    response_model=FolderListingRead,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_token)],
+)
+def post_folder(payload: FolderCreate):
+    """Make a folder in `parent`; answers with the listing of `parent`, the new folder in it."""
+    return filesystem.make_folder(payload.parent, payload.name)
 
 
 @router.get("/fs/places", response_model=list[PlaceRead], dependencies=[Depends(require_token)])

@@ -1,15 +1,15 @@
 """Projects: a `.edith` file, in a folder with its media, anywhere on disk.
 
 The folder holds the media, the project file, `renders/`, and a hidden `.edith/` cache, so it can be
-moved or copied whole. A project's id (its "slug") is its file's absolute path, URL-safe encoded;
-its folder is the file's parent. A folder can hold several project files (two cuts of one shoot):
-they share the media and the cache. There is no registry or library to scan: projects are created
-or opened, and remembered in the recent-projects list (services/recents.py).
+moved or copied whole. A project's id (its "slug") is a GUID that Edith gives its file and keeps in
+its state folder (services/project_ids.py); its folder is the file's parent. A folder can hold
+several project files (two cuts of one shoot): they share the media and the cache. There is no
+library to scan: projects are created or opened, and remembered in the recent-projects list
+(services/recents.py).
 """
 
-import base64
-import binascii
 import re
+import uuid
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, replace
@@ -18,6 +18,7 @@ from pathlib import Path
 
 import structlog
 
+from edith.core.config import get_settings
 from edith.core.errors import (
     AmbiguousProject,
     InvalidProjectName,
@@ -28,7 +29,7 @@ from edith.core.errors import (
 )
 from edith.db.documents import KINDS, PROJECT_INFO, PROJECT_INFO_ID, ProjectInfo
 from edith.db.project_file import ProjectFile
-from edith.services import recents
+from edith.services import project_ids, recents
 
 log = structlog.get_logger()
 
@@ -49,17 +50,18 @@ class ProjectSummary:
 
 
 def slug_for(file: Path) -> str:
-    return base64.urlsafe_b64encode(str(file).encode()).decode().rstrip("=")
+    """The id of a project file (a GUID, made the first time Edith meets the file)."""
+    return project_ids.id_for(get_settings().state_dir, file)
 
 
 def project_file(slug: str) -> Path:
-    """The `.edith` file a slug names (an absolute path; open checks that it exists)."""
+    """The `.edith` file an id names (an absolute path; open checks that it exists)."""
     try:
-        decoded = base64.urlsafe_b64decode(slug + "=" * (-len(slug) % 4)).decode()
-    except (binascii.Error, UnicodeDecodeError, ValueError):
+        uuid.UUID(slug)
+    except ValueError:
         raise ProjectNotFound(slug) from None
-    path = Path(decoded)
-    if not path.is_absolute() or "\0" in decoded or path.suffix != PROJECT_SUFFIX:
+    path = project_ids.file_for(get_settings().state_dir, slug)
+    if path is None or not path.is_absolute() or path.suffix != PROJECT_SUFFIX:
         raise ProjectNotFound(slug)
     return path
 
@@ -118,6 +120,16 @@ def _inside_another_project(folder: Path) -> bool:
     return any(edith_files(parent) for parent in folder.parents)
 
 
+def _name_of(file: Path) -> str | None:
+    """A project file's name, or None when it can't be read as a project."""
+    try:
+        with ProjectFile.open(file) as project:
+            loaded = project.get(PROJECT_INFO, PROJECT_INFO_ID)
+    except (OSError, NotAProjectFile, UnsupportedVersion):
+        return None
+    return loaded.document.name if loaded and isinstance(loaded.document, ProjectInfo) else None
+
+
 def _file_stem(name: str) -> str:
     stem = re.sub(r"[^A-Za-z0-9._ -]+", "-", name).strip(" -.")
     return stem or "project"
@@ -127,7 +139,8 @@ def create_project(state_dir: Path, name: str, folder: str) -> ProjectSummary:
     """Make a project in `folder` (an absolute path; made if it does not exist yet).
 
     The file is `project.edith`, or named after the project when the folder already has one (a
-    second project on the same media).
+    second project on the same media). A project of the same name in the same folder gets a
+    number ("Show 2"), so a project can simply be named after its folder.
     """
     if not name.strip():
         raise InvalidProjectName(name)
@@ -135,10 +148,20 @@ def create_project(state_dir: Path, name: str, folder: str) -> ProjectSummary:
     if _inside_another_project(target):
         raise ProjectExists(str(target))
     target.mkdir(parents=True, exist_ok=True)
+    base = name.strip()
+    taken = {_name_of(f) for f in edith_files(target)}
+    name, number = base, 1
+    while name in taken:  # two projects of one folder never share a name
+        number += 1
+        name = f"{base} {number}"
     file = target / PROJECT_FILENAME
     if file.exists():
         file = target / f"{_file_stem(name)}{PROJECT_SUFFIX}"
-    info = ProjectInfo(name=name.strip(), created_at=datetime.now(UTC))
+        while file.exists():
+            number += 1
+            name = f"{base} {number}"
+            file = target / f"{_file_stem(name)}{PROJECT_SUFFIX}"
+    info = ProjectInfo(name=name, created_at=datetime.now(UTC))
     with ProjectFile.create(file) as project:  # refuses to overwrite a file that is there
         project.put(PROJECT_INFO, PROJECT_INFO_ID, info)
     recents.remember(state_dir, file, info.name)
@@ -191,20 +214,21 @@ def forget(state_dir: Path, slug: str) -> None:
 
 
 def list_projects(state_dir: Path) -> list[ProjectSummary]:
-    """The recent projects, newest first; one that can't be read now stays, marked unavailable."""
+    """The recent projects, the most recently opened first.
+
+    One whose file can't be read now (a drive unplugged, a file moved) is left out of the list but
+    kept in the recent file, so it is back when the file is.
+    """
     out: list[ProjectSummary] = []
-    for r in recents.load(state_dir):
+    # Most recently opened first (by the time, not the file's order: imports are added at the end).
+    for r in sorted(recents.load(state_dir), key=lambda r: r.last_opened, reverse=True):
         file = Path(r.file)
         slug = slug_for(file)
         try:
             found = get_project(slug)
             out.append(replace(found, last_opened=r.last_opened))
         except (NotAProjectFile, UnsupportedVersion, ProjectNotFound):
-            out.append(
-                ProjectSummary(
-                    slug, r.name, r.file, str(file.parent), None, False, False, r.last_opened
-                )
-            )
+            continue
     return out
 
 

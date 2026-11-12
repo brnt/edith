@@ -30,6 +30,14 @@ class ReadOnlyProject(EdithError):
     """A write was attempted on a project opened read-only."""
 
 
+class InvalidFolderName(EdithError):
+    """A new folder's name is empty, has a slash, or starts with a dot (so it would be hidden)."""
+
+
+class FolderExists(EdithError):
+    pass
+
+
 class MediaNotFound(EdithError):
     pass
 
