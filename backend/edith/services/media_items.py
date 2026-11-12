@@ -110,9 +110,12 @@ def list_media(slug: str, *, with_available: bool = False) -> list[MediaRecord]:
     records = [_record(slug, i, included=True) for i in items]
     records = [r for r in records if not r.missing or r.item.id in referenced]
     if with_available:
-        have = {i.id for i in items}
+        # In the project already: by path (an item keeps its id when its file moves in the folder or
+        # the project file moves, so the id no longer says which file it is) or by id.
+        have_ids = {i.id for i in items}
+        have_paths = {i.path for i in items}
         for found in discovery.scan(folder):
-            if media_id(found.rel) in have or not found.settled:
+            if found.rel in have_paths or media_id(found.rel) in have_ids or not found.settled:
                 continue  # in the project already, or maybe still copying
             item = discovery.probe_cached(folder, found, build_item)
             if item is not None:

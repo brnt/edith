@@ -200,3 +200,24 @@ def test_a_still_is_described_by_its_image_format_and_a_wrong_extension_is_notic
         client.get(f"/projects/{project}/media/{cam['id']}/details").json()["image_format"] is None
     )
     assert video.exists()
+
+
+def test_a_file_already_in_the_project_is_not_new_even_when_its_id_is_not_its_path_hash(
+    client: TestClient, project_dir: Path, project: str
+):
+    """A project file moved into the media folder keeps its items' ids but not their paths."""
+    from edith.db.documents import MEDIA, MediaItem
+    from edith.db.project_file import ProjectFile
+
+    _age(write_video(project_dir / "cam.mp4"))
+    with ProjectFile.open(project_dir / "project.edith", writable=True) as p:
+        p.put(
+            MEDIA,
+            "from-the-old-path",
+            MediaItem(
+                id="from-the-old-path", path="cam.mp4", kind="video", label="cam.mp4", duration_s=1
+            ),
+        )
+    media = _media(client, project)
+    assert media["cam.mp4"]["included"] is True and media["cam.mp4"]["id"] == "from-the-old-path"
+    assert len(media) == 1  # not listed a second time as "new"
