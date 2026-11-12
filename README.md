@@ -149,7 +149,7 @@ comes next.
      again the same way. The audio always continues.
    - **Audio:** each included file gets a track on the timeline with an overall gain slider. To
      change the level over just a stretch, drag-select it, pick the track under **Mix the
-     selection**, and press **Set** (a dB change added to the track) or **Mute**. It shows on the
+     selection**, and press **Set level** (a dB change added to the track) or **Mute**. It shows on the
      track as an amber (gain) or red (muted) band; a new one paints over what it overlaps. The
      **Mix** menu lists them. Mixing is part of the edit, so it reaches the preview, the exports
      and the render.
