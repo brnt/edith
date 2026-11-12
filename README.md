@@ -157,7 +157,7 @@ comes next.
      and the render.
    - **Selection:** drag on the timeline to select a stretch (click away or Esc to drop it). Its
      two edges are handles for fine adjustment: click one to select it, drag it, or nudge it with
-     ←/→ (0.1 s; shift 1 s). Then **Cut** it (x), or **Uncut** it to take it back out of a cut
+     ←/→ (same steps as the playhead, see Keys). Then **Cut** it (x), or **Uncut** it to take it back out of a cut
      block (a block it falls inside is split in two). The final video is always the whole timeline
      minus the cuts, so to export a narrower slice, cut the rest.
    - **Edit list:** the Switches and Cuts menus list every decision; click one to jump to it, ✕
@@ -166,7 +166,7 @@ comes next.
 5. **Export.** FCPXML (DaVinci Resolve, Final Cut), Premiere XML, EDL (video only), the Edith
    JSON, or **Render MP4 (1080p)**. Exports and renders use the _saved_ edit.
 
-Keys: `space` play · `1`–`9` camera or still · `x` cut selection · `←`/`→` step (shift = 10 s).
+Keys: `space` play · `1`–`9` camera or still · `x` cut selection · `←`/`→` step the playhead, or a selected handle: 1 s, with **Cmd** 10 s, **Option** 0.1 s, **Ctrl** one frame (the modifiers run in order of size along the keyboard's bottom row, smaller to the left).
 
 ## Development
 

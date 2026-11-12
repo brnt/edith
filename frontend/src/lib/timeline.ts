@@ -428,3 +428,18 @@ export function groupMedia(media: MediaItem[]): MediaGroup[] {
           : 1,
     );
 }
+
+/**
+ * How far an arrow key moves things. The modifier keys run in order of nudge size along the
+ * keyboard's bottom row, smaller units to the left: Ctrl = one frame, Option = 0.1 s,
+ * (none) = 1 s, Cmd = 10 s.
+ */
+export function nudgeStep(
+  e: { ctrlKey: boolean; altKey: boolean; metaKey: boolean },
+  frameS: number,
+): number {
+  if (e.ctrlKey) return frameS;
+  if (e.altKey) return 0.1;
+  if (e.metaKey) return 10;
+  return 1;
+}
