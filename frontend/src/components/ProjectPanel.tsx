@@ -7,8 +7,8 @@ import { Select } from "./ui";
 
 /** Common sizes, for the quick picker. Any size can still be typed. */
 const SIZES: { w: number; h: number; name: string }[] = [
-  { w: 1280, h: 720, name: "HD 720" },
-  { w: 1920, h: 1080, name: "Full HD" },
+  { w: 1280, h: 720, name: "720p" },
+  { w: 1920, h: 1080, name: "1080p" },
   { w: 2560, h: 1440, name: "QHD" },
   { w: 3840, h: 2160, name: "4K UHD" },
   { w: 4096, h: 2160, name: "DCI 4K" },
