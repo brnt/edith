@@ -5,9 +5,9 @@ import { addCuts, addMix, removeCut, removeMix, removeSwitch, setRange } from ".
 import { effectiveTracks, formatTime, type Range } from "../lib/timeline";
 import type { EditorApi } from "../lib/useEditor";
 import { Button, Dropdown } from "./ui";
-import { GroupFrame, RibbonButton, RibbonCell, RibbonGroup } from "./RibbonGrid";
+import { GroupFrame, RibbonButton, RibbonCell, RibbonGroup, RibbonSet } from "./RibbonGrid";
 import { Icon } from "./Icon";
-import { Check, Clear, Close, Scissor, Search, Sound } from "./icons";
+import { Check, Close, Scissor, Search, Sound } from "./icons";
 import { SoundOff } from "./SoundOff";
 
 /** A free-flowing ribbon group (for controls that aren't unit-grid buttons): they wrap within `width`. */
@@ -117,57 +117,54 @@ export function EditTools({ ed }: { ed: EditorApi }) {
 
   return (
     <div class="flex h-full gap-3">
-      <RibbonGroup title={selection ? selectionText : "Selection"} columns={4}>
-        <RibbonButton
-          size={2}
-          icon={Scissor}
-          label="Cut"
-          text="Cut"
-          hotkey="x"
-          at={{ row: 1, col: 1 }}
-          disabled={!selection}
-          onClick={ed.cutSelection}
-        />
-        <RibbonButton
-          size={2}
-          icon={Check}
-          label="Keep only"
-          text="Keep"
-          at={{ row: 1, col: 3 }}
-          disabled={!selection}
-          onClick={() => {
-            if (!selection) return;
-            onEdit(setRange(edit, selection[0], selection[1]));
-            ed.setSelection(null);
-          }}
-        />
+      <RibbonGroup title={selection ? selectionText : "Selection"}>
+        <RibbonSet columns={4}>
+          <RibbonButton
+            size={2}
+            icon={Scissor}
+            label="Cut"
+            text="Cut"
+            hotkey="x"
+            disabled={!selection}
+            onClick={ed.cutSelection}
+          />
+          <RibbonButton
+            size={2}
+            icon={Check}
+            label="Keep only"
+            text="Keep"
+            disabled={!selection}
+            onClick={() => {
+              if (!selection) return;
+              onEdit(setRange(edit, selection[0], selection[1]));
+              ed.setSelection(null);
+            }}
+          />
+        </RibbonSet>
       </RibbonGroup>
 
-      <RibbonGroup title="Range" columns={5}>
-        <RibbonButton
-          size={2}
-          glyph="["
-          label="Range in"
-          text="In"
-          hotkey="i"
-          at={{ row: 1, col: 1 }}
-          onClick={() => onEdit(setRange(edit, ed.t, edit.range_out_s))}
-        />
-        <RibbonButton
-          size={2}
-          glyph="]"
-          label="Range out"
-          text="Out"
-          hotkey="o"
-          at={{ row: 1, col: 3 }}
-          onClick={() => onEdit(setRange(edit, edit.range_in_s, ed.t))}
-        />
-        <RibbonButton
-          icon={Clear}
-          label="Clear range"
-          at={{ row: 1, col: 5 }}
-          onClick={() => onEdit(setRange(edit, null, null))}
-        />
+      <RibbonGroup title="Range">
+        <RibbonSet columns={2}>
+          <RibbonButton
+            glyph="["
+            label="Range in"
+            hotkey="i"
+            onClick={() => onEdit(setRange(edit, ed.t, edit.range_out_s))}
+          />
+          <RibbonButton
+            glyph="]"
+            label="Range out"
+            hotkey="o"
+            onClick={() => onEdit(setRange(edit, edit.range_in_s, ed.t))}
+          />
+        </RibbonSet>
+        <RibbonSet columns={2}>
+          <RibbonButton
+            glyph="×"
+            label="Clear range"
+            onClick={() => onEdit(setRange(edit, null, null))}
+          />
+        </RibbonSet>
       </RibbonGroup>
 
       <Group title="Mix the selection" width="w-44">
@@ -243,46 +240,48 @@ export function EditTools({ ed }: { ed: EditorApi }) {
         )}
       </Group>
 
-      <RibbonGroup title="Edit list" columns={4}>
-        <RibbonCell at={{ row: 1, col: 1, cols: 4 }}>
-          <ItemsMenu
-            name="Switches"
-            empty="Starts on the earliest camera."
-            items={edit.switches.map((s, i) => ({
-              key: `${s.at_s}-${s.media_id}`,
-              text: `${formatTime(s.at_s, 1)} → ${channelName(s.media_id)}`,
-              title: s.media_id ? label(s.media_id) : undefined,
-              onSeek: () => ed.setT(s.at_s),
-              onRemove: () => onEdit(removeSwitch(edit, i)),
-            }))}
-          />
-        </RibbonCell>
-        <RibbonCell at={{ row: 2, col: 1, cols: 4 }}>
-          <ItemsMenu
-            name="Mix"
-            empty="No level changes."
-            items={edit.mix.map((r, i) => ({
-              key: `${r.media_id}-${r.start_s}-${r.end_s}`,
-              text: `${formatTime(r.start_s, 1)} – ${formatTime(r.end_s, 1)} ${label(r.media_id)} ${
-                r.muted ? "muted" : `${r.gain_db > 0 ? "+" : ""}${r.gain_db} dB`
-              }`,
-              onSeek: () => ed.setT(r.start_s),
-              onRemove: () => onEdit(removeMix(edit, i)),
-            }))}
-          />
-        </RibbonCell>
-        <RibbonCell at={{ row: 3, col: 1, cols: 4 }}>
-          <ItemsMenu
-            name="Cuts"
-            empty="Nothing cut."
-            items={edit.cuts.map((c, i) => ({
-              key: `${c.start_s}-${c.end_s}`,
-              text: `${formatTime(c.start_s, 1)} – ${formatTime(c.end_s, 1)} (${(c.end_s - c.start_s).toFixed(1)} s)`,
-              onSeek: () => ed.setT(c.start_s),
-              onRemove: () => onEdit(removeCut(edit, i)),
-            }))}
-          />
-        </RibbonCell>
+      <RibbonGroup title="Edit list">
+        <RibbonSet columns={4}>
+          <RibbonCell columns={4}>
+            <ItemsMenu
+              name="Switches"
+              empty="Starts on the earliest camera."
+              items={edit.switches.map((s, i) => ({
+                key: `${s.at_s}-${s.media_id}`,
+                text: `${formatTime(s.at_s, 1)} → ${channelName(s.media_id)}`,
+                title: s.media_id ? label(s.media_id) : undefined,
+                onSeek: () => ed.setT(s.at_s),
+                onRemove: () => onEdit(removeSwitch(edit, i)),
+              }))}
+            />
+          </RibbonCell>
+          <RibbonCell columns={4}>
+            <ItemsMenu
+              name="Mix"
+              empty="No level changes."
+              items={edit.mix.map((r, i) => ({
+                key: `${r.media_id}-${r.start_s}-${r.end_s}`,
+                text: `${formatTime(r.start_s, 1)} – ${formatTime(r.end_s, 1)} ${label(r.media_id)} ${
+                  r.muted ? "muted" : `${r.gain_db > 0 ? "+" : ""}${r.gain_db} dB`
+                }`,
+                onSeek: () => ed.setT(r.start_s),
+                onRemove: () => onEdit(removeMix(edit, i)),
+              }))}
+            />
+          </RibbonCell>
+          <RibbonCell columns={4}>
+            <ItemsMenu
+              name="Cuts"
+              empty="Nothing cut."
+              items={edit.cuts.map((c, i) => ({
+                key: `${c.start_s}-${c.end_s}`,
+                text: `${formatTime(c.start_s, 1)} – ${formatTime(c.end_s, 1)} (${(c.end_s - c.start_s).toFixed(1)} s)`,
+                onSeek: () => ed.setT(c.start_s),
+                onRemove: () => onEdit(removeCut(edit, i)),
+              }))}
+            />
+          </RibbonCell>
+        </RibbonSet>
       </RibbonGroup>
     </div>
   );
