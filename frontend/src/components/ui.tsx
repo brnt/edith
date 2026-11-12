@@ -26,10 +26,14 @@ export const neutralLink = (on: boolean) =>
     ? "bg-[#505050] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.14)] hover:bg-[#5c5c5c]"
     : "pointer-events-none bg-[#2c2c2c] text-[#686868] shadow-[inset_0_0_0_1px_#4a4a4a]";
 
+/** Any button that is off is grey, whatever it is when on: a blue or red one must not look live. */
+const DISABLED_GREY =
+  "disabled:bg-[#2c2c2c] disabled:text-[#686868] disabled:shadow-[inset_0_0_0_1px_#4a4a4a] disabled:hover:bg-[#2c2c2c]";
+
 const VARIANTS = {
   default: NEUTRAL_BUTTON,
-  primary: "bg-sky-600 hover:bg-sky-500 text-white",
-  danger: "bg-red-700 hover:bg-red-600 text-white",
+  primary: `bg-sky-600 hover:bg-sky-500 text-white ${DISABLED_GREY}`,
+  danger: `bg-red-700 hover:bg-red-600 text-white ${DISABLED_GREY}`,
   ghost: "bg-transparent hover:bg-neutral-800 text-neutral-300",
 };
 
@@ -45,7 +49,7 @@ export function Button({
     <button
       type="button"
       {...props}
-      class={`inline-flex items-center rounded disabled:cursor-not-allowed ${variant === "default" ? "" : "disabled:opacity-70"} ${size === "sm" ? "gap-1 px-2 py-0.5 text-[13px]" : "gap-1.5 px-3 py-1 text-sm"} ${VARIANTS[variant]} ${cls ?? ""}`}
+      class={`inline-flex items-center rounded disabled:cursor-not-allowed ${variant === "ghost" ? "disabled:opacity-70" : ""} ${size === "sm" ? "gap-1 px-2 py-0.5 text-[13px]" : "gap-1.5 px-3 py-1 text-sm"} ${VARIANTS[variant]} ${cls ?? ""}`}
     >
       {icon && <Icon icon={icon} />}
       {children}

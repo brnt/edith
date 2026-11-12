@@ -243,16 +243,9 @@ export function FolderBrowser({
       ? folderTarget.path
       : null;
   const usable = !!listing && (mode === "open" ? openPath !== null : true);
+  // Opening says nothing: the button (on or off) and the listed project files are enough.
   const hint =
-    mode === "open"
-      ? selectedFile
-        ? `Open “${selectedFile.name}”.`
-        : folderTarget.projects === 1
-          ? `Open the project in “${folderTarget.name}”.`
-          : folderTarget.projects > 1
-            ? `“${folderTarget.name}” has ${folderTarget.projects} projects: go inside and select one.`
-            : `There is no .edith project file in “${folderTarget.name}”: select the folder that contains one.`
-      : `The project will live in “${folderTarget.name}” (put the media there).`;
+    mode === "open" ? "" : `The project will live in “${folderTarget.name}” (put the media there).`;
 
   // What the primary button does (and Enter in the name field).
   const confirm = () => {
@@ -371,11 +364,7 @@ export function FolderBrowser({
                       class={`flex w-full items-center gap-1.5 rounded px-1.5 py-0.5 text-left ${mode === "choose" ? "cursor-default text-emerald-300/70" : on ? "bg-sky-900/70 text-white" : "text-emerald-300 hover:bg-neutral-800"}`}
                       aria-pressed={on}
                       aria-disabled={mode === "choose" || undefined}
-                      title={
-                        mode === "choose"
-                          ? "A project that is already in this folder"
-                          : "A project: select it, then Open"
-                      }
+                      title={f.path}
                       onClick={() => mode === "open" && setSelected(f)}
                     >
                       <Icon icon={File} />
@@ -389,7 +378,7 @@ export function FolderBrowser({
                   <div
                     class="flex items-center gap-1.5 rounded px-1.5 py-0.5 text-neutral-500"
                     aria-disabled="true"
-                    title={`A ${m.kind} file Edith can use: shown to help you recognise the folder`}
+                    title={`${listing.dir.replace(/\/+$/, "")}/${m.name}`}
                     data-testid="media-file"
                   >
                     <Icon
