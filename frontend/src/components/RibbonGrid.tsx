@@ -166,6 +166,10 @@ export function RibbonCell({
 /**
  * A slider on the grid: sunken like the number field, one unit tall, `columns` units wide, with its
  * readout (`display`) inside. `onInput` follows the drag; `onCommit` fires once on release.
+ *
+ * With an `action`, it is a slider+button combo: the button is joined to the slider's right end (one
+ * control, no gap, square corners and no border where the two meet), and `columns` counts both. Use it for a
+ * value with one companion action, such as a level and its mute.
  */
 export function RibbonSlider({
   label,
@@ -176,6 +180,7 @@ export function RibbonSlider({
   display,
   columns = 3,
   disabled,
+  action,
   onInput,
   onCommit,
 }: {
@@ -187,14 +192,21 @@ export function RibbonSlider({
   display: string;
   columns?: number;
   disabled?: boolean;
+  /** The joined button on the right: its icon, name (tooltip + aria-label) and what it does. */
+  action?: { icon: IconDefinition; label: string; disabled?: boolean; onClick: () => void };
   onInput: (value: number) => void;
   onCommit: (value: number) => void;
 }) {
-  return (
+  const field = (
     <label
       title={label}
-      class={`m-[2px] flex min-w-0 items-center gap-1.5 rounded-[5px] bg-[#1c1c1c] px-1.5 text-[12px] shadow-[inset_0_0_0_1px_#3a3a3a] ${disabled ? "text-neutral-600" : "text-neutral-300"}`}
-      style={{ gridColumn: `span ${columns}` }}
+      class={`flex min-w-0 flex-1 items-center gap-1.5 bg-[#1c1c1c] px-1.5 text-[12px] ${
+        action
+          ? // Framed in the button's own colours (its face, its top highlight, its disabled edge), so the
+            // two read as one object.
+            `rounded-l-[5px] ${disabled || action.disabled ? "shadow-[inset_1px_0_0_#4a4a4a,inset_0_1px_0_#4a4a4a,inset_0_-1px_0_#4a4a4a]" : "shadow-[inset_1px_0_0_#505050,inset_0_1px_0_#686868,inset_0_-1px_0_#505050]"}`
+          : "rounded-[5px] shadow-[inset_0_0_0_1px_#3a3a3a]"
+      } ${disabled ? "text-neutral-600" : "text-neutral-300"}`}
     >
       <input
         type="range"
@@ -212,6 +224,24 @@ export function RibbonSlider({
       {/* A fixed width (digits all the same width), so the track does not jump as the value changes. */}
       <span class="w-10 shrink-0 whitespace-nowrap text-right tabular-nums">{display}</span>
     </label>
+  );
+  return (
+    <div class="m-[2px] flex min-w-0" style={{ gridColumn: `span ${columns}` }}>
+      {field}
+      {action && (
+        <button
+          type="button"
+          title={action.label}
+          aria-label={action.label}
+          disabled={action.disabled}
+          class="flex shrink-0 items-center justify-center rounded-r-[5px] bg-[#505050] p-0 text-xl text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.14)] hover:bg-[#5c5c5c] disabled:cursor-not-allowed disabled:bg-[#2c2c2c] disabled:text-[#686868] disabled:shadow-[inset_0_1px_0_#4a4a4a,inset_0_-1px_0_#4a4a4a,inset_-1px_0_0_#4a4a4a] disabled:hover:bg-[#2c2c2c]"
+          style={{ width: SMALL }}
+          onClick={action.onClick}
+        >
+          <Icon icon={action.icon} />
+        </button>
+      )}
+    </div>
   );
 }
 

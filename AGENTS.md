@@ -202,8 +202,7 @@ from before the folder layout are converted once at startup from `LEGACY_LIBRARY
   filesystems).
 - **Icons only on buttons, never keyboard characters** (no `[`, `]`, `×` as text): a character reads as the
   key it names. Draw an icon (`components/icons.ts`) or compose one.
-- **The Selection panel holds Cut/Uncut and the selection's audio level** (track `Select`, `RibbonSlider`, Mute
-  toggle; `levelOver` reads what the stretch is set to). There is no Set button: the slider commits on release.
+- **The Selection panel holds Cut/Uncut and the selection's audio level** (track `Select`, then one `RibbonSlider` with an `action` — the slider+button combo, the Mute toggle joined to the slider's right end, square corners where they meet; `levelOver` reads what the stretch is set to). There is no Set button: the slider commits on release.
 - **Audio levels are pickable like cuts** (`Picked` kind `"mix"`, index = into `edit.mix`; band in `Timeline.tsx`):
   edge drags go through `setMixRegion` (paints over neighbours, like `addMix`), Delete is `removeMix`, and the
   Selection panel's slider (an absolute level starting at the track's gain; the region stores the change from it, `regionDb`/`trackBaseDb`)

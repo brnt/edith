@@ -180,15 +180,16 @@ export function EditTools({ ed }: { ed: EditorApi }) {
             max={MIX_MAX_DB}
             value={shownDb}
             display={dragDb === null && muted ? "muted" : dbText(shownDb)}
+            columns={4}
             disabled={!mixReady}
+            action={{
+              icon: muted ? SpeakerMuted : Speaker,
+              label: muted ? "Unmute" : "Mute",
+              disabled: !mixReady,
+              onClick: () => setLevel(trackDb, !muted),
+            }}
             onInput={setDragDb}
             onCommit={(db) => setLevel(db, false)}
-          />
-          <RibbonButton
-            icon={muted ? SpeakerMuted : Speaker}
-            label={muted ? "Unmute" : "Mute"}
-            disabled={!mixReady}
-            onClick={() => (muted ? setLevel(trackDb, false) : setLevel(trackDb, true))}
           />
         </RibbonSet>
       </RibbonGroup>
