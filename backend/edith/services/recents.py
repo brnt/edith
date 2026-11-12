@@ -2,7 +2,8 @@
 
 A project is a `.edith` file (in a folder with its media) anywhere on disk, so there is nothing
 to scan for: you create or open one, and it goes on this list by the file's absolute path. One
-whose file has gone (a drive unplugged) stays until you forget it, so it is back with the drive.
+whose file has gone (a drive unplugged) is not listed but stays here until you forget it, so it is
+back with the drive.
 """
 
 import json

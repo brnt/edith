@@ -173,17 +173,27 @@ export interface FileEntry {
   name: string;
   path: string;
 }
+export interface MediaFileEntry {
+  name: string;
+  kind: "video" | "audio" | "image";
+}
 export interface FolderListing {
   dir: string;
   parent: string | null;
   entries: FolderEntry[];
   /** The `.edith` project files in the listed folder. */
   files: FileEntry[];
+  /** Files of a type Edith can use (the first few hundred), to recognise the folder by. */
+  media: MediaFileEntry[];
+  /** How many more media files there are than `media` lists. */
+  media_more: number;
   is_project: boolean;
 }
 export interface Place {
   name: string;
   path: string;
+  /** What the picker's sidebar draws it as. */
+  kind: "home" | "folder" | "drive";
 }
 
 export type ExportFormat = "json" | "fcpxml" | "xmeml" | "edl";
@@ -277,6 +287,9 @@ export const fetchJob = (id: string) => request<Job>(`/jobs/${id}`);
 export const listFolders = (dir = "") =>
   request<FolderListing>(`/fs/folders?dir=${encodeURIComponent(dir)}`);
 export const fetchPlaces = () => request<Place[]>("/fs/places");
+/** Make a folder in `parent`; answers with the listing of `parent`, the new folder in it. */
+export const createFolder = (parent: string, name: string) =>
+  request<FolderListing>("/fs/folders", json("POST", { parent, name }));
 export const exportUrl = (slug: string, format: ExportFormat) =>
   `${BASE_URL}${p(slug)}/export/${format}`;
 

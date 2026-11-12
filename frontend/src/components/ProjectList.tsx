@@ -5,7 +5,7 @@ import { FolderBrowser } from "./FolderBrowser";
 import { FolderPath } from "./FolderPath";
 import { Icon } from "./Icon";
 import { Badge, Button } from "./ui";
-import { Close, Folder, Plus, Warning } from "./icons";
+import { Close, Folder, Plus } from "./icons";
 
 const basename = (path: string) => path.replace(/\/+$/, "").split("/").pop() ?? path;
 
@@ -23,17 +23,21 @@ function when(iso: string | null): string {
 export function ProjectList() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [dialog, setDialog] = useState<"new" | "open" | null>(null);
-  const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const fail = (e: unknown) => setError(e instanceof Error ? e.message : String(e));
-  const load = () => fetchProjects().then(setProjects).catch(fail);
+  // One whose file can't be found now (a drive unplugged) is simply not shown.
+  const load = () =>
+    fetchProjects()
+      .then((all) => setProjects(all.filter((p) => p.available)))
+      .catch(fail);
   useEffect(() => {
     void load();
   }, []);
 
-  const create = (folder: string) =>
-    createProject(name.trim() || basename(folder), folder).then(goTo, (e: unknown) => {
+  // Named as typed, else after its folder (several projects can share one folder).
+  const create = (folder: string, name: string) =>
+    createProject(name || basename(folder) || "Project", folder).then(goTo, (e: unknown) => {
       setDialog(null);
       fail(e);
     });
@@ -77,16 +81,12 @@ export function ProjectList() {
         {projects.map((project) => (
           <li
             key={project.slug}
-            class={`flex items-center gap-3 rounded border border-neutral-800 bg-neutral-900 p-2 ${project.available ? "" : "opacity-70"}`}
+            class="flex items-center gap-3 rounded border border-neutral-800 bg-neutral-900 p-2"
           >
             <div class="min-w-0 flex-1">
-              {project.available ? (
-                <a class="text-sky-300" href={`#/p/${project.slug}`}>
-                  {project.name}
-                </a>
-              ) : (
-                <span class="text-neutral-300">{project.name}</span>
-              )}
+              <a class="text-sky-300" href={`#/p/${project.slug}`}>
+                {project.name}
+              </a>
               {project.needs_upgrade && (
                 <span class="ml-2">
                   <Badge tone="warn">older format</Badge>
@@ -98,21 +98,17 @@ export function ProjectList() {
                   {project.file.split("/").pop()}
                 </div>
               )}
-              {!project.available && (
-                <div class="mt-0.5 flex items-center gap-1 text-xs text-amber-300">
-                  <Icon icon={Warning} />
-                  Can&apos;t find this folder right now (a drive unplugged, or it was moved).
-                </div>
-              )}
             </div>
             <span class="shrink-0 text-xs text-neutral-500">{when(project.last_opened)}</span>
+            {/* Says what it does, in words: it only takes the entry off this list. */}
             <button
-              class="shrink-0 text-neutral-500 hover:text-red-400"
-              aria-label={`Forget ${project.name}`}
-              title="Take it off this list (nothing on disk is touched)"
+              class="inline-flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-xs text-neutral-500 hover:bg-neutral-800 hover:text-neutral-200"
+              aria-label={`Remove ${project.name} from the list`}
+              title="Take it off this list. The project and its media stay on disk."
               onClick={() => forget(project)}
             >
               <Icon icon={Close} />
+              Remove from list
             </button>
           </li>
         ))}
@@ -124,18 +120,6 @@ export function ProjectList() {
           confirmLabel="Create project here"
           onChoose={create}
           onClose={() => setDialog(null)}
-          header={
-            <label class="mt-2 flex items-center gap-2 text-sm text-neutral-300">
-              Name
-              <input
-                class="flex-1 rounded border border-neutral-700 bg-neutral-950 px-2 py-1"
-                aria-label="Project name"
-                placeholder="(the folder's name)"
-                value={name}
-                onInput={(e) => setName(e.currentTarget.value)}
-              />
-            </label>
-          }
         />
       )}
       {dialog === "open" && (

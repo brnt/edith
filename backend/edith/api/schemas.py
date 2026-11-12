@@ -70,6 +70,13 @@ class FileEntryRead(BaseModel):
     path: str
 
 
+class MediaFileRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    name: str
+    kind: str
+
+
 class FolderListingRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -77,6 +84,8 @@ class FolderListingRead(BaseModel):
     parent: str | None
     entries: list[FolderEntryRead]
     files: list[FileEntryRead]
+    media: list[MediaFileRead]
+    media_more: int
     is_project: bool
 
 
@@ -85,6 +94,12 @@ class PlaceRead(BaseModel):
 
     name: str
     path: str
+    kind: str  # home | drive
+
+
+class FolderCreate(BaseModel):
+    parent: str
+    name: str
 
 
 class JobRead(BaseModel):
