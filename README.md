@@ -68,11 +68,11 @@ comes next.
      by the colour of the number chip (blue cameras, teal stills).
    - **The speaker (cameras):** whether the camera's own audio is used, independent of the
      checkbox (off until you turn it on, shown as a crossed-out speaker).
-   - **Details (i):** codec, resolution, frame rate (flagged when variable or different from the
+   - **Details (i):** codec, resolution (flagged when it is smaller than the project's output, since it would be scaled up and look soft), frame rate (flagged when variable or different from the
      project's), colour depth, bit rate, audio format, size (the
      file itself is never touched).
    - **Folders:** the cards are grouped by folder, and a folder's header can be folded away,
-     **Include all** its new files, or **Hide all / Show all** its files at once. A **Show**
+     **Include all** its new files, or **Exclude all / Show all** its files at once. A **Show**
      filter narrows the cards to cameras, audio, stills, new files, or files the sync hasn't
      placed.
    - **Heads-up marks:** an amber warning button on a card (click it for the details) means a frame rate that differs from the

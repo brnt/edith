@@ -16,7 +16,13 @@ import {
   type SyncState,
 } from "../lib/api";
 import { waitForJob } from "../lib/jobs";
-import { detailSections, formatNotes, matchesFilter, type MediaFilter } from "../lib/mediaInfo";
+import {
+  detailSections,
+  formatNotes,
+  matchesFilter,
+  type MediaFilter,
+  type ProjectFormat,
+} from "../lib/mediaInfo";
 import {
   channelsOf,
   defaultCamera,
@@ -108,7 +114,9 @@ export function MediaPanel(props: Props) {
     () => groupMedia(available.filter((m) => matchesFilter(m, filter, sync))),
     [available, filter, sync],
   );
-  const projectFps = edit.fps_den ? { fps: edit.fps_num / edit.fps_den } : null;
+  const projectFps = edit.fps_den
+    ? { fps: edit.fps_num / edit.fps_den, width: edit.width, height: edit.height }
+    : null;
   // How many segments of the edit show each camera or still.
   const usage = useMemo(() => {
     const offsets = mediaOffsets(media, sync);
@@ -353,9 +361,11 @@ function FolderGroup({
             type="button"
             class="text-neutral-500 hover:text-neutral-200"
             onClick={() => onShowAll(!allShown)}
-            title={allShown ? "Hide all of this folder's files" : "Show all of this folder's files"}
+            title={
+              allShown ? "Exclude all of this folder's files" : "Show all of this folder's files"
+            }
           >
-            {allShown ? "Hide all" : "Show all"}
+            {allShown ? "Exclude all" : "Show all"}
           </button>
         )}
       </div>
@@ -398,7 +408,7 @@ function MediaCard({
   number: number | null;
   syncResult: SyncResult | null;
   peaks: Peaks | null;
-  projectFps: { fps: number } | null;
+  projectFps: ProjectFormat | null;
   suggestion: MediaItem | null;
   /** With a path: use that file; without: choose one. */
   onRelink: (path?: string) => void;
@@ -629,7 +639,7 @@ function DetailsPopover({
   slug: string;
   item: MediaItem;
   rect: DOMRect;
-  projectFps: { fps: number } | null;
+  projectFps: ProjectFormat | null;
   usedIn: number;
   onUseAsSound: () => void;
   syncResult: SyncResult | null;
