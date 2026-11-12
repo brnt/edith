@@ -89,6 +89,21 @@ export function Badge({
 }
 
 /**
+ * The visible size of a small button (and the height of a drop-down): 29 px. A ribbon unit is 33 px,
+ * so the face sits centred in it, the unit's other 4 px being its implicit padding.
+ */
+export const SMALL = "1.8125rem";
+
+/**
+ * The face every drop-down shares (the menu button and the native select): as tall as a small
+ * button, raised neutral, 5px corners, 13px text, label left and caret right.
+ */
+const DROP_FACE = `h-[1.8125rem] rounded-[5px] pl-2 text-[13px] ${NEUTRAL_BUTTON}`;
+
+/** In the ribbon's grid a drop-down fills its cell but, like a small button, keeps the unit's padding. */
+const CELL = "flex h-full w-full items-center px-[2px]";
+
+/**
  * A native drop-down styled like `Dropdown`: raised neutral, label left, caret right. `block` fills
  * the cell it sits in (the ribbon's grid). Use it for every select in a panel.
  */
@@ -102,16 +117,16 @@ export function Select({
   "class"
 >) {
   return (
-    <span class={`relative inline-flex ${block ? "h-full w-full" : ""}`}>
+    <span class={`relative ${block ? CELL : "inline-flex"}`}>
       <select
         {...props}
-        class={`w-full cursor-pointer appearance-none truncate rounded-[5px] pl-2 pr-6 text-[13px] ${block ? "h-full py-0" : "py-1"} ${NEUTRAL_BUTTON} [&>option]:bg-neutral-900 ${cls ?? ""}`}
+        class={`w-full cursor-pointer appearance-none truncate py-0 pr-6 ${DROP_FACE} [&>option]:bg-neutral-900 ${cls ?? ""}`}
       >
         {children}
       </select>
       <Icon
         icon={Down}
-        class="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-xs"
+        class={`pointer-events-none absolute top-1/2 -translate-y-1/2 text-xs ${block ? "right-[10px]" : "right-2"}`}
       />
     </span>
   );
@@ -153,15 +168,16 @@ export function Dropdown({
   };
 
   return (
-    <div ref={box} class={`relative ${block ? "h-full w-full" : ""}`}>
-      <Button
+    <div ref={box} class={`relative ${block ? CELL : "inline-block"}`}>
+      <button
+        type="button"
         onClick={toggle}
         aria-expanded={open}
-        class={block ? "h-full w-full justify-between px-2 py-0 text-[13px]" : undefined}
+        class={`flex cursor-pointer items-center justify-between gap-1.5 py-0 pr-2 disabled:cursor-not-allowed ${DROP_FACE} ${block ? "w-full" : ""}`}
       >
         <span class="truncate">{label}</span>
-        <Icon icon={Down} class="text-xs" />
-      </Button>
+        <Icon icon={Down} class="shrink-0 text-xs" />
+      </button>
       {open && (
         <div
           class="fixed z-50 max-h-72 w-72 overflow-y-auto rounded border border-neutral-600 bg-neutral-900 p-2 text-sm shadow-xl"

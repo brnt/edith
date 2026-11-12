@@ -92,11 +92,11 @@ comes next.
      drive unplugged) is marked on its card and stays in the project.
 3. **Sync.** Every device should have recorded a registration sound once shortly after it started
    and once shortly before it stopped. Tell Edith what it sounds like, then **Find the sound in
-   every file**. Three ways:
+   every file** (the magnifier). Three ways:
    - **Marked in a recording:** pick any recording that contains it and drag across the sound on
      the waveform (a quiet beep shows as a small bump). Works for any sound, including ones Edith
      didn't generate.
-   - **Generated from text:** type the seed string (e.g. `stickshift`); **Download .wav** gives
+   - **Generated from text:** type the seed string (e.g. `stickshift`); **Download .wav** (the download icon) gives
      you the sound to play on set. Edith searches every file for that same sound.
    - **An audio file:** choose an audio file from the project folder (silence around the sound is
      trimmed). It is searched for, not added to the project.
@@ -169,7 +169,7 @@ comes next.
      to remove it.
    - **Save** (⌘/Ctrl+S) writes the edit into the project file. Undo/redo with ⌘/Ctrl+Z.
 5. **Export.** FCPXML (DaVinci Resolve, Final Cut), Premiere XML, EDL (video only), the Edith
-   JSON, or **Render MP4 (1080p)**. Exports and renders use the _saved_ edit.
+   JSON (four buttons on the Export tab), or **Render MP4 (1080p)**. Exports and renders use the _saved_ edit.
 
 Keys: `space` play · `1`–`9` camera or still · `x` cut selection · `←`/`→` step the playhead, or a selected handle: 1 s, with **Cmd** 10 s, **Option** 0.1 s, **Ctrl** one frame (the modifiers run in order of size along the keyboard's bottom row, smaller to the left).
 

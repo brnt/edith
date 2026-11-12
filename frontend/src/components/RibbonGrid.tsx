@@ -2,7 +2,7 @@ import type { ComponentChildren } from "preact";
 import type { IconDefinition } from "@ant-design/icons-svg/es/types";
 
 import { Icon } from "./Icon";
-import { NEUTRAL_BUTTON } from "./ui";
+import { NEUTRAL_BUTTON, neutralLink, SMALL } from "./ui";
 
 /**
  * The ribbon's layout grid. One unit is a 33px square with 3px between cells. A panel (`RibbonGroup`)
@@ -15,8 +15,6 @@ import { NEUTRAL_BUTTON } from "./ui";
  */
 export const RIBBON_ROWS = 4;
 const UNIT = "2.0625rem";
-/** A small button's face. A unit includes implicit padding: the 1×1 cell is 33px, the face 29px. */
-const SMALL = "1.8125rem";
 
 /** The frame every ribbon group shares: a rule on its right edge and its name underneath. */
 export function GroupFrame({
@@ -83,6 +81,8 @@ export function RibbonButton({
   size = 1,
   disabled,
   onClick,
+  href,
+  download,
 }: {
   label: string;
   hotkey?: string;
@@ -93,23 +93,43 @@ export function RibbonButton({
   custom?: ComponentChildren;
   size?: 1 | 2;
   disabled?: boolean;
-  onClick: () => void;
+  onClick?: () => void;
+  /** A download link instead of an action: the same face, off (and without a link) when disabled. */
+  href?: string;
+  download?: boolean | string;
 }) {
   const name = hotkey ? `${label} (${hotkey})` : label;
   const big = size === 2;
   const span = big ? 2 : 1;
+  const face = `flex flex-col items-center justify-center rounded-[5px] p-0 ${big ? "gap-1 text-[1.75rem]" : "text-xl"}`;
+  const place = big
+    ? { gridArea: `span ${span} / span ${span}` }
+    : { width: SMALL, height: SMALL, placeSelf: "center" };
+  if (href !== undefined) {
+    return (
+      <a
+        href={disabled ? undefined : href}
+        download={download}
+        title={name}
+        aria-label={name}
+        aria-disabled={disabled || undefined}
+        style={place}
+        class={`${face} ${neutralLink(!disabled)}`}
+      >
+        {icon && <Icon icon={icon} />}
+        {custom}
+        {big && text && <span class="text-[11px] leading-none">{text}</span>}
+      </a>
+    );
+  }
   return (
     <button
       type="button"
       title={name}
       aria-label={name}
       disabled={disabled}
-      style={
-        big
-          ? { gridArea: `span ${span} / span ${span}` }
-          : { width: SMALL, height: SMALL, placeSelf: "center" }
-      }
-      class={`flex flex-col items-center justify-center rounded-[5px] p-0 disabled:cursor-not-allowed ${NEUTRAL_BUTTON} ${big ? "gap-1 text-[1.75rem]" : "text-xl"}`}
+      style={place}
+      class={`${face} disabled:cursor-not-allowed ${NEUTRAL_BUTTON}`}
       onClick={onClick}
     >
       {icon && <Icon icon={icon} />}

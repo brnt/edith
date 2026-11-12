@@ -13,9 +13,9 @@ import {
 import { waitForJob } from "../lib/jobs";
 import { formatTime } from "../lib/timeline";
 import { MAX_CANVAS_PX, Waveform } from "./Waveform";
-import { Badge, Button, neutralLink, Progress, Select } from "./ui";
-import { Icon } from "./Icon";
-import { CheckCircle, CloseCircle, Download, Search, Warning, ZoomIn, ZoomOut } from "./icons";
+import { Badge, Progress, Select } from "./ui";
+import { RibbonButton, RibbonSet } from "./RibbonGrid";
+import { Aim, CheckCircle, CloseCircle, Download, Warning, ZoomIn, ZoomOut } from "./icons";
 
 interface Props {
   slug: string;
@@ -164,12 +164,18 @@ export function SyncPanel(props: Props) {
                   </option>
                 ))}
               </Select>
-              <Button icon={ZoomIn} onClick={() => setPxPerSec((v) => Math.min(v * 2, 2000))}>
-                Zoom in
-              </Button>
-              <Button icon={ZoomOut} onClick={() => setPxPerSec((v) => Math.max(v / 2, 2))}>
-                Zoom out
-              </Button>
+              <RibbonSet columns={2}>
+                <RibbonButton
+                  icon={ZoomIn}
+                  label="Zoom in"
+                  onClick={() => setPxPerSec((v) => Math.min(v * 2, 2000))}
+                />
+                <RibbonButton
+                  icon={ZoomOut}
+                  label="Zoom out"
+                  onClick={() => setPxPerSec((v) => Math.max(v / 2, 2))}
+                />
+              </RibbonSet>
             </>
           )}
 
@@ -183,17 +189,15 @@ export function SyncPanel(props: Props) {
                 value={seed}
                 onInput={(e) => setSeed(e.currentTarget.value)}
               />
-              <a
-                class={`inline-flex items-center gap-1.5 rounded px-3 py-1 ${neutralLink(
-                  seed.trim() !== "",
-                )}`}
-                href={seed.trim() ? registrationSoundUrl(seed.trim()) : undefined}
-                download="registration.wav"
-                title="Download the sound to play on set"
-              >
-                <Icon icon={Download} />
-                Download .wav
-              </a>
+              <RibbonSet columns={1}>
+                <RibbonButton
+                  icon={Download}
+                  label="Download the sound to play on set (.wav)"
+                  href={seed.trim() ? registrationSoundUrl(seed.trim()) : ""}
+                  download="registration.wav"
+                  disabled={seed.trim() === ""}
+                />
+              </RibbonSet>
             </>
           )}
 
@@ -219,9 +223,14 @@ export function SyncPanel(props: Props) {
         </div>
 
         <div class="flex flex-wrap items-center gap-2 text-sm">
-          <Button icon={Search} disabled={template() === null || progress !== null} onClick={run}>
-            Find the sound in every file
-          </Button>
+          <RibbonSet columns={1}>
+            <RibbonButton
+              icon={Aim}
+              label="Find the sound in every file"
+              disabled={template() === null || progress !== null}
+              onClick={run}
+            />
+          </RibbonSet>
           {progress && <Progress value={progress.value} label={progress.label} />}
           {mode === "excerpt" && (
             <span class="text-xs text-neutral-400">

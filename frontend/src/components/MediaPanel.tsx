@@ -214,7 +214,6 @@ export function MediaPanel(props: Props) {
         {available.length > 0 && (
           <Select
             aria-label="Show"
-
             value={filter}
             onChange={(e) => setFilter(e.currentTarget.value as MediaFilter)}
           >
