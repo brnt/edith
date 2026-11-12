@@ -4,7 +4,6 @@ import type { IconDefinition } from "@ant-design/icons-svg/es/types";
 // Add new ones here so every import of the icon set lives in one place.
 export { default as ArrowLeft } from "@ant-design/icons-svg/es/asn/ArrowLeftOutlined";
 export { default as ArrowUp } from "@ant-design/icons-svg/es/asn/ArrowUpOutlined";
-export { default as AudioMuted } from "@ant-design/icons-svg/es/asn/AudioMutedOutlined";
 export { default as CaretDown } from "@ant-design/icons-svg/es/asn/CaretDownOutlined";
 export { default as Ellipsis } from "@ant-design/icons-svg/es/asn/EllipsisOutlined";
 export { default as CaretRight } from "@ant-design/icons-svg/es/asn/CaretRightOutlined";
@@ -18,7 +17,6 @@ export { default as Down } from "@ant-design/icons-svg/es/asn/DownOutlined";
 export { default as Download } from "@ant-design/icons-svg/es/asn/DownloadOutlined";
 export { default as Export } from "@ant-design/icons-svg/es/asn/ExportOutlined";
 export { default as ExclamationCircle } from "@ant-design/icons-svg/es/asn/ExclamationCircleOutlined";
-export { default as Stop } from "@ant-design/icons-svg/es/asn/StopOutlined";
 export { default as Eye } from "@ant-design/icons-svg/es/asn/EyeOutlined";
 export { default as EyeInvisible } from "@ant-design/icons-svg/es/asn/EyeInvisibleOutlined";
 export { default as File } from "@ant-design/icons-svg/es/asn/FileOutlined";

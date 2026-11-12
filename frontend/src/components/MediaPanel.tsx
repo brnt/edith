@@ -43,12 +43,13 @@ import {
   Loading,
   Picture,
   Sound,
+  Speaker,
+  SpeakerMuted,
   Sync,
   Thunderbolt,
   VideoCamera,
   Warning,
 } from "./icons";
-import { SoundOff } from "./SoundOff";
 
 interface Props {
   slug: string;
@@ -520,7 +521,7 @@ function MediaCard({
                   onEdit(setAudioIncluded(edit, media, m.id, e.currentTarget.checked))
                 }
               />
-              {trackIncluded(edit, media, m.id) ? <Icon icon={Sound} /> : <SoundOff />}
+              <Icon icon={trackIncluded(edit, media, m.id) ? Speaker : SpeakerMuted} />
             </label>
           )}
           {syncable && (

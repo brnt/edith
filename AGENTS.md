@@ -123,7 +123,7 @@ Root `justfile` delegates to both; Compose runs `api` (:8000) and `web` (:8080).
   step with it (`CARD` in `MediaPanel.tsx`).
 - **Icons carry no line height** (`Icon` is `leading-none`; icon chips are fixed `h-5 w-5` squares)
   so they never drag a line's worth of space under them. Ant has no "speaker with a crossed circle",
-  so `SoundOff` composes `Sound` + `Stop` (the Media tab's). The ribbon's Mute button is a two-mode filled-speaker glyph (`Speaker` / `SpeakerMuted` in `icons.ts`, speaker in the same place in both). Status uses icons, not text pills (`SyncStatus`); keep the
+  so the one mute icon is a two-mode filled-speaker glyph (`Speaker` / `SpeakerMuted` in `icons.ts`, speaker in the same place in both) used by the ribbon's Mute button and the Media tab's audio on/off toggle. Status uses icons, not text pills (`SyncStatus`); keep the
   words as `sr-only` text. Stills are described by their real image format, not ffprobe's container
   (an AVIF's container reads "QuickTime"), and a wrong extension is flagged.
 - **Proxies are automatic** (`services/autoproxy.py`): `GET /media` (polled) starts one background builder
