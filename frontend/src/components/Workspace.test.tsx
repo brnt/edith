@@ -542,7 +542,10 @@ describe("choosing the registration sound", () => {
 test("mixing a stretch of one track: select it, set a level, see it on the track, and save it", async () => {
   render(<Workspace slug="show" />);
   const timeline = await screen.findByTestId("timeline");
-  expect(screen.getByRole("button", { name: "Set level" })).toBeDisabled(); // nothing selected yet
+  // Nothing selected yet: the track, the slider and Mute are all off.
+  expect(screen.getByRole("combobox", { name: "Mix track" })).toBeDisabled();
+  expect(screen.getByRole("slider", { name: /Level over the selection/ })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Mute" })).toBeDisabled();
 
   // Drag across the timeline: in jsdom the lanes start at x=0 and run at 20 px per second.
   const lanes = timeline.querySelector(".cursor-crosshair") as HTMLElement;
@@ -550,9 +553,12 @@ test("mixing a stretch of one track: select it, set a level, see it on the track
   fireEvent.pointerMove(lanes, { clientX: 400, pointerId: 1 });
   fireEvent.pointerUp(lanes, { clientX: 400, pointerId: 1 });
 
-  fireEvent.change(screen.getByLabelText("Level change (dB)"), { target: { value: "-8" } });
-  fireEvent.click(screen.getByRole("button", { name: "Set level" }));
+  expect(screen.getByRole("combobox", { name: "Mix track" })).toBeEnabled();
+  const slider = screen.getByRole("slider", { name: /Level over the selection/ });
+  expect(slider).toHaveValue("0"); // nothing is set over this stretch yet
+  fireEvent.change(slider, { target: { value: "-8" } }); // letting go of the slider sets the level
   expect(within(timeline).getByText("-8 dB")).toBeInTheDocument(); // drawn on the mic's row
+  expect(slider).toHaveValue("-8"); // and the slider reads what the stretch is set to
 
   fireEvent.click(screen.getByRole("button", { name: /Mix \(1\)/ }));
   expect(screen.getByText(/0:10\.0 – 0:20\.0 mic\.wav -8 dB/)).toBeInTheDocument();
@@ -573,6 +579,10 @@ test("muting a stretch shows it as muted on the track", async () => {
   fireEvent.pointerUp(lanes, { clientX: 160, pointerId: 1 });
   fireEvent.click(screen.getByRole("button", { name: "Mute" }));
   expect(within(timeline).getByText("muted")).toBeInTheDocument();
+  // The same button now unmutes: back to the track's own level over the stretch.
+  fireEvent.click(screen.getByRole("button", { name: "Unmute" }));
+  expect(within(timeline).queryByText("muted")).toBeNull();
+  expect(screen.getByRole("button", { name: "Mute" })).toBeInTheDocument();
 });
 
 describe("where the playhead starts", () => {

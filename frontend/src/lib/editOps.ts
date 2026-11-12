@@ -205,6 +205,14 @@ export function uncut(edit: EditList, start: number, end: number): EditList {
   return { ...edit, cuts };
 }
 
+/** The mix region on a track that covers the whole selection (the last one wins), if any. */
+export function levelOver(edit: EditList, media_id: string, sel: Range): MixRegion | null {
+  const covering = edit.mix.filter(
+    (r) => r.media_id === media_id && r.start_s <= sel[0] + EPS && r.end_s >= sel[1] - EPS,
+  );
+  return covering[covering.length - 1] ?? null;
+}
+
 /** Is the whole selection already inside cuts (so cutting it would change nothing)? */
 export function insideCuts(edit: EditList, sel: Range): boolean {
   return mergeRanges(cutRanges(edit.cuts)).some(([a, b]) => a <= sel[0] + EPS && b >= sel[1] - EPS);

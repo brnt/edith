@@ -89,7 +89,7 @@ export function RibbonButton({
   /** The one word shown on a 2×2 button. */
   text?: string;
   icon?: IconDefinition;
-  /** Any other drawn icon (a composed one such as SoundOff). */
+  /** Any other drawn icon (a composed one). */
   custom?: ComponentChildren;
   size?: 1 | 2;
   disabled?: boolean;
@@ -131,6 +131,56 @@ export function RibbonCell({
     <div class="min-w-0" style={{ gridColumn: `span ${columns}` }}>
       {children}
     </div>
+  );
+}
+
+/**
+ * A slider on the grid: sunken like the number field, one unit tall, `columns` units wide, with its
+ * readout (`display`) inside. `onInput` follows the drag; `onCommit` fires once on release.
+ */
+export function RibbonSlider({
+  label,
+  value,
+  min,
+  max,
+  step = 1,
+  display,
+  columns = 3,
+  disabled,
+  onInput,
+  onCommit,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step?: number;
+  display: string;
+  columns?: number;
+  disabled?: boolean;
+  onInput: (value: number) => void;
+  onCommit: (value: number) => void;
+}) {
+  return (
+    <label
+      title={label}
+      class={`flex min-w-0 items-center gap-1.5 rounded-[5px] bg-[#1c1c1c] px-1.5 text-[12px] shadow-[inset_0_0_0_1px_#3a3a3a] ${disabled ? "text-neutral-600" : "text-neutral-300"}`}
+      style={{ gridColumn: `span ${columns}` }}
+    >
+      <input
+        type="range"
+        aria-label={label}
+        class="ribbon-slider min-w-0 flex-1 disabled:cursor-not-allowed"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        disabled={disabled}
+        onInput={(e) => onInput(Number(e.currentTarget.value))}
+        onChange={(e) => onCommit(Number(e.currentTarget.value))}
+      />
+      <span class="w-9 shrink-0 text-right">{display}</span>
+    </label>
   );
 }
 
