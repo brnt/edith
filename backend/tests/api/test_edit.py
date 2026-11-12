@@ -49,6 +49,7 @@ def test_edit_defaults_then_saves_and_round_trips(client: TestClient, project, i
         {"switches": [{"at_s": 1, "media_id": "nope"}]},
         {"cuts": [{"start_s": 5, "end_s": 5}]},
         {"fps_num": 0},
+        {"encoding": "divx"},
     ],
 )
 def test_invalid_edits_are_rejected(client: TestClient, project, ids, patch):

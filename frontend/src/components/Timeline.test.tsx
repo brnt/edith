@@ -65,6 +65,7 @@ const edit: EditList = {
   tracks: [],
   mix: [],
   disabled: [],
+  encoding: "h264",
   fps_num: 30000,
   fps_den: 1001,
   width: 1920,

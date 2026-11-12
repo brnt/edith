@@ -10,12 +10,18 @@ export function RenderPanel({
   slug,
   disabled,
   title,
+  height,
+  container,
   onError,
 }: {
   slug: string;
   disabled: boolean;
   /** The panel's caption (the output length, or a reminder to save first). */
   title: string;
+  /** The output's height in pixels, for the button's name ("Render MP4 (1080p)"). */
+  height: number;
+  /** The file type being made ("MP4" or "MOV"), for the button's name. */
+  container: string;
   onError: (message: string) => void;
 }) {
   const [files, setFiles] = useState<RenderFile[]>([]);
@@ -45,7 +51,7 @@ export function RenderPanel({
         <RibbonButton
           size={2}
           icon={PlayCircle}
-          label="Render MP4 (1080p)"
+          label={`Render ${container} (${height}p)`}
           text="Render"
           disabled={disabled || job !== null}
           onClick={render}

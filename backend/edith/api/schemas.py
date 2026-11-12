@@ -180,6 +180,7 @@ class PlanRead(BaseModel):
     width: int
     height: int
     warnings: list[str]
+    encoding: str = "h264"
 
 
 class CutRange(BaseModel):

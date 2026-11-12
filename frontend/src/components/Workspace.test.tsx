@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/preact";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/preact";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import type { EditList } from "../lib/api";
@@ -92,6 +92,7 @@ const baseEdit = {
   tracks: [],
   mix: [],
   disabled: [],
+  encoding: "h264",
   fps_num: 30000,
   fps_den: 1001,
   width: 1920,
@@ -1394,4 +1395,86 @@ test("no icon is used twice among the ribbon's tabs and buttons", async () => {
   const twice = names.filter((n, i) => names.indexOf(n) !== i);
   expect(twice).toEqual([]);
   expect(names.length).toBeGreaterThan(12); // it did look at the buttons
+});
+
+describe("the Project panel", () => {
+  const openExport = async () => {
+    render(<Workspace slug="show" />);
+    const ribbon = await screen.findByTestId("ribbon");
+    await screen.findByTestId("timeline");
+    fireEvent.click(within(ribbon).getByRole("tab", { name: /Export/ }));
+    return ribbon;
+  };
+
+  test("shows the project's size, frame rate and output format on the Export tab", async () => {
+    const ribbon = await openExport();
+    expect(within(ribbon).getByRole("spinbutton", { name: "Width (px)" })).toHaveValue(1920);
+    expect(within(ribbon).getByRole("spinbutton", { name: "Height (px)" })).toHaveValue(1080);
+    expect(within(ribbon).getByRole("combobox", { name: "Common sizes" })).toHaveValue("1920x1080");
+    expect(within(ribbon).getByRole("combobox", { name: "Frame rate" })).toHaveValue("30000/1001");
+    expect(within(ribbon).getByRole("combobox", { name: "Output format" })).toHaveValue("h264");
+  });
+
+  test("any size can be typed (kept even), and the picker then says Custom", async () => {
+    const ribbon = await openExport();
+    fireEvent.change(within(ribbon).getByRole("spinbutton", { name: "Width (px)" }), {
+      target: { value: "1601" },
+    });
+    fireEvent.change(within(ribbon).getByRole("spinbutton", { name: "Height (px)" }), {
+      target: { value: "900" },
+    });
+    expect(within(ribbon).getByRole("combobox", { name: "Common sizes" })).toHaveValue("custom");
+    expect(within(ribbon).getByRole("button", { name: "Render MP4 (900p)" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(puts).toHaveLength(1));
+    expect(puts[0]).toMatchObject({ width: 1602, height: 900 });
+  });
+
+  test("the picker sets both sides; the frame rate and output format are saved with the edit", async () => {
+    const ribbon = await openExport();
+    fireEvent.change(within(ribbon).getByRole("combobox", { name: "Common sizes" }), {
+      target: { value: "3840x2160" },
+    });
+    fireEvent.change(within(ribbon).getByRole("combobox", { name: "Frame rate" }), {
+      target: { value: "25/1" },
+    });
+    fireEvent.change(within(ribbon).getByRole("combobox", { name: "Output format" }), {
+      target: { value: "prores" },
+    });
+    expect(within(ribbon).getByRole("button", { name: "Render MOV (2160p)" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(puts).toHaveLength(1));
+    expect(puts[0]).toMatchObject({
+      width: 3840,
+      height: 2160,
+      fps_num: 25,
+      fps_den: 1,
+      encoding: "prores",
+    });
+  });
+
+  test("warns about a too-small file only when the export uses it", async () => {
+    // car.png is 100×50: far smaller than 1920×1080.
+    let ribbon = await openExport();
+    expect(within(ribbon).queryByTestId("scaled-up-warning")).toBeNull(); // nothing shows it
+    cleanup();
+    savedEdit = { ...baseEdit, switches: [{ at_s: 10, media_id: "car" }] };
+    ribbon = await openExport();
+    expect(within(ribbon).getByTestId("scaled-up-warning")).toHaveAttribute(
+      "title",
+      expect.stringContaining("car.png"),
+    );
+    cleanup();
+    // ...but not when the part that shows it is cut out.
+    savedEdit = {
+      ...baseEdit,
+      switches: [
+        { at_s: 10, media_id: "car" },
+        { at_s: 20, media_id: null },
+      ],
+      cuts: [{ start_s: 10, end_s: 20 }],
+    };
+    ribbon = await openExport();
+    expect(within(ribbon).queryByTestId("scaled-up-warning")).toBeNull();
+  });
 });

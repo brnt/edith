@@ -404,6 +404,23 @@ export function usedChannelIds(
   return used;
 }
 
+/** Channels that actually reach the output: shown by some segment for part of what is kept (not cut). */
+export function exportedChannelIds(
+  switches: CameraSwitch[],
+  fallback: string | null,
+  end: number,
+  keeps: Range[],
+): Set<string> {
+  const out = new Set<string>();
+  for (const seg of segments(switches, fallback, end)) {
+    if (seg.channel === null) continue;
+    if (keeps.some(([a, b]) => Math.min(b, seg.end) - Math.max(a, seg.start) > EPS)) {
+      out.add(seg.channel);
+    }
+  }
+  return out;
+}
+
 /** Media of one folder of the project (the project folder itself has `key` ""). */
 export interface MediaGroup {
   key: string;

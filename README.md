@@ -169,7 +169,7 @@ comes next.
      to remove it.
    - **Save** (⌘/Ctrl+S) writes the edit into the project file. Undo/redo with ⌘/Ctrl+Z.
 5. **Export.** FCPXML (DaVinci Resolve, Final Cut), Premiere XML, EDL (video only), the Edith
-   JSON (four buttons on the Export tab), or **Render MP4 (1080p)**. Exports and renders use the _saved_ edit.
+   JSON (four buttons on the Export tab), or **Render MP4**. Exports and renders use the _saved_ edit. The **Project** panel on that tab sets what they use: the picture size (type any width and height, kept even, or pick a common size), the frame rate (1920×1080 at 29.97 fps by default) and the render's output format (H.264 or H.265 in an MP4, or ProRes 422 HQ in a MOV for finishing in another editor). They are part of the edit, so save before exporting. A file smaller than the chosen size is flagged on its media card, and the panel warns when one that the export actually uses (shown by a segment, not cut out) would be scaled up.
 
 Keys: `space` play · `1`–`9` camera or still · `x` cut selection · `←`/`→` step the playhead, or a selected handle: 1 s, with **Cmd** 10 s, **Option** 0.1 s, **Ctrl** one frame (the modifiers run in order of size along the keyboard's bottom row, smaller to the left).
 

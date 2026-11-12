@@ -1,4 +1,5 @@
-"""Compile the render plan to an ffmpeg command: 1080p H.264 + AAC from the full-res originals.
+"""Compile the render plan to an ffmpeg command, in the plan's encoding (H.264 by default),
+from the full-res originals.
 
 Every clip is its own input (`-ss` then `-i`, so ffmpeg seeks instead of decoding from the
 start), scaled to fit the output frame and conformed to the output frame rate; video clips are
@@ -14,6 +15,7 @@ from pathlib import Path
 from edith.core.errors import MediaError
 from edith.db.documents import MediaItem
 from edith.edit.plan import RenderPlan
+from edith.export.encodings import ENCODINGS
 
 AUDIO_RATE = 48_000
 
@@ -78,10 +80,11 @@ def build_command(
         maps += ["-map", "[aout]"]
 
     args += ["-filter_complex", ";\n".join(filters), *maps]
-    args += ["-c:v", "libx264", "-preset", "medium", "-crf", "20", "-pix_fmt", "yuv420p"]
+    enc = ENCODINGS[plan.encoding]
+    args += enc.video
     if audio_labels:
-        args += ["-c:a", "aac", "-b:a", "192k", "-ar", str(AUDIO_RATE)]
-    args += ["-t", f"{plan.duration_s:.6f}", "-movflags", "+faststart", str(output)]
+        args += [*enc.audio, "-ar", str(AUDIO_RATE)]
+    args += ["-t", f"{plan.duration_s:.6f}", *enc.container, str(output)]
     return RenderCommand(args, plan.duration_s)
 
 

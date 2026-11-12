@@ -132,6 +132,8 @@ export interface EditList {
   mix: MixRegion[];
   /** Cameras and stills switched off in the Media tab (hidden from the grid, no number). */
   disabled: string[];
+  /** How a render is encoded: a key of ENCODINGS in the panel. */
+  encoding: string;
   fps_num: number;
   fps_den: number;
   width: number;

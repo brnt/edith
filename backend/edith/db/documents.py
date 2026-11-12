@@ -151,6 +151,8 @@ class EditList(Document):
     # Cameras and stills switched off in the Media tab: not in the playback grid, no channel number,
     # not decoded unless on screen. A working-set setting; it never changes the rendered output.
     disabled: list[str] = []
+    # How a render is encoded (a key of edith.export.encodings.ENCODINGS).
+    encoding: str = "h264"
     fps_num: int = 30000
     fps_den: int = 1001
     width: int = 1920
