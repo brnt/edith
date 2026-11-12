@@ -81,6 +81,7 @@ function setup(
     onTrack: vi.fn(),
     onCutChange: vi.fn(),
     onSelectionEdge: vi.fn(),
+    onMixChange: vi.fn(),
     onPick: vi.fn(),
     onSegmentEdge: vi.fn(),
     onScrub: vi.fn(),
@@ -436,4 +437,34 @@ test("a click on a selection handle without moving changes nothing", () => {
   fireEvent.pointerDown(handle, { clientX: 100, pointerId: 1 });
   fireEvent.pointerUp(handle, { clientX: 100, pointerId: 1 });
   expect(h.onSelectionEdge).not.toHaveBeenCalled();
+});
+
+const LEVEL = { mix: [{ media_id: "mic", start_s: 20, end_s: 30, gain_db: -6, muted: false }] };
+
+test("clicking an audio level picks it (by its index in the mix); its handles show only when picked", () => {
+  const h = setup({ edit: LEVEL });
+  expect(screen.queryByRole("separator", { name: /of the level/ })).toBeNull();
+  const region = screen.getByTestId("mix-region");
+  fireEvent.pointerDown(region, { clientX: 250, pointerId: 1 });
+  fireEvent.pointerUp(region, { clientX: 250, pointerId: 1 });
+  expect(h.onPick).toHaveBeenCalledWith({ kind: "mix", index: 0 });
+  cleanup();
+  setup({ edit: LEVEL, picked: { kind: "mix", index: 0 } });
+  expect(
+    screen.getByRole("separator", { name: "Drag the start of the level" }),
+  ).toBeInTheDocument();
+  expect(screen.getByRole("separator", { name: "Drag the end of the level" })).toBeInTheDocument();
+});
+
+test("dragging a picked level's edge moves it, committing once on release, and keeps it above 0.1 s", () => {
+  const h = setup({ edit: LEVEL, picked: { kind: "mix", index: 0 } });
+  const handle = screen.getByRole("separator", { name: "Drag the end of the level" });
+  drag(handle, 300, 340);
+  expect(h.onMixChange).not.toHaveBeenCalled();
+  fireEvent.pointerUp(handle, { clientX: 340, pointerId: 1 });
+  expect(h.onMixChange).toHaveBeenCalledWith(0, 20, 34);
+  const start = screen.getByRole("separator", { name: "Drag the start of the level" });
+  drag(start, 200, 900);
+  fireEvent.pointerUp(start, { clientX: 900, pointerId: 1 });
+  expect(h.onMixChange).toHaveBeenLastCalledWith(0, 29.9, 30);
 });

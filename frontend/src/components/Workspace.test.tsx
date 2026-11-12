@@ -1333,3 +1333,47 @@ describe("the selection's handles", () => {
     ]);
   });
 });
+
+describe("a picked audio level", () => {
+  const level = { media_id: "mic", start_s: 10, end_s: 20, gain_db: -6, muted: false };
+
+  test("is picked by clicking it: the panel shows and changes its level, Delete removes it", async () => {
+    savedEdit = { ...baseEdit, mix: [level] };
+    render(<Workspace slug="show" />);
+    const timeline = await screen.findByTestId("timeline");
+    fireEvent.pointerDown(screen.getByTestId("mix-region"), { clientX: 300, pointerId: 1 });
+    fireEvent.pointerUp(screen.getByTestId("mix-region"), { clientX: 300, pointerId: 1 });
+    // The panel now works on that stretch: its title is its span, the track is fixed.
+    expect(screen.getByText("0:10.00–0:20.00")).toBeInTheDocument();
+    const slider = screen.getByRole("slider", { name: /Level over the selection/ });
+    expect(slider).toBeEnabled();
+    expect(slider).toHaveValue("-6");
+    expect(screen.getByRole("combobox", { name: "Mix track" })).toBeDisabled();
+    fireEvent.change(slider, { target: { value: "3" } });
+    expect(within(timeline).getByText("+3 dB")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Mute" }));
+    expect(within(timeline).getByText("muted")).toBeInTheDocument();
+    // Delete takes the whole level away (the track goes back to its own gain there).
+    fireEvent.keyDown(window, { key: "Delete" });
+    expect(screen.queryByTestId("mix-region")).toBeNull();
+  });
+});
+
+test("the level slider starts at the track's own gain and stores the change from it", async () => {
+  savedEdit = { ...baseEdit, tracks: [{ media_id: "mic", gain_db: -6, muted: false }] };
+  render(<Workspace slug="show" />);
+  const timeline = await screen.findByTestId("timeline");
+  const lanes = timeline.querySelector(".cursor-crosshair") as HTMLElement;
+  fireEvent.pointerDown(lanes, { clientX: 200, pointerId: 1 });
+  fireEvent.pointerMove(lanes, { clientX: 400, pointerId: 1 });
+  fireEvent.pointerUp(lanes, { clientX: 400, pointerId: 1 });
+  const slider = screen.getByRole("slider", { name: /Level over the selection/ });
+  expect(slider).toHaveValue("-6"); // the timeline's gain for this track
+  fireEvent.change(slider, { target: { value: "-2" } });
+  expect(within(timeline).getByText("-2 dB")).toBeInTheDocument(); // the level it plays at
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  await waitFor(() => expect(puts).toHaveLength(1));
+  expect((puts[0] as { mix: unknown[] }).mix).toEqual([
+    { media_id: "mic", start_s: 10, end_s: 20, gain_db: 4, muted: false }, // +4 on top of the track's -6
+  ]);
+});

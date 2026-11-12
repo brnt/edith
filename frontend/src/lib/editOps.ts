@@ -131,6 +131,29 @@ export function addMix(edit: EditList, region: MixRegion): EditList {
   return { ...edit, mix };
 }
 
+/** Move a mix region's edges. Like a new region, it paints over whatever it now overlaps on its track. */
+export function setMixRegion(
+  edit: EditList,
+  index: number,
+  start_s: number,
+  end_s: number,
+): EditList {
+  const region = edit.mix[index];
+  if (!region) return edit;
+  const rest = { ...edit, mix: edit.mix.filter((_, i) => i !== index) };
+  return addMix(rest, { ...region, start_s, end_s });
+}
+
+/** Change what a mix region does: a level (dB) or silence. */
+export function setMixLevel(
+  edit: EditList,
+  index: number,
+  gain_db: number,
+  muted: boolean,
+): EditList {
+  return { ...edit, mix: edit.mix.map((r, i) => (i === index ? { ...r, gain_db, muted } : r)) };
+}
+
 /** Show or hide a camera or still in the playback grid (and give or take its channel number). */
 export function setEnabled(edit: EditList, media_id: string, enabled: boolean): EditList {
   const rest = edit.disabled.filter((d) => d !== media_id);

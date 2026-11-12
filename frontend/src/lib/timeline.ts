@@ -1,5 +1,5 @@
 // Pure timeline logic. Mirrors backend/edith/edit/plan.py so the preview agrees with exports.
-import type { CameraSwitch, Cut, EditList, MediaItem, SyncState } from "./api";
+import type { CameraSwitch, Cut, EditList, MediaItem, MixRegion, SyncState } from "./api";
 
 export const EPS = 1e-6;
 export const TIMELINE_LABEL_W = 176;
@@ -177,6 +177,16 @@ export function trackIncluded(edit: EditList, media: MediaItem[], mediaId: strin
   return track !== undefined && !track.muted;
 }
 
+/** A track's own gain in dB (0 when it has none set). */
+export function trackBaseDb(edit: EditList, media: MediaItem[], mediaId: string): number {
+  return effectiveTracks(edit, media).find((t) => t.media_id === mediaId)?.gain_db ?? 0;
+}
+
+/** The level a mix region plays at, in dB: the track's gain plus the region's change. */
+export function regionDb(edit: EditList, media: MediaItem[], region: MixRegion): number {
+  return Math.round((trackBaseDb(edit, media, region.media_id) + region.gain_db) * 10) / 10;
+}
+
 /** A track's level at `t` in dB (its own gain plus any mix region), or null when it is silent. */
 export function trackGainDb(
   edit: EditList,
@@ -265,11 +275,11 @@ export const inTimeOrder = (switches: CameraSwitch[]) =>
   [...switches].sort((a, b) => a.at_s - b.at_s);
 
 /**
- * What is selected on the timeline: a channel segment (by its switch), a cut, or a selection handle
- * (index 0 = the in point, 1 = the out point).
+ * What is selected on the timeline: a channel segment (by its switch), a cut, an audio level (an
+ * index into the edit's mix), or a selection handle (index 0 = its start, 1 = its end).
  */
 export interface Picked {
-  kind: "segment" | "cut" | "edge";
+  kind: "segment" | "cut" | "mix" | "edge";
   index: number;
 }
 

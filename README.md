@@ -152,9 +152,12 @@ comes next.
    - **Audio:** each included file gets a track on the timeline with an overall gain slider. To
      change the level over just a stretch, drag-select it, pick the track in the **Selection**
      panel, and drag its level slider (a dB change added to the track, set when you let go) or press
-     **Mute** (pressed again, **Unmute**). The slider shows what the stretch is currently set to; the
+     **Mute** (pressed again, **Unmute**). The slider is the level the stretch plays at: it starts at the track's own gain (as set on the timeline) and shows what the stretch is currently set to (the stored change is relative to the track); the
      track, slider and Mute are off until something is selected. It shows on the
-     track as an amber (gain) or red (muted) band; a new one paints over what it overlaps. The
+     track as an amber (gain) or red (muted) band; a new one paints over what it overlaps. Click a
+     band to select it: drag its edges to move them (they paint over a neighbour), change its level
+     with the Selection panel's slider or Mute, and press Delete to remove it. Sliders show a tick
+     at 0 dB. The
      **Mix** menu lists them. Mixing is part of the edit, so it reaches the preview, the exports
      and the render.
    - **Selection:** drag on the timeline to select a stretch (click away or Esc to drop it). Its

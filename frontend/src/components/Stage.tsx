@@ -224,6 +224,7 @@ export function Stage({
           onPreview={ed.setPreview}
           onCutChange={ed.changeCut}
           onSelectionEdge={ed.changeSelectionEdge}
+          onMixChange={ed.changeMix}
         />
       </div>
     </div>

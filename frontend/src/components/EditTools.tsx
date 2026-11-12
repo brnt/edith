@@ -10,7 +10,7 @@ import {
   removeMix,
   removeSwitch,
 } from "../lib/editOps";
-import { effectiveTracks, formatTime, type Range } from "../lib/timeline";
+import { effectiveTracks, formatTime, regionDb, trackBaseDb, type Range } from "../lib/timeline";
 import type { EditorApi } from "../lib/useEditor";
 import { Dropdown, Select } from "./ui";
 import {
@@ -24,8 +24,11 @@ import {
 import { Icon } from "./Icon";
 import { Close, Plus, Scissor, Search, Speaker, SpeakerMuted } from "./icons";
 
-/** The slider's range, in dB; muted shows at the bottom. */
-const MIX_MIN_DB = -24;
+/** A level for display: signed, in dB. */
+const dbText = (db: number) => `${db > 0 ? "+" : ""}${db} dB`;
+
+/** The slider's range, in dB (the track gain slider's range); muted shows at the bottom. */
+const MIX_MIN_DB = -30;
 const MIX_MAX_DB = 12;
 
 interface Item {
@@ -76,24 +79,39 @@ export function EditTools({ ed }: { ed: EditorApi }) {
   const [mixChoice, setMixChoice] = useState("");
   // The slider follows the drag, then shows what the selection's stretch is set to.
   const [dragDb, setDragDb] = useState<number | null>(null);
-  const mixTrack = outputTracks.some((t) => t.media_id === mixChoice)
-    ? mixChoice
-    : (outputTracks[0]?.media_id ?? "");
-  const mixReady = !!selection && !!mixTrack;
-  const level = selection && mixTrack ? levelOver(edit, mixTrack, selection) : null;
+  // The controls act on a picked audio level, else on the selection over the chosen track.
+  const mixIndex = ed.picked?.kind === "mix" ? ed.picked.index : -1;
+  const picked = edit.mix[mixIndex] ?? null;
+  const mixTrack = picked
+    ? picked.media_id
+    : outputTracks.some((t) => t.media_id === mixChoice)
+      ? mixChoice
+      : (outputTracks[0]?.media_id ?? "");
+  const target: Range | null = picked ? [picked.start_s, picked.end_s] : selection;
+  const mixReady = !!target && !!mixTrack;
+  const level = picked ?? (selection && mixTrack ? levelOver(edit, mixTrack, selection) : null);
   const muted = !!level?.muted;
-  const shownDb = dragDb ?? (muted ? MIX_MIN_DB : (level?.gain_db ?? 0));
-  const setLevel = (gain_db: number, mute: boolean) => {
-    if (!selection || !mixTrack) return;
-    onEdit(
-      addMix(edit, {
-        media_id: mixTrack,
-        start_s: selection[0],
-        end_s: selection[1],
-        gain_db,
-        muted: mute,
-      }),
-    );
+  // The slider is the level the stretch plays at, so it starts at the track's own gain; the region
+  // stores the change from that (the plan adds the two).
+  const trackDb = trackBaseDb(edit, media, mixTrack);
+  const shownDb =
+    dragDb ??
+    (muted
+      ? MIX_MIN_DB
+      : Math.max(MIX_MIN_DB, Math.min(MIX_MAX_DB, level ? regionDb(edit, media, level) : trackDb)));
+  const setLevel = (level_db: number, mute: boolean) => {
+    const gain_db = mute ? 0 : Math.round((level_db - trackDb) * 10) / 10;
+    if (picked) ed.setPickedMix(gain_db, mute);
+    else if (selection && mixTrack)
+      onEdit(
+        addMix(edit, {
+          media_id: mixTrack,
+          start_s: selection[0],
+          end_s: selection[1],
+          gain_db,
+          muted: mute,
+        }),
+      );
     setDragDb(null);
   };
   // Same numbering as the buttons, timeline rows, and number keys: cameras first, then stills.
@@ -106,13 +124,11 @@ export function EditTools({ ed }: { ed: EditorApi }) {
     return n ? `Still ${n} · ${channel.item.label}` : channel.item.label;
   };
 
-  const selectionText = selection
-    ? `${formatTime(selection[0], 2)}–${formatTime(selection[1], 2)}`
-    : "";
+  const selectionText = target ? `${formatTime(target[0], 2)}–${formatTime(target[1], 2)}` : "";
 
   return (
     <div class="flex h-full gap-3">
-      <RibbonGroup title={selection ? selectionText : "Selection"}>
+      <RibbonGroup title={target ? selectionText : "Selection"}>
         <RibbonSet columns={4}>
           <RibbonButton
             size={2}
@@ -139,7 +155,7 @@ export function EditTools({ ed }: { ed: EditorApi }) {
               aria-label="Mix track"
               title="Which audio track to adjust over the selection"
               value={mixTrack}
-              disabled={!mixReady}
+              disabled={!mixReady || !!picked}
               onChange={(e) => setMixChoice(e.currentTarget.value)}
             >
               {outputTracks.map((t) => (
@@ -154,7 +170,7 @@ export function EditTools({ ed }: { ed: EditorApi }) {
             min={MIX_MIN_DB}
             max={MIX_MAX_DB}
             value={shownDb}
-            display={dragDb === null && muted ? "muted" : `${shownDb > 0 ? "+" : ""}${shownDb} dB`}
+            display={dragDb === null && muted ? "muted" : dbText(shownDb)}
             disabled={!mixReady}
             onInput={setDragDb}
             onCommit={(db) => setLevel(db, false)}
@@ -163,7 +179,7 @@ export function EditTools({ ed }: { ed: EditorApi }) {
             icon={muted ? SpeakerMuted : Speaker}
             label={muted ? "Unmute" : "Mute"}
             disabled={!mixReady}
-            onClick={() => (muted ? setLevel(0, false) : setLevel(0, true))}
+            onClick={() => (muted ? setLevel(trackDb, false) : setLevel(trackDb, true))}
           />
         </RibbonSet>
       </RibbonGroup>
@@ -247,7 +263,7 @@ export function EditTools({ ed }: { ed: EditorApi }) {
               items={edit.mix.map((r, i) => ({
                 key: `${r.media_id}-${r.start_s}-${r.end_s}`,
                 text: `${formatTime(r.start_s, 1)} – ${formatTime(r.end_s, 1)} ${label(r.media_id)} ${
-                  r.muted ? "muted" : `${r.gain_db > 0 ? "+" : ""}${r.gain_db} dB`
+                  r.muted ? "muted" : dbText(regionDb(edit, media, r))
                 }`,
                 onSeek: () => ed.setT(r.start_s),
                 onRemove: () => onEdit(removeMix(edit, i)),
