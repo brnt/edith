@@ -23,6 +23,7 @@ import {
   fitPxPerSec,
   keepIntervals,
   mediaOffsets,
+  nudgeStep,
   playbackEnd,
   skipCuts,
   timelineEnd,
@@ -198,25 +199,23 @@ export function useEditor({ slug, media, sync, edit, onEdit, onError, ready }: A
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (isTyping(e.target) || e.metaKey || e.ctrlKey || e.altKey) return;
+      const arrow = e.key === "ArrowLeft" || e.key === "ArrowRight";
+      // Modifiers pick the arrow's step size (nudgeStep); for any other key they mean something else.
+      if (isTyping(e.target) || (!arrow && (e.metaKey || e.ctrlKey || e.altKey))) return;
       const cur = state.current;
+      const step =
+        nudgeStep(e, cur.edit.fps_den / cur.edit.fps_num) * (e.key === "ArrowLeft" ? -1 : 1);
       if (e.key === "Escape") {
         if (!cur.picked && !cur.selection) return;
         if (cur.picked) setPicked(null);
         else setSelection(null);
       } else if ((e.key === "Delete" || e.key === "Backspace") && cur.picked) deletePicked();
       else if (e.key === " ") togglePlay();
-      else if (
-        (e.key === "ArrowLeft" || e.key === "ArrowRight") &&
-        cur.picked?.kind === "edge" &&
-        cur.selection
-      ) {
-        // A selected handle is nudged by the arrow keys: 0.1 s, or 1 s with shift.
+      else if (arrow && cur.picked?.kind === "edge" && cur.selection) {
+        // A selected handle is nudged by the arrow keys, by the same steps as the playhead.
         const edge = cur.picked.index === 0 ? 0 : 1;
-        const from = cur.selection[edge];
-        changeSelectionEdge(edge, from + (e.key === "ArrowLeft" ? -1 : 1) * (e.shiftKey ? 1 : 0.1));
-      } else if (e.key === "ArrowLeft") setT(Math.max(0, cur.t - (e.shiftKey ? 10 : 1)));
-      else if (e.key === "ArrowRight") setT(Math.min(end, cur.t + (e.shiftKey ? 10 : 1)));
+        changeSelectionEdge(edge, cur.selection[edge] + step);
+      } else if (arrow) setT(Math.min(end, Math.max(0, cur.t + step)));
       else if (e.key === "x") cutSelection();
       else if (/^[1-9]$/.test(e.key) && channels.find((c) => c.number === Number(e.key)))
         cutTo(channels.find((c) => c.number === Number(e.key))!.item.id);

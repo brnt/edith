@@ -23,6 +23,7 @@ import {
 import * as history from "./history";
 import {
   activeChannel,
+  nudgeStep,
   advancePlayhead,
   boundaryPreview,
   groupMedia,
@@ -713,6 +714,17 @@ describe("history and formatting", () => {
     expect(formatTime(75.34)).toBe("1:15.3");
     expect(formatTime(5, 0)).toBe("0:05");
     expect(formatTime(-3)).toBe("0:00.0");
+  });
+});
+
+describe("nudgeStep", () => {
+  const keys = { ctrlKey: false, altKey: false, metaKey: false };
+  test("Ctrl is a frame, Option 0.1 s, none 1 s, Cmd 10 s: smaller to the left on the keyboard", () => {
+    const frame = 1001 / 30000;
+    expect(nudgeStep({ ...keys, ctrlKey: true }, frame)).toBe(frame);
+    expect(nudgeStep({ ...keys, altKey: true }, frame)).toBe(0.1);
+    expect(nudgeStep(keys, frame)).toBe(1);
+    expect(nudgeStep({ ...keys, metaKey: true }, frame)).toBe(10);
   });
 });
 

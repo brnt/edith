@@ -1236,9 +1236,26 @@ describe("the selection's handles", () => {
     fireEvent.pointerDown(handle, { clientX: 200, pointerId: 1 });
     fireEvent.pointerUp(handle, { clientX: 200, pointerId: 1 });
     fireEvent.keyDown(window, { key: "ArrowRight" });
-    fireEvent.keyDown(window, { key: "ArrowRight", shiftKey: true });
-    fireEvent.keyDown(window, { key: "ArrowLeft" });
-    expect(screen.getByText("0:11.00–0:20.00")).toBeInTheDocument(); // 10 + 0.1 + 1 - 0.1
+    fireEvent.keyDown(window, { key: "ArrowRight", altKey: true });
+    fireEvent.keyDown(window, { key: "ArrowLeft", altKey: true });
+    expect(screen.getByText("0:11.00–0:20.00")).toBeInTheDocument(); // 10 + 1 + 0.1 - 0.1
+  });
+
+  test("the arrows move the playhead by 1 s, Cmd 10 s, Option 0.1 s, Ctrl one frame", async () => {
+    render(<Workspace slug="show" />);
+    await screen.findByTestId("timeline");
+    await screen.findByRole("button", { name: "Preview of camera 2: switch to it" });
+    await screen.findByText("synced");
+    const press = (init: object, key = "ArrowRight") => fireEvent.keyDown(window, { key, ...init });
+    const at = (text: string) => waitFor(() => expect(screen.getByText(text)).toBeInTheDocument());
+    press({});
+    await at("0:01.00");
+    press({ metaKey: true });
+    await at("0:11.00");
+    press({ altKey: true }, "ArrowLeft");
+    await at("0:10.90");
+    press({ ctrlKey: true }); // 1001/30000 s = 33.4 ms
+    await at("0:10.93");
   });
 
   test("selecting a handle puts the playhead on that edge", async () => {

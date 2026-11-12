@@ -204,7 +204,7 @@ from before the folder layout are converted once at startup from `LEGACY_LIBRARY
   key it names. Draw an icon (`components/icons.ts`) or compose one.
 - **A selection's two edges are timeline handles** (`selectionHandle` in `Timeline.tsx`; `Picked` kind
   `"edge"`, index 0 = start, 1 = end; a picked edge coexists with the selection, a picked segment/cut doesn't):
-  click, drag (committed once on release), nudge with the arrows (0.1 s, shift 1 s). Esc drops the handle, then
+  click, drag (committed once on release), nudge with the arrows (`nudgeStep` in `lib/timeline.ts`, shared with the playhead: 1 s, Cmd 10 s, Option 0.1 s, Ctrl one frame; modifiers ordered by size along the keyboard, smaller to the left. Shift does nothing). Esc drops the handle, then
   the selection. There is no saved "range" in the edit: the output is the whole timeline minus the cuts, and the
   selection is transient UI state (Dead time Find is bounded by it via `from_s`/`to_s`). Deliberately no In/Out
   buttons or `i`/`o` hotkeys (a stray key overwrote a carefully set point). **Uncut** (`uncut` in `editOps`)
