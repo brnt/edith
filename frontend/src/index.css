@@ -9,45 +9,48 @@
   color-scheme: dark;
 }
 
-/* Ribbon slider: a thin track with a small rounded-rectangle thumb (not the browser's round knob). */
-.ribbon-slider {
+/* Every slider: a thin track with a small rounded-rectangle thumb (not the browser's round knob).
+   A level slider sets --zero (0 dB's fraction of the way along) to get a tick on the track there. */
+.slider {
   appearance: none;
   background: transparent;
   height: 1rem;
+  --track:
+    linear-gradient(#555, #555) center / 100% 3px no-repeat,
+    linear-gradient(#555, #555) calc(var(--zero, -1) * 100% + 2px - 4px * var(--zero, -1)) center /
+      2px 9px no-repeat;
 }
-.ribbon-slider::-webkit-slider-runnable-track {
-  height: 3px;
-  border-radius: 2px;
-  background: #555;
+.slider::-webkit-slider-runnable-track {
+  height: 13px;
+  background: var(--track);
 }
-.ribbon-slider::-moz-range-track {
-  height: 3px;
-  border-radius: 2px;
-  background: #555;
+.slider::-moz-range-track {
+  height: 13px;
+  background: var(--track);
 }
-.ribbon-slider::-webkit-slider-thumb {
+.slider::-webkit-slider-thumb {
   appearance: none;
   width: 6px;
   height: 13px;
-  margin-top: -5px;
+  margin-top: 0;
   border: 0;
   border-radius: 2px;
   background: #d4d4d4;
 }
-.ribbon-slider::-moz-range-thumb {
+.slider::-moz-range-thumb {
   width: 6px;
   height: 13px;
   border: 0;
   border-radius: 2px;
   background: #d4d4d4;
 }
-.ribbon-slider:disabled::-webkit-slider-thumb {
+.slider:disabled::-webkit-slider-thumb {
   background: #666;
 }
-.ribbon-slider:disabled::-moz-range-thumb {
+.slider:disabled::-moz-range-thumb {
   background: #666;
 }
-.ribbon-slider:focus-visible {
+.slider:focus-visible {
   outline: 1px solid #7dd3fc;
   outline-offset: 2px;
 }

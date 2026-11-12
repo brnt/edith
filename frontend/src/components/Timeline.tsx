@@ -6,6 +6,7 @@ import {
   channelsOf,
   defaultCamera,
   effectiveTracks,
+  regionDb,
   boundaryPreview,
   formatTime,
   movedSwitches,
@@ -48,6 +49,8 @@ interface Props {
   corner?: ComponentChildren;
   /** A cut's edges were dragged: its index and its new start and end. */
   onCutChange?: (index: number, start_s: number, end_s: number) => void;
+  /** A picked audio level's edges were dragged: its index in the edit's mix and its new start and end. */
+  onMixChange?: (index: number, start_s: number, end_s: number) => void;
   /** A selection handle was dragged: which one (0 = start, 1 = end) and its new time. */
   onSelectionEdge?: (edge: 0 | 1, at_s: number) => void;
   /** A segment or cut is selected (click it): only a selected one can be dragged. */
@@ -80,6 +83,12 @@ export function Timeline(props: Props) {
   );
   // An edge being dragged: shown live, committed once on release (one undo step).
   const [edgeDrag, setEdgeDrag] = useState<{
+    index: number;
+    edge: "start" | "end";
+    value: number;
+  } | null>(null);
+  // An audio level's edge being dragged: live, committed once on release.
+  const [mixDrag, setMixDrag] = useState<{
     index: number;
     edge: "start" | "end";
     value: number;
@@ -390,7 +399,8 @@ export function Timeline(props: Props) {
                 <input
                   type="range"
                   aria-label={`Gain ${m.label}`}
-                  class="block h-4 w-full"
+                  class="slider block w-full"
+                  style={{ "--zero": 30 / 42 }} // 0 dB on a -30 to +12 dB track
                   min={-30}
                   max={12}
                   step={1}
@@ -482,22 +492,92 @@ export function Timeline(props: Props) {
                 height={ROW.audio}
                 color={AUDIO_WAVEFORM}
               />
-              {edit.mix
-                .filter((r) => r.media_id === m.id)
-                .map((r, i) => (
+              {edit.mix.map((r, index) => {
+                if (r.media_id !== m.id) return null;
+                const on = picked?.kind === "mix" && picked.index === index;
+                const live = mixDrag?.index === index ? mixDrag : null;
+                const start = live?.edge === "start" ? live.value : r.start_s;
+                const stop = live?.edge === "end" ? live.value : r.end_s;
+                const level = regionDb(edit, media, r); // the level it plays at, as the track slider reads
+                const text = r.muted ? "muted" : `${level > 0 ? "+" : ""}${level} dB`;
+                const handle = (edge: "start" | "end") => (
                   <div
-                    key={`mix${i}`}
-                    class={`pointer-events-none absolute inset-y-0 overflow-hidden px-1 text-[10px] font-semibold ${
-                      r.muted
-                        ? "bg-red-950/80 text-red-200 ring-1 ring-red-700"
-                        : "bg-amber-400/25 text-amber-200 ring-1 ring-amber-400"
-                    }`}
-                    style={{ left: x(r.start_s), width: Math.max(2, x(r.end_s - r.start_s)) }}
-                    title={r.muted ? "Muted" : `${r.gain_db > 0 ? "+" : ""}${r.gain_db} dB`}
+                    role="separator"
+                    aria-label={`Drag the ${edge} of the level`}
+                    title="Drag to adjust"
+                    class={`absolute inset-y-0 z-10 w-2 cursor-ew-resize hover:bg-white/40 ${edge === "start" ? "-left-1" : "-right-1"} ${live?.edge === edge ? "bg-white/50" : ""}`}
+                    onPointerDown={(e) => {
+                      e.stopPropagation();
+                      (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+                      const at = edge === "start" ? r.start_s : r.end_s;
+                      setMixDrag({ index, edge, value: at });
+                      props.onScrub?.(at);
+                    }}
+                    onPointerMove={(e) => {
+                      if (mixDrag?.index !== index || mixDrag.edge !== edge) return;
+                      e.stopPropagation();
+                      const t = timeAt(e.clientX);
+                      const value =
+                        edge === "start"
+                          ? Math.min(t, r.end_s - MIN_CUT_S)
+                          : Math.max(t, r.start_s + MIN_CUT_S);
+                      const clamped = Math.max(0, Math.min(end, value));
+                      setMixDrag({ index, edge, value: clamped });
+                      props.onScrub?.(clamped);
+                    }}
+                    onPointerUp={(e) => {
+                      if (mixDrag?.index !== index || mixDrag.edge !== edge) return;
+                      e.stopPropagation();
+                      props.onMixChange?.(
+                        index,
+                        edge === "start" ? mixDrag.value : r.start_s,
+                        edge === "end" ? mixDrag.value : r.end_s,
+                      );
+                      setMixDrag(null);
+                    }}
+                  />
+                );
+                return (
+                  <div
+                    key={`mix${index}`}
+                    data-pick="mix"
+                    data-index={index}
+                    data-testid="mix-region"
+                    aria-selected={on}
+                    class="absolute inset-y-0 cursor-pointer"
+                    style={{ left: x(start), width: Math.max(2, x(stop - start)) }}
+                    title={on ? undefined : `${r.muted ? "Muted" : text}: click to select`}
                   >
-                    {r.muted ? "muted" : `${r.gain_db > 0 ? "+" : ""}${r.gain_db} dB`}
+                    <div
+                      class={`pointer-events-none absolute inset-0 overflow-hidden px-1 text-[10px] font-semibold ${
+                        r.muted
+                          ? "bg-red-950/80 text-red-200 ring-1 ring-red-700"
+                          : "bg-amber-400/25 text-amber-200 ring-1 ring-amber-400"
+                      }`}
+                      data-texture={on ? "selected" : undefined}
+                      style={on ? stripes(0.16) : undefined}
+                    >
+                      {text}
+                    </div>
+                    {on && handle("start")}
+                    {on && handle("end")}
+                    {on && x(stop - start) >= MIN_GRIP_PX && (
+                      <>
+                        <Grip edge="start" />
+                        <Grip edge="end" />
+                      </>
+                    )}
+                    {live && (
+                      <div
+                        class="pointer-events-none absolute -top-5 z-20 whitespace-nowrap rounded bg-black/80 px-1 text-[10px] text-amber-200"
+                        style={live.edge === "start" ? { left: 0 } : { right: 0 }}
+                      >
+                        {formatTime(live.value, 2)}
+                      </div>
+                    )}
                   </div>
-                ))}
+                );
+              })}
             </div>
           ))}
 

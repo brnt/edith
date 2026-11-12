@@ -9,6 +9,8 @@ import {
   deleteSegment,
   insideCuts,
   moveSelectionEdge,
+  setMixLevel,
+  setMixRegion,
   overlapsCut,
   uncut,
   moveSegmentEdge,
@@ -714,6 +716,25 @@ describe("history and formatting", () => {
     expect(formatTime(75.34)).toBe("1:15.3");
     expect(formatTime(5, 0)).toBe("0:05");
     expect(formatTime(-3)).toBe("0:00.0");
+  });
+});
+
+describe("mix regions", () => {
+  const region = (start_s: number, end_s: number, gain_db = -6) => ({
+    media_id: "mic",
+    start_s,
+    end_s,
+    gain_db,
+    muted: false,
+  });
+  const mixEdit = edit({ mix: [region(10, 20), region(30, 40, 3)] });
+  test("moving an edge paints over a neighbour it reaches, like a new region", () => {
+    expect(setMixRegion(mixEdit, 0, 10, 35).mix).toEqual([region(10, 35), region(35, 40, 3)]);
+    expect(setMixRegion(mixEdit, 0, 12, 18).mix).toEqual([region(12, 18), region(30, 40, 3)]);
+  });
+  test("changing the level or muting keeps the stretch", () => {
+    expect(setMixLevel(mixEdit, 1, -12, false).mix[1]).toMatchObject({ start_s: 30, gain_db: -12 });
+    expect(setMixLevel(mixEdit, 0, 0, true).mix[0]).toMatchObject({ muted: true, end_s: 20 });
   });
 });
 

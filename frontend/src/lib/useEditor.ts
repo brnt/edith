@@ -6,6 +6,9 @@ import {
   deleteSegment,
   insideCuts,
   moveSegmentEdge,
+  removeMix,
+  setMixLevel,
+  setMixRegion,
   uncut,
   moveSelectionEdge,
   removeCut,
@@ -151,7 +154,9 @@ export function useEditor({ slug, media, sync, edit, onEdit, onError, ready }: A
     const { picked: p, edit: current } = state.current;
     if (!p) return;
     if (p.kind === "edge") return; // a selection handle is moved, not deleted
-    onEdit(p.kind === "segment" ? deleteSegment(current, p.index) : removeCut(current, p.index));
+    if (p.kind === "mix") onEdit(removeMix(current, p.index));
+    else
+      onEdit(p.kind === "segment" ? deleteSegment(current, p.index) : removeCut(current, p.index));
     setPicked(null);
   };
 
@@ -179,6 +184,27 @@ export function useEditor({ slug, media, sync, edit, onEdit, onError, ready }: A
 
   const changeSegmentEdge = (switchIndex: number, at_s: number) =>
     onEdit(moveSegmentEdge(state.current.edit, switchIndex, at_s, end));
+
+  /** A picked audio level's edges were dragged: move it, and stay on it (painting over a neighbour can renumber). */
+  const changeMix = (index: number, start_s: number, end_s: number) => {
+    const region = state.current.edit.mix[index];
+    if (!region) return;
+    const next = setMixRegion(state.current.edit, index, start_s, end_s);
+    onEdit(next);
+    const now = next.mix.findIndex(
+      (r) =>
+        r.media_id === region.media_id &&
+        Math.abs(r.start_s - start_s) < EPS &&
+        Math.abs(r.end_s - end_s) < EPS,
+    );
+    setPicked(now >= 0 ? { kind: "mix", index: now } : null);
+  };
+
+  /** Set the level, or mute, of the picked audio level. */
+  const setPickedMix = (gain_db: number, muted: boolean) => {
+    const p = state.current.picked;
+    if (p?.kind === "mix") onEdit(setMixLevel(state.current.edit, p.index, gain_db, muted));
+  };
 
   const changeCut = (index: number, start_s: number, end_s: number) => {
     const next = setCut(state.current.edit, index, start_s, end_s);
@@ -263,6 +289,8 @@ export function useEditor({ slug, media, sync, edit, onEdit, onError, ready }: A
     preview,
     setPreview,
     changeCut,
+    changeMix,
+    setPickedMix,
     changeSelectionEdge,
     zoom,
     setZoom,

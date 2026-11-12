@@ -170,7 +170,8 @@ export function RibbonSlider({
       <input
         type="range"
         aria-label={label}
-        class="ribbon-slider min-w-0 flex-1 disabled:cursor-not-allowed"
+        class="slider min-w-0 flex-1 disabled:cursor-not-allowed"
+        style={{ "--zero": (0 - min) / (max - min) }}
         min={min}
         max={max}
         step={step}
@@ -179,7 +180,8 @@ export function RibbonSlider({
         onInput={(e) => onInput(Number(e.currentTarget.value))}
         onChange={(e) => onCommit(Number(e.currentTarget.value))}
       />
-      <span class="w-9 shrink-0 text-right">{display}</span>
+      {/* A fixed width (digits all the same width), so the track does not jump as the value changes. */}
+      <span class="w-10 shrink-0 whitespace-nowrap text-right tabular-nums">{display}</span>
     </label>
   );
 }

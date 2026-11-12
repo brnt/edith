@@ -204,6 +204,11 @@ from before the folder layout are converted once at startup from `LEGACY_LIBRARY
   key it names. Draw an icon (`components/icons.ts`) or compose one.
 - **The Selection panel holds Cut/Uncut and the selection's audio level** (track `Select`, `RibbonSlider`, Mute
   toggle; `levelOver` reads what the stretch is set to). There is no Set button: the slider commits on release.
+- **Audio levels are pickable like cuts** (`Picked` kind `"mix"`, index = into `edit.mix`; band in `Timeline.tsx`):
+  edge drags go through `setMixRegion` (paints over neighbours, like `addMix`), Delete is `removeMix`, and the
+  Selection panel's slider (an absolute level starting at the track's gain; the region stores the change from it, `regionDb`/`trackBaseDb`)
+  and Mute act on a picked level (`setMixLevel`), else on the selection. Every slider uses the
+  global `.slider` style; level sliders set `--zero` for the 0 dB tick.
 - **A selection's two edges are timeline handles** (`selectionHandle` in `Timeline.tsx`; `Picked` kind
   `"edge"`, index 0 = start, 1 = end; a picked edge coexists with the selection, a picked segment/cut doesn't):
   click, drag (committed once on release), nudge with the arrows (`nudgeStep` in `lib/timeline.ts`, shared with the playhead: 1 s, Cmd 10 s, Option 0.1 s, Ctrl one frame; modifiers ordered by size along the keyboard, smaller to the left. Shift does nothing). Esc drops the handle, then
