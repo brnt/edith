@@ -62,9 +62,11 @@ def test_a_v1_project_opens_reads_as_current_and_is_left_untouched(client: TestC
         ("camera", "camB", 5, 5),
         ("still", "car", 10, 4),
         ("camera", "camA", 14, 6),
-        ("camera", "camA", 20, 8),  # after the 2 s cut at 20-22 s
+        ("camera", "camA", 20, 38),  # after the 2 s cut at 20-22 s, to the end of the timeline
     ]
-    assert plan["duration_s"] == pytest.approx(28.0)  # 30 s minus the 2 s cut
+    assert plan["duration_s"] == pytest.approx(
+        58.0
+    )  # 60 s minus the 2 s cut; the old range is ignored
 
     assert fingerprint(path) == before  # nothing above wrote to the file
 

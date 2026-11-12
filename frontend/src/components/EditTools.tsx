@@ -1,12 +1,20 @@
 import { useState } from "preact/hooks";
 
-import { addCuts, addMix, removeCut, removeMix, removeSwitch, setRange } from "../lib/editOps";
+import {
+  addCuts,
+  addMix,
+  insideCuts,
+  overlapsCut,
+  removeCut,
+  removeMix,
+  removeSwitch,
+} from "../lib/editOps";
 import { effectiveTracks, formatTime, type Range } from "../lib/timeline";
 import type { EditorApi } from "../lib/useEditor";
 import { Dropdown, Select } from "./ui";
 import { RibbonButton, RibbonCell, RibbonGroup, RibbonNumber, RibbonSet } from "./RibbonGrid";
 import { Icon } from "./Icon";
-import { Check, Close, Scissor, Search, Sound } from "./icons";
+import { Close, Plus, Scissor, Search, Sound } from "./icons";
 import { SoundOff } from "./SoundOff";
 
 interface Item {
@@ -96,44 +104,16 @@ export function EditTools({ ed }: { ed: EditorApi }) {
             label="Cut"
             text="Cut"
             hotkey="x"
-            disabled={!selection}
+            disabled={!selection || insideCuts(edit, selection)}
             onClick={ed.cutSelection}
           />
           <RibbonButton
             size={2}
-            icon={Check}
-            label="Keep only"
-            text="Keep"
-            disabled={!selection}
-            onClick={() => {
-              if (!selection) return;
-              onEdit(setRange(edit, selection[0], selection[1]));
-              ed.setSelection(null);
-            }}
-          />
-        </RibbonSet>
-      </RibbonGroup>
-
-      <RibbonGroup title="Range">
-        <RibbonSet columns={2}>
-          <RibbonButton
-            glyph="["
-            label="Range in"
-            hotkey="i"
-            onClick={() => onEdit(setRange(edit, ed.t, edit.range_out_s))}
-          />
-          <RibbonButton
-            glyph="]"
-            label="Range out"
-            hotkey="o"
-            onClick={() => onEdit(setRange(edit, edit.range_in_s, ed.t))}
-          />
-        </RibbonSet>
-        <RibbonSet columns={2}>
-          <RibbonButton
-            glyph="×"
-            label="Clear range"
-            onClick={() => onEdit(setRange(edit, null, null))}
+            icon={Plus}
+            label="Uncut"
+            text="Uncut"
+            disabled={!selection || !overlapsCut(edit, selection)}
+            onClick={ed.uncutSelection}
           />
         </RibbonSet>
       </RibbonGroup>

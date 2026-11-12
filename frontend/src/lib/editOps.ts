@@ -5,8 +5,10 @@ import {
   EPS,
   effectiveTracks,
   inTimeOrder,
+  cutRanges,
   mergeRanges,
   movedSwitches,
+  type Range,
 } from "./timeline";
 
 const SAME_TIME = 0.05;
@@ -180,10 +182,35 @@ export function removeMix(edit: EditList, index: number): EditList {
   return { ...edit, mix: edit.mix.filter((_, i) => i !== index) };
 }
 
-export function setRange(
-  edit: EditList,
-  range_in_s: number | null,
-  range_out_s: number | null,
-): EditList {
-  return { ...edit, range_in_s, range_out_s };
+/** The closest the two edges of a selection may get. */
+export const MIN_SELECTION_S = 0.1;
+
+/** Move the selection's start (`edge` 0) or end (1) to `at_s`, kept on the timeline and clear of the other edge. */
+export function moveSelectionEdge(sel: Range, edge: 0 | 1, at_s: number, end: number): Range {
+  const value = Math.round(at_s * 1000) / 1000;
+  return edge === 0
+    ? [Math.max(0, Math.min(value, sel[1] - MIN_SELECTION_S)), sel[1]]
+    : [sel[0], Math.min(end, Math.max(value, sel[0] + MIN_SELECTION_S))];
+}
+
+/** Take [start, end] out of every cut it overlaps; a cut it falls inside of is split in two. */
+export function uncut(edit: EditList, start: number, end: number): EditList {
+  const cuts = edit.cuts.flatMap((c) => {
+    if (c.end_s <= start + EPS || c.start_s >= end - EPS) return [c];
+    return [
+      ...(c.start_s < start - EPS ? [{ ...c, end_s: start }] : []),
+      ...(c.end_s > end + EPS ? [{ ...c, start_s: end }] : []),
+    ];
+  });
+  return { ...edit, cuts };
+}
+
+/** Is the whole selection already inside cuts (so cutting it would change nothing)? */
+export function insideCuts(edit: EditList, sel: Range): boolean {
+  return mergeRanges(cutRanges(edit.cuts)).some(([a, b]) => a <= sel[0] + EPS && b >= sel[1] - EPS);
+}
+
+/** Does the selection overlap any cut (so there is something to take back)? */
+export function overlapsCut(edit: EditList, sel: Range): boolean {
+  return edit.cuts.some((c) => c.end_s > sel[0] + EPS && c.start_s < sel[1] - EPS);
 }

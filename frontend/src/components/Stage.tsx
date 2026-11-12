@@ -223,6 +223,7 @@ export function Stage({
           onScrub={ed.scrub}
           onPreview={ed.setPreview}
           onCutChange={ed.changeCut}
+          onSelectionEdge={ed.changeSelectionEdge}
         />
       </div>
     </div>

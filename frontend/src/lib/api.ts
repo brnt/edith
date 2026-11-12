@@ -132,8 +132,6 @@ export interface EditList {
   mix: MixRegion[];
   /** Cameras and stills switched off in the Media tab (hidden from the grid, no number). */
   disabled: string[];
-  range_in_s: number | null;
-  range_out_s: number | null;
   fps_num: number;
   fps_den: number;
   width: number;
@@ -260,9 +258,17 @@ export const fetchEdit = (slug: string) =>
 export const putEdit = (slug: string, edit: EditList) =>
   request<{ edit: EditList; needs_upgrade: boolean }>(`${p(slug)}/edit`, json("PUT", edit));
 export const fetchPlan = (slug: string) => request<Plan>(`${p(slug)}/plan`);
-export const fetchSilence = (slug: string, thresholdDb: number, minS: number, padS: number) =>
+/** Dead stretches to cut, within `within` (the selection) or the whole timeline. */
+export const fetchSilence = (
+  slug: string,
+  thresholdDb: number,
+  minS: number,
+  padS: number,
+  within?: [number, number] | null,
+) =>
   request<{ cuts: Cut[] }>(
-    `${p(slug)}/silence?threshold_db=${thresholdDb}&min_s=${minS}&pad_s=${padS}`,
+    `${p(slug)}/silence?threshold_db=${thresholdDb}&min_s=${minS}&pad_s=${padS}` +
+      (within ? `&from_s=${within[0]}&to_s=${within[1]}` : ""),
   );
 
 export const fetchJob = (id: string) => request<Job>(`/jobs/${id}`);

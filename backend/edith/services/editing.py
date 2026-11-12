@@ -62,12 +62,6 @@ def validate(edit: EditList, media: dict[str, MediaItem]) -> None:
     for track in edit.tracks:
         if track.media_id not in media:
             raise InvalidEdit(f"track refers to unknown media {track.media_id}")
-    if (
-        edit.range_in_s is not None
-        and edit.range_out_s is not None
-        and edit.range_out_s <= edit.range_in_s
-    ):
-        raise InvalidEdit("range out must be after range in")
     if edit.fps_num <= 0 or edit.fps_den <= 0 or edit.width <= 0 or edit.height <= 0:
         raise InvalidEdit("frame rate and size must be positive")
 
@@ -124,8 +118,15 @@ def registration_windows(
 
 
 def suggest_silence(
-    slug: str, *, threshold_db: float, min_s: float, pad_s: float
+    slug: str,
+    *,
+    threshold_db: float,
+    min_s: float,
+    pad_s: float,
+    from_s: float | None = None,
+    to_s: float | None = None,
 ) -> list[tuple[float, float]]:
+    """Dead stretches to cut, within from_s..to_s (the selection) or the whole timeline."""
     folder = project_folder(slug)
     with open_project(slug) as project:
         media, sync = _media_by_id(project), _sync(project)
@@ -137,8 +138,8 @@ def suggest_silence(
         item = media[media_id]
         data = peaks.get_peaks(folder, item, lib.media_file(folder, item.path))
         envelopes.append((offsets.get(media_id, 0.0), data.db()))
-    lo = max(0.0, edit.range_in_s or 0.0)
-    hi = edit.range_out_s if edit.range_out_s is not None else planning.timeline_end(media, offsets)
+    lo = max(0.0, from_s or 0.0)
+    hi = to_s if to_s is not None else planning.timeline_end(media, offsets)
     marks = registration_windows(sync, offsets)
     dead = silence.suggest_cuts(
         envelopes,

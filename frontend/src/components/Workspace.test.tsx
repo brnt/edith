@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/preact";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
+import type { EditList } from "../lib/api";
 import { Workspace } from "./Workspace";
 
 const baseMedia = [
@@ -91,8 +92,6 @@ const baseEdit = {
   tracks: [],
   mix: [],
   disabled: [],
-  range_in_s: null,
-  range_out_s: null,
   fps_num: 30000,
   fps_den: 1001,
   width: 1920,
@@ -243,7 +242,7 @@ beforeEach(() => {
       if (path.endsWith("/plan"))
         return respond({
           duration_s: 70,
-          warnings: ["Cam B has no footage for part of the selected range"],
+          warnings: ["Cam B has no footage for part of the timeline"],
         });
       if (path.includes("/peaks"))
         return respond({ rate: 100, floor_db: -80, values: [0, 100, 200] });
@@ -1217,4 +1216,93 @@ test("a camera whose file can't be read is flagged on its grid tile; the flag ta
   expect(screen.getByRole("tab", { name: /Media/ })).toHaveAttribute("aria-selected", "true");
   // And there the card says the same, with the way out.
   expect(await screen.findByText("Can't read this file")).toBeInTheDocument();
+});
+
+describe("the selection's handles", () => {
+  const selectSpan = (from: number, to: number) => {
+    const lanes = screen.getByTestId("timeline").querySelector(".cursor-crosshair") as HTMLElement;
+    fireEvent.pointerDown(lanes, { clientX: from, pointerId: 1 });
+    fireEvent.pointerMove(lanes, { clientX: to, pointerId: 1 });
+    fireEvent.pointerUp(lanes, { clientX: to, pointerId: 1 });
+  };
+
+  test("a selected handle is nudged by the arrow keys (0.1 s, 1 s with shift), not the playhead", async () => {
+    render(<Workspace slug="show" />);
+    await screen.findByTestId("timeline");
+    selectSpan(200, 400); // 0:10 – 0:20
+    const handle = within(screen.getByTestId("timeline")).getByRole("separator", {
+      name: "Selection start",
+    });
+    fireEvent.pointerDown(handle, { clientX: 200, pointerId: 1 });
+    fireEvent.pointerUp(handle, { clientX: 200, pointerId: 1 });
+    fireEvent.keyDown(window, { key: "ArrowRight" });
+    fireEvent.keyDown(window, { key: "ArrowRight", shiftKey: true });
+    fireEvent.keyDown(window, { key: "ArrowLeft" });
+    expect(screen.getByText("0:11.00–0:20.00")).toBeInTheDocument(); // 10 + 0.1 + 1 - 0.1
+  });
+
+  test("selecting a handle puts the playhead on that edge", async () => {
+    render(<Workspace slug="show" />);
+    await screen.findByTestId("timeline");
+    selectSpan(200, 400); // 0:10 – 0:20
+    const timeline = screen.getByTestId("timeline");
+    const handle = within(timeline).getByRole("separator", { name: "Selection end" });
+    fireEvent.pointerDown(handle, { clientX: 400, pointerId: 1 });
+    fireEvent.pointerUp(handle, { clientX: 400, pointerId: 1 });
+    expect(screen.getByTestId("playhead")).toHaveStyle({ left: "400px" }); // 0:20 at 20 px/s
+  });
+
+  test("Esc lets go of a handle first, then of the selection; clicking away clears it", async () => {
+    render(<Workspace slug="show" />);
+    await screen.findByTestId("timeline");
+    selectSpan(200, 400);
+    const timeline = screen.getByTestId("timeline");
+    fireEvent.pointerDown(within(timeline).getByRole("separator", { name: "Selection end" }), {
+      clientX: 400,
+      pointerId: 1,
+    });
+    fireEvent.pointerUp(within(timeline).getByRole("separator", { name: "Selection end" }), {
+      clientX: 400,
+      pointerId: 1,
+    });
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(within(timeline).getByRole("separator", { name: "Selection end" })).toHaveAttribute(
+      "aria-selected",
+      "false",
+    );
+    expect(screen.getByText("0:10.00–0:20.00")).toBeInTheDocument();
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(within(timeline).queryByRole("separator", { name: /Selection/ })).toBeNull();
+  });
+
+  test("there are no In/Out buttons or i/o keys: a selection is made by dragging", async () => {
+    render(<Workspace slug="show" />);
+    await screen.findByTestId("timeline");
+    expect(screen.queryByRole("button", { name: /Range (in|out)|Keep only/ })).toBeNull();
+    fireEvent.keyDown(window, { key: "i" });
+    fireEvent.keyDown(window, { key: "o" });
+    expect(
+      within(screen.getByTestId("timeline")).queryByRole("separator", { name: /Selection/ }),
+    ).toBeNull();
+  });
+
+  test("Uncut gives back a stretch of a cut block, splitting the block; it is off when nothing is cut there", async () => {
+    render(<Workspace slug="show" />);
+    await screen.findByTestId("timeline");
+    selectSpan(200, 400);
+    fireEvent.click(screen.getByRole("button", { name: "Cut (x)" })); // cut 0:10 – 0:20
+    selectSpan(500, 600); // 0:25 – 0:30, nothing cut there
+    expect(screen.getByRole("button", { name: "Uncut" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Cut (x)" })).toBeEnabled();
+    selectSpan(240, 360); // 0:12 – 0:18, wholly inside the cut: nothing left to cut
+    expect(screen.getByRole("button", { name: "Cut (x)" })).toBeDisabled();
+    selectSpan(280, 320); // 0:14 – 0:16, inside the cut
+    fireEvent.click(screen.getByRole("button", { name: "Uncut" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(puts).toHaveLength(1));
+    expect((puts[0] as EditList).cuts).toEqual([
+      { start_s: 10, end_s: 14 },
+      { start_s: 16, end_s: 20 },
+    ]);
+  });
 });

@@ -50,20 +50,20 @@ comes next.
    found right now (an unplugged drive) stays on the list, marked, until you forget it.
 2. **Media.** Put the camera, audio and still-image files in the project folder (subfolders are
    fine: the media view keeps your folder hierarchy) and they turn up in the **Media** tab by
-   themselves within a few seconds. There is no *Add media* and no *Remove*: the folder is the way
+   themselves within a few seconds. There is no _Add media_ and no _Remove_: the folder is the way
    in and out. Footage kept elsewhere (an external drive) can be linked into the folder. A file
    that is deleted from the folder and that nothing in the edit uses simply disappears from the
    list.
    Each file is a card: a thumbnail (a waveform for audio) with its name, the grid number it has,
    a sync icon for video and audio (green check synced, amber exclamation check, red cross not
    found, grey arrows not synced yet), and:
-   - **Include:** a file found in the folder is marked *new* and is **not part of the project**
+   - **Include:** a file found in the folder is marked _new_ and is **not part of the project**
      until you include it (tick its checkbox). Looking never writes to the project; including is the
      edit that does. The tab shows how many are waiting.
    - **The checkbox:** ticked by default. For a camera or still it shows or hides it in the grid
      and the timeline (a hidden one stays on the timeline only while a segment still shows it). For
      an audio file it is the single control for whether its sound is in the output. Ticking a
-     *new* file includes it in the project.
+     _new_ file includes it in the project.
    - **Cameras, stills and audio** are told apart by an icon and a tint on the name chip, and
      by the colour of the number chip (blue cameras, teal stills).
    - **The speaker (cameras):** whether the camera's own audio is used, independent of the
@@ -102,10 +102,11 @@ comes next.
      trimmed). It is searched for, not added to the project.
 
    Each file gets a start offset, a **Match** score (1.0 = identical; real rooms score lower, e.g.
-   0.4-0.6), drift, and a result: *synced*, *check* (weak or inconsistent: review it), or *not
-   found*. Compare the Match across files: a different seed or the wrong sound can partly match
+   0.4-0.6), drift, and a result: _synced_, _check_ (weak or inconsistent: review it), or _not
+   found_. Compare the Match across files: a different seed or the wrong sound can partly match
    and may land up to ~30 ms off, but scores clearly lower. Nudge any file by hand in
    milliseconds.
+
 4. **Edit.** The large view plays the synced proxies, with the time and play controls under it. Beside
    it is a grid of every camera (live thumbnails, in step with the playhead) and every still (a
    small picture): **click one to cut to it at the current position**. The grid is laid out like a **10-key**: 1 2 3 on the bottom row, 4 5 6 above, 7 8 9 on top (rows nobody uses are left out), so a channel's number key is where its thumbnail is and you can cut without looking. Each channel keeps its own cell; the one on screen is a dimmed live copy with an "on screen" overlay
@@ -115,19 +116,20 @@ comes next.
    itself when its rows don't fit, but never shrinks below about four rows. So adding files
    never shrinks a view that is at full size, and a project with few files has a short timeline.
    When the timeline does scroll, the time ruler and the row labels stay pinned.
-   - **Channels:** the output shows one *channel* at a time: a camera or a still. Cameras are
+   - **Channels:** the output shows one _channel_ at a time: a camera or a still. Cameras are
      numbered first, then stills (each by name), and only the first nine get a number. Put the
      playhead where you want the change and press the channel's number (or click its button);
      it stays on screen until the next switch, so a still is cut to and from like a camera.
-     **With a range selected** (drag on the timeline), clicking a thumbnail or pressing a number
+     **With a stretch selected** (drag on the timeline), clicking a thumbnail or pressing a number
      shows that channel over just the range, then goes back to whatever was showing at its end (a
      cutaway); the selection then clears. `Esc` clears a selection without doing anything.
      The checkbox beside each file in the **Media** tab hides a camera or still from the grid:
      it loses its number (the rest close up), is dimmed on the timeline, and isn't decoded
      unless it is on screen. It only tidies your workspace; the rendered output never changes.
-   - **Dead time:** *Find* outlines silent stretches (all output tracks quiet) and always
+   - **Dead time:** _Find_ outlines silent stretches (all output tracks quiet), within the
+     selection if there is one, and always
      includes the registration sounds, which are sync marks and not content (it cuts them even
-     when speech follows right after). *Cut all*, or drag-select and press `x` to cut by hand.
+     when speech follows right after). _Cut all_, or drag-select and press `x` to cut by hand.
      Cuts ripple.
    - **Selecting on the timeline:** click a channel's **segment** (a blue or teal block: one
      stretch where that channel is on screen) or a **cut** to select it (it gets a faint diagonal stripe texture).
@@ -153,14 +155,18 @@ comes next.
      track as an amber (gain) or red (muted) band; a new one paints over what it overlaps. The
      **Mix** menu lists them. Mixing is part of the edit, so it reaches the preview, the exports
      and the render.
-   - **Range:** `i` / `o` set the in and out points.
+   - **Selection:** drag on the timeline to select a stretch (click away or Esc to drop it). Its
+     two edges are handles for fine adjustment: click one to select it, drag it, or nudge it with
+     ←/→ (0.1 s; shift 1 s). Then **Cut** it (x), or **Uncut** it to take it back out of a cut
+     block (a block it falls inside is split in two). The final video is always the whole timeline
+     minus the cuts, so to export a narrower slice, cut the rest.
    - **Edit list:** the Switches and Cuts menus list every decision; click one to jump to it, ✕
      to remove it.
    - **Save** (⌘/Ctrl+S) writes the edit into the project file. Undo/redo with ⌘/Ctrl+Z.
 5. **Export.** FCPXML (DaVinci Resolve, Final Cut), Premiere XML, EDL (video only), the Edith
-   JSON, or **Render MP4 (1080p)**. Exports and renders use the *saved* edit.
+   JSON, or **Render MP4 (1080p)**. Exports and renders use the _saved_ edit.
 
-Keys: `space` play · `1`–`9` camera or still · `x` cut selection · `i`/`o` range · `←`/`→` step (shift = 10 s).
+Keys: `space` play · `1`–`9` camera or still · `x` cut selection · `←`/`→` step (shift = 10 s).
 
 ## Development
 
@@ -218,7 +224,7 @@ frontend/src/ Preact SPA; all HTTP in lib/api.ts; timeline math in lib/timeline.
   cross-file solver that rejects loud lookalikes
   ([ADR 0003](docs/adr/0003-sync-by-normalized-correlation-and-cross-file-consensus.md)).
 - **The edit** is a non-destructive list on the shared timeline (channel switches, cuts, track
-  settings, range). A still is a channel like a camera. `edit/plan.py` turns it into concrete clips; preview mirrors it, every
+  settings). A still is a channel like a camera. `edit/plan.py` turns it into concrete clips; preview mirrors it, every
   export serialises it, and the render compiles it to one ffmpeg command.
 
 ## Known limits
@@ -229,7 +235,7 @@ frontend/src/ Preact SPA; all HTTP in lib/api.ts; timeline math in lib/timeline.
 - **Drift is measured but not applied.** Each file's clock drift (ppm) is shown; clips are placed
   from the start offset only. Over a very long take, a drifting device would slowly slide.
 - **One camera showed a 22 ms inconsistency** between its start and end tone on the sample
-  session; sync flags weak or inconsistent files as *check*. Long real takes will tell whether it
+  session; sync flags weak or inconsistent files as _check_. Long real takes will tell whether it
   is a mis-located peak or real clock drift.
 - **Preview is proxy quality** and plays with a wall clock, so scrubbing and cut jumps can
   briefly stutter; the render is the source of truth.

@@ -84,7 +84,7 @@ Root `justfile` delegates to both; Compose runs `api` (:8000) and `web` (:8080).
   plain `<img>` tiles. Every channel keeps a fixed slot (cameras by number, then stills); the
   active one is the same tile, dimmed with an "on screen" overlay and inert (`TileShell`), so the grid never reorders.
   Painting a live copy costs ~0.01 ms/frame, measured.
-- **Timeline selection (`picked`) is separate from the range selection.** Segments come from
+- **Timeline pick (`picked`) is separate from the drag selection (except its edge handles).** Segments come from
   `segments()` in `lib/timeline.ts` (index = the switch that starts it, in time order; -1 = the
   opening stretch with no switch). Edge drags and deletes are switch edits (`moveSegmentEdge`,
   `deleteSegment`); handles show only on the picked item. Click targets carry `data-pick`/`data-index`,
@@ -137,7 +137,7 @@ Root `justfile` delegates to both; Compose runs `api` (:8000) and `web` (:8080).
   (1 bottom-left, 9 top-right, unused rows dropped), placed with `grid-row/column` on each tile so the DOM
   stays a flat list in number order; tile width is measured so all rows fit the height (no scrolling).
   Channels past the ninth have no number and go in rows below.
-- **Clicking a tile or pressing a number while a range is selected is a cutaway** (`showOver` in
+- **Clicking a tile or pressing a number while a stretch is selected is a cutaway** (`showOver` in
   `lib/editOps.ts`, via `cutTo` in `useEditor`): the channel is shown over the range, then the edit
   returns to what was showing at its end, and the selection clears. No selection: switch at the playhead.
 - **Channels are numbered cameras-first, then stills, by name, only 1-9** (`channelsOf` in
@@ -196,10 +196,19 @@ from before the folder layout are converted once at startup from `LEGACY_LIBRARY
   styled alike** (`Dropdown` for menus, `Select` for native selects: raised neutral, label left, caret
   right); don't style a `<select>` by hand. **Default to small buttons.** A large button is for
   findability, to help users hit a common task when it is surrounded by many other buttons; never put one
-  or two alone in a panel (Cut/Keep stay large for now as the reference). **Pack well:** bias toward making
+  or two alone in a panel (Cut/Uncut stay large for now as the reference). **Pack well:** bias toward making
   a panel taller, not wider, while it hasn't used its 4 rows, applied with judgement (keep related controls
   together). Don't name this file `ribbon.tsx` (it clashes with `Ribbon.tsx` on case-insensitive
   filesystems).
+- **Icons only on buttons, never keyboard characters** (no `[`, `]`, `×` as text): a character reads as the
+  key it names. Draw an icon (`components/icons.ts`) or compose one.
+- **A selection's two edges are timeline handles** (`selectionHandle` in `Timeline.tsx`; `Picked` kind
+  `"edge"`, index 0 = start, 1 = end; a picked edge coexists with the selection, a picked segment/cut doesn't):
+  click, drag (committed once on release), nudge with the arrows (0.1 s, shift 1 s). Esc drops the handle, then
+  the selection. There is no saved "range" in the edit: the output is the whole timeline minus the cuts, and the
+  selection is transient UI state (Dead time Find is bounded by it via `from_s`/`to_s`). Deliberately no In/Out
+  buttons or `i`/`o` hotkeys (a stray key overwrote a carefully set point). **Uncut** (`uncut` in `editOps`)
+  subtracts the selection from the cuts, splitting a block it falls inside.
 - **Pixel twiddling needs the user's eyes:** for visual tweaks (sizes, padding, gaps, colours, alignment),
   make the change, run the tests, then ask the user to check the result in their own browser _before_ committing
   and merging. Measurements in the agent's browser pane can differ from the user's window.

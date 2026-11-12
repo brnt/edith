@@ -29,8 +29,6 @@ const edit = (patch: Partial<EditList> = {}): EditList => ({
   tracks: [],
   mix: [],
   disabled: [],
-  range_in_s: null,
-  range_out_s: null,
   fps_num: 30000,
   fps_den: 1001,
   width: 1920,
