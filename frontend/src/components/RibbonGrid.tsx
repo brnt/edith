@@ -15,6 +15,7 @@ import { NEUTRAL_BUTTON, neutralLink, SMALL } from "./ui";
  */
 export const RIBBON_ROWS = 4;
 const UNIT = "2.0625rem";
+const LARGE = `calc(${UNIT} * 2 - 1px)`;
 
 /** The frame every ribbon group shares: a rule on its right edge and its name underneath. */
 export function GroupFrame({
@@ -102,8 +103,10 @@ export function RibbonButton({
   const big = size === 2;
   const span = big ? 2 : 1;
   const face = `flex flex-col items-center justify-center rounded-[5px] p-0 ${big ? "gap-1 text-[1.75rem]" : "text-xl"}`;
+  // Both sizes keep the unit's 4 px of implicit padding: a small face is 29 px in its 33 px cell, a
+  // large one 65 px in its 69 px (2 cells and the gap between them).
   const place = big
-    ? { gridArea: `span ${span} / span ${span}` }
+    ? { gridArea: `span ${span} / span ${span}`, width: LARGE, height: LARGE, placeSelf: "center" }
     : { width: SMALL, height: SMALL, placeSelf: "center" };
   if (href !== undefined) {
     return (
@@ -138,6 +141,12 @@ export function RibbonButton({
     </button>
   );
 }
+
+/*
+ * Every control in a ribbon grid keeps the unit's 4 px of implicit padding (2 px a side), so its
+ * visible face is its cells minus 4 px: a small button 29 px, a large one 65, a drop-down 29 tall, a
+ * number field or slider 29 tall (`m-[2px]`).
+ */
 
 /** Any other control (a drop-down, a readout) in the flow: `columns` units wide, one unit tall. */
 export function RibbonCell({
@@ -184,7 +193,7 @@ export function RibbonSlider({
   return (
     <label
       title={label}
-      class={`flex min-w-0 items-center gap-1.5 rounded-[5px] bg-[#1c1c1c] px-1.5 text-[12px] shadow-[inset_0_0_0_1px_#3a3a3a] ${disabled ? "text-neutral-600" : "text-neutral-300"}`}
+      class={`m-[2px] flex min-w-0 items-center gap-1.5 rounded-[5px] bg-[#1c1c1c] px-1.5 text-[12px] shadow-[inset_0_0_0_1px_#3a3a3a] ${disabled ? "text-neutral-600" : "text-neutral-300"}`}
       style={{ gridColumn: `span ${columns}` }}
     >
       <input
@@ -230,7 +239,7 @@ export function RibbonNumber({
   return (
     <label
       title={label}
-      class="flex min-w-0 items-center gap-[3px] rounded-[5px] bg-[#1c1c1c] px-1.5 text-[12.5px] shadow-[inset_0_0_0_1px_#3a3a3a]"
+      class="m-[2px] flex min-w-0 items-center gap-[3px] rounded-[5px] bg-[#1c1c1c] px-1.5 text-[12.5px] shadow-[inset_0_0_0_1px_#3a3a3a]"
       style={{ gridColumn: `span ${columns}` }}
     >
       {prefix && <span class="text-neutral-400">{prefix}</span>}

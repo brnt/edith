@@ -157,7 +157,7 @@ export function Studio(props: Props) {
         {active === "edit" && <EditTools ed={ed} />}
         {active === "export" && (
           <div class="flex h-full gap-3">
-            <RibbonGroup title="Export the saved edit">
+            <RibbonGroup title="Download">
               <RibbonSet columns={4}>
                 {FORMATS.map((f) => (
                   <RibbonButton
@@ -176,12 +176,13 @@ export function Studio(props: Props) {
             <RenderPanel
               slug={slug}
               disabled={dirty || !props.outputSeconds}
-              title={[
-                dirty ? "Save your changes first" : "",
-                props.outputSeconds ? `Output length ${Math.round(props.outputSeconds)} s` : "",
-              ]
-                .filter(Boolean)
-                .join(" · ")}
+              title={
+                dirty
+                  ? "Save first"
+                  : props.outputSeconds
+                    ? `Render · ${Math.round(props.outputSeconds)} s`
+                    : "Render"
+              }
               onError={props.onError}
             />
           </div>
