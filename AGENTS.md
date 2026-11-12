@@ -179,13 +179,17 @@ from before the folder layout are converted once at startup from `LEGACY_LIBRARY
   actions outside it (Play, Save), so every panel button has a neutral background (`RibbonButton` has no
   variants; don't pass `variant="primary"` to a `Button` in a panel). Enabled vs disabled has to read through
   fill lightness, border and icon brightness alone.
-- **Ribbon grid** (`RibbonGrid.tsx`): a ribbon group is a grid of 33px units (3px apart, `RIBBON_ROWS` = 4
-  tall). `RibbonButton` is 1×1 (icon only) or 2×2 (icon + one short word, `text`); size follows how prominent
-  the action is. Drop-downs (`Dropdown block`) span whole units, one unit tall, the same width within a set
-  (`RibbonCell`). Every control needs a `label` (tooltip + aria-label); a hotkey is optional and is appended to
-  both. Controls that aren't buttons (numeric inputs, selects) keep the free-flowing `Group` in `EditTools.tsx`
-  until they're converted. Don't name this file `ribbon.tsx` (it clashes with `Ribbon.tsx` on
-  case-insensitive filesystems).
+- **Ribbon grid** (`RibbonGrid.tsx`): the unit is 33px, cells 3px apart. A panel (`RibbonGroup`) holds one or
+  more button groups (`RibbonSet`, N units wide: any whole number) stacked top to bottom, at most `RIBBON_ROWS`
+  (4) units in all; a hairline in the 3px gap between sets is the only separator (no extra spacing, so
+  everything stays on the unit grid). Controls flow left to right and wrap in written order; there are no
+  coordinates. `RibbonButton` is large (`size={2}`: 2×2 cells, icon + one short word `text`) or small
+  (icon only, 1×1 cell but a 29px face centred in it, so neighbours read as separate); size follows how
+  prominent the action is. Drop-downs (`Dropdown block`) go in a `RibbonCell columns={N}`: whole units wide, one
+  unit tall, the same width within a set. Every control needs a `label` (tooltip + aria-label); a hotkey is
+  optional and is appended to both. Controls that aren't buttons (numeric inputs, selects) keep the
+  free-flowing `Group` in `EditTools.tsx` until they're converted. Don't name this file `ribbon.tsx` (it
+  clashes with `Ribbon.tsx` on case-insensitive filesystems).
 - **Pixel twiddling needs the user's eyes:** for visual tweaks (sizes, padding, gaps, colours, alignment),
   make the change, run the tests, then ask the user to check the result in their own browser *before* committing
   and merging. Measurements in the agent's browser pane can differ from the user's window.

@@ -10,7 +10,6 @@ export { default as Ellipsis } from "@ant-design/icons-svg/es/asn/EllipsisOutlin
 export { default as CaretRight } from "@ant-design/icons-svg/es/asn/CaretRightOutlined";
 export { default as Check } from "@ant-design/icons-svg/es/asn/CheckOutlined";
 export { default as CheckCircle } from "@ant-design/icons-svg/es/asn/CheckCircleOutlined";
-export { default as Clear } from "@ant-design/icons-svg/es/asn/ClearOutlined";
 export { default as Close } from "@ant-design/icons-svg/es/asn/CloseOutlined";
 export { default as CloseCircle } from "@ant-design/icons-svg/es/asn/CloseCircleOutlined";
 export { default as ColumnWidth } from "@ant-design/icons-svg/es/asn/ColumnWidthOutlined";

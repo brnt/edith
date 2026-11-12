@@ -1,31 +1,22 @@
-import type { ComponentChildren, JSX } from "preact";
+import type { ComponentChildren } from "preact";
 import type { IconDefinition } from "@ant-design/icons-svg/es/types";
 
 import { Icon } from "./Icon";
 import { NEUTRAL_BUTTON } from "./ui";
 
 /**
- * The ribbon's layout grid. One unit is a 33px square with 3px between cells, so a group's content
- * is at most RIBBON_ROWS units tall. Buttons come in two sizes: 1×1 (icon only) and 2×2 (icon plus one
- * short word: two units plus the gap between them, so it is as big as a 2×2 block of small ones);
- * drop-downs are whole units wide, one unit tall, and the same width within a set.
+ * The ribbon's layout grid. One unit is a 33px square with 3px between cells. A panel (`RibbonGroup`)
+ * is one or more button groups (`RibbonSet`) stacked top to bottom, at most RIBBON_ROWS units tall in all;
+ * a hairline in the 3px gap marks the break between sets. Within a set, controls flow left to right and
+ * wrap in written order, so a set is just "an integer number of units wide". Large buttons (2×2: icon plus
+ * one short word) occupy a 2×2 block; small buttons (icon only) occupy 1×1 but draw 29px square, centred in
+ * the cell; drop-downs span whole units, one unit tall, the same width within a set.
  * Every control has a name (`label`) that is its tooltip and aria-label, hotkey included.
  */
 export const RIBBON_ROWS = 4;
 const UNIT = "2.0625rem";
-
-/** Where a control sits in its group's grid (1-based), and how many units it spans. */
-interface Cell {
-  row: number;
-  col: number;
-  cols?: number;
-  rows?: number;
-}
-
-const place = ({ row, col, cols = 1, rows = 1 }: Cell): JSX.CSSProperties => ({
-  gridRow: `${row} / span ${rows}`,
-  gridColumn: `${col} / span ${cols}`,
-});
+/** A small button's face: 4px smaller than its 33px cell, so neighbours read as separate. */
+const SMALL = "1.8125rem";
 
 /** The frame every ribbon group shares: a rule on its right edge and its name underneath. */
 export function GroupFrame({
@@ -52,28 +43,30 @@ export function GroupFrame({
   );
 }
 
-/** A ribbon group laid out on the unit grid: `columns` units wide, RIBBON_ROWS tall. */
-export function RibbonGroup({
-  title,
-  columns,
-  children,
-}: {
-  title: string;
-  columns: number;
-  children: ComponentChildren;
-}) {
+/** A ribbon panel: button groups (`RibbonSet`) stacked, with a hairline in the gap between them. */
+export function RibbonGroup({ title, children }: { title: string; children: ComponentChildren }) {
   return (
     <GroupFrame title={title}>
-      <div
-        class="grid content-start gap-[3px]"
-        style={{
-          gridTemplateColumns: `repeat(${columns}, ${UNIT})`,
-          gridTemplateRows: `repeat(${RIBBON_ROWS}, ${UNIT})`,
-        }}
-      >
+      <div class="flex flex-col gap-[3px] [&>*+*]:relative [&>*+*]:before:absolute [&>*+*]:before:-top-[2px] [&>*+*]:before:h-px [&>*+*]:before:w-full [&>*+*]:before:bg-neutral-700">
         {children}
       </div>
     </GroupFrame>
+  );
+}
+
+/** A button group: `columns` units wide, as many units tall as its controls need. */
+export function RibbonSet({ columns, children }: { columns: number; children: ComponentChildren }) {
+  return (
+    <div
+      class="grid gap-[3px]"
+      style={{
+        gridTemplateColumns: `repeat(${columns}, ${UNIT})`,
+        gridAutoRows: UNIT,
+        gridAutoFlow: "row dense",
+      }}
+    >
+      {children}
+    </div>
   );
 }
 
@@ -88,7 +81,6 @@ export function RibbonButton({
   icon,
   glyph,
   size = 1,
-  at,
   disabled,
   onClick,
 }: {
@@ -100,7 +92,6 @@ export function RibbonButton({
   /** A character to draw instead of an icon, where no icon says it (e.g. "[" for an in point). */
   glyph?: string;
   size?: 1 | 2;
-  at: { row: number; col: number };
   disabled?: boolean;
   onClick: () => void;
 }) {
@@ -113,7 +104,11 @@ export function RibbonButton({
       title={name}
       aria-label={name}
       disabled={disabled}
-      style={place({ ...at, cols: span, rows: span })}
+      style={
+        big
+          ? { gridArea: `span ${span} / span ${span}` }
+          : { width: SMALL, height: SMALL, placeSelf: "center" }
+      }
       class={`flex flex-col items-center justify-center rounded-[5px] p-0 disabled:cursor-not-allowed ${NEUTRAL_BUTTON} ${big ? "gap-1 text-[1.75rem]" : "text-xl"}`}
       onClick={onClick}
     >
@@ -124,10 +119,16 @@ export function RibbonButton({
   );
 }
 
-/** Any other control (a drop-down, a readout) placed on the grid; it fills its cell. */
-export function RibbonCell({ at, children }: { at: Cell; children: ComponentChildren }) {
+/** Any other control (a drop-down, a readout) in the flow: `columns` units wide, one unit tall. */
+export function RibbonCell({
+  columns = 1,
+  children,
+}: {
+  columns?: number;
+  children: ComponentChildren;
+}) {
   return (
-    <div class="min-w-0" style={place(at)}>
+    <div class="min-w-0" style={{ gridColumn: `span ${columns}` }}>
       {children}
     </div>
   );
