@@ -29,7 +29,7 @@ import {
 } from "../lib/timeline";
 import { channelStyle } from "../lib/channelStyle";
 import type { IconDefinition } from "@ant-design/icons-svg/es/types";
-import { Button, Progress } from "./ui";
+import { Button, Progress, Select } from "./ui";
 import { Icon } from "./Icon";
 import {
   CaretDown,
@@ -203,9 +203,9 @@ export function MediaPanel(props: Props) {
         )}
         {job && <Progress value={job.progress} label={job.message} />}
         {available.length > 0 && (
-          <select
+          <Select
             aria-label="Show"
-            class="rounded bg-neutral-900 px-1 py-1 text-sm"
+
             value={filter}
             onChange={(e) => setFilter(e.currentTarget.value as MediaFilter)}
           >
@@ -215,7 +215,7 @@ export function MediaPanel(props: Props) {
             <option value="image">Stills</option>
             <option value="new">New (not included)</option>
             <option value="unsynced">Not synced</option>
-          </select>
+          </Select>
         )}
       </div>
       {available.length === 0 ? (

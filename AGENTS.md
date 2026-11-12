@@ -33,6 +33,7 @@ Edith project file → Resolve/Premiere export → in-app ffmpeg render (1080p H
 Root `justfile` delegates to both; Compose runs `api` (:8000) and `web` (:8080).
 
 **Stack deviations in force** (see `docs/adr/`):
+
 - **SQLite per project, no Postgres, no Alembic** ([0001](docs/adr/0001-sqlite-per-project-versioned-documents.md)).
   A project is a folder with `project.edith` (SQLite, frozen two-table schema holding
   versioned JSON documents) beside its media. Schema evolution = document version bump +
@@ -47,6 +48,7 @@ Root `justfile` delegates to both; Compose runs `api` (:8000) and `web` (:8080).
   use a throwaway SQLite file under `tmp_path`).
 
 **Rules specific to this project:**
+
 - **A project is a `.edith` file in a self-contained folder anywhere on disk** ([0004](docs/adr/0004-projects-are-self-contained-folders.md)):
   media, its `.edith` file(s), `renders/`, hidden `.edith/` cache (shared by several projects in one folder). There is **no library root and nothing is
   scanned**: a project's id (slug) is its `.edith` file's absolute path (base64url; its folder is the parent); `services/recents.py`
@@ -61,13 +63,13 @@ Root `justfile` delegates to both; Compose runs `api` (:8000) and `web` (:8080).
   Exporters and the ffmpeg render serialise it; the frontend's `lib/timeline.ts` mirrors its
   rules for the preview. Change the semantics in the plan first, then both.
 - All edit times are **shared-timeline seconds before cuts** (earliest file = 0). Source time =
-  timeline time minus the file's offset (sync start + nudge). Cuts ripple; the output shows one *channel* (a camera or a still) from each switch until the
+  timeline time minus the file's offset (sync start + nudge). Cuts ripple; the output shows one _channel_ (a camera or a still) from each switch until the
   next, and audio continues regardless; camera audio is never used.
 - Document kinds live in `db/documents.py`; every shape change is a version bump + upcaster +
-  fixture project + test. Saving writes the *current* version; reading never writes.
+  fixture project + test. Saving writes the _current_ version; reading never writes.
   **Edit is at v2** (stills became switches; `_edit_v1_to_v2`); the v1 fixture lives in
   `backend/tests/fixtures/projects/` and is exercised by `tests/api/test_old_projects.py`.
-- **Audio level at time t** = the track's gain + the *last* mix region covering t (a muted region
+- **Audio level at time t** = the track's gain + the _last_ mix region covering t (a muted region
   is silence); `gain_pieces` in `edit/plan.py` splits audio at region edges and `trackGainDb` in
   `lib/timeline.ts` mirrors it for the preview. Whether a file's audio is in the output is
   `EditList.tracks` (muted = excluded); the Media tab owns that, not the timeline.
@@ -150,9 +152,9 @@ Root `justfile` delegates to both; Compose runs `api` (:8000) and `web` (:8080).
 - Long work (proxies, sync, render) runs as a job (`services/jobs.py`); the UI polls `/jobs/{id}`.
 - **ffmpeg gotchas learned on real footage:** never loop a still with `-loop 1` as an input inside
   a concat (it stalls); `-ss` before `-i` for every clip; hold stills with the `loop` filter.
-  Exports and renders use the *saved* edit, not unsaved UI state.
+  Exports and renders use the _saved_ edit, not unsaved UI state.
 - **Sync** (`backend/edith/sync/`, try it: `cd backend && uv run python -m edith.sync --template FILE:START:END FILES...`):
-  the registration sound is a pluggable *template* (`SyncTemplate.kind`: `excerpt` of a
+  the registration sound is a pluggable _template_ (`SyncTemplate.kind`: `excerpt` of a
   registered recording, `seed` text, or an audio `file` of the project folder; the sync document gained these fields
   additively, so no version bump), because what was actually played is not always the generated burst
   ([0003](docs/adr/0003-sync-by-normalized-correlation-and-cross-file-consensus.md)). Different seeds
@@ -162,15 +164,16 @@ Root `justfile` delegates to both; Compose runs `api` (:8000) and `web` (:8080).
   seeded burst generator is a bit-exact port of `~/projects/stickshift/audio/registration.py`
   (its bit-verifying detector fails on recorded audio; don't port it).
 - Sample session for real-data checks: `EDITH_SAMPLE_MEDIA=/Volumes/BRENTexp/media uv run pytest
-  tests/sync/test_real_media.py` (skipped when unset; the media is ~1.9 GB, never commit it).
+tests/sync/test_real_media.py` (skipped when unset; the media is ~1.9 GB, never commit it).
 - Not built yet: applying measured drift to clip placement, vertical/9:16 reframing, volume
   envelopes (the mix is stepwise regions: `EditList.mix`), and a room-audio sync fallback. Add a fixture project for every future version bump.
 
 **Local use:** `EDITH_MOUNT` (root `.env`) is the part of your machine Docker Edith can see, mounted at
 the same path as on the host (default: your home folder; `/Volumes` for external drives). Projects
 from before the folder layout are converted once at startup from `LEGACY_LIBRARY_DIR`
-(`services/migration.py`: footage is *linked* into the project folder, ids unchanged, a
+(`services/migration.py`: footage is _linked_ into the project folder, ids unchanged, a
 `project.edith.before-folder-layout` backup is kept).
+
 - **Button groups** (`ButtonGroup` in `ui.tsx`): buttons that belong together (undo/redo) sit a hairline
   apart (`gap-0.5`); separate groups and loose buttons sit `gap-3` apart in the container that holds them
   (e.g. the ribbon's `actions`). Icon-only buttons are 7:4 (the transport buttons 56×32, the ribbon's
@@ -188,11 +191,17 @@ from before the folder layout are converted once at startup from `LEGACY_LIBRARY
   neighbours read as separate); size follows how
   prominent the action is. Drop-downs (`Dropdown block`) go in a `RibbonCell columns={N}`: whole units wide, one
   unit tall, the same width within a set. Every control needs a `label` (tooltip + aria-label); a hotkey is
-  optional and is appended to both. Controls that aren't buttons (numeric inputs, selects) keep the
-  free-flowing `Group` in `EditTools.tsx` until they're converted. Don't name this file `ribbon.tsx` (it
-  clashes with `Ribbon.tsx` on case-insensitive filesystems).
+  optional and is appended to both. Other controls sit on the same grid: number fields (`RibbonNumber`:
+  sunken, one unit tall, prefix/unit inside the field) and drop-downs. **Every drop-down in every panel is
+  styled alike** (`Dropdown` for menus, `Select` for native selects: raised neutral, label left, caret
+  right); don't style a `<select>` by hand. **Default to small buttons.** A large button is for
+  findability, to help users hit a common task when it is surrounded by many other buttons; never put one
+  or two alone in a panel (Cut/Keep stay large for now as the reference). **Pack well:** bias toward making
+  a panel taller, not wider, while it hasn't used its 4 rows, applied with judgement (keep related controls
+  together). Don't name this file `ribbon.tsx` (it clashes with `Ribbon.tsx` on case-insensitive
+  filesystems).
 - **Pixel twiddling needs the user's eyes:** for visual tweaks (sizes, padding, gaps, colours, alignment),
-  make the change, run the tests, then ask the user to check the result in their own browser *before* committing
+  make the change, run the tests, then ask the user to check the result in their own browser _before_ committing
   and merging. Measurements in the agent's browser pane can differ from the user's window.
 
 ## Commands

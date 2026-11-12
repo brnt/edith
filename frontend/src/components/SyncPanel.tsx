@@ -13,7 +13,7 @@ import {
 import { waitForJob } from "../lib/jobs";
 import { formatTime } from "../lib/timeline";
 import { MAX_CANVAS_PX, Waveform } from "./Waveform";
-import { Badge, Button, neutralLink, Progress } from "./ui";
+import { Badge, Button, neutralLink, Progress, Select } from "./ui";
 import { Icon } from "./Icon";
 import { CheckCircle, CloseCircle, Download, Search, Warning, ZoomIn, ZoomOut } from "./icons";
 
@@ -135,8 +135,7 @@ export function SyncPanel(props: Props) {
         <div class="flex flex-wrap items-center gap-2 text-sm">
           <label>
             Registration sound{" "}
-            <select
-              class="rounded bg-neutral-900 px-2 py-1"
+            <Select
               aria-label="Registration sound source"
               value={mode}
               onChange={(e) => setMode(e.currentTarget.value as Mode)}
@@ -146,13 +145,12 @@ export function SyncPanel(props: Props) {
                   {m.label}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
 
           {mode === "excerpt" && (
             <>
-              <select
-                class="rounded bg-neutral-900 px-2 py-1"
+              <Select
                 aria-label="Recording"
                 value={sourceId}
                 onChange={(e) => {
@@ -165,7 +163,7 @@ export function SyncPanel(props: Props) {
                     {m.label}
                   </option>
                 ))}
-              </select>
+              </Select>
               <Button icon={ZoomIn} onClick={() => setPxPerSec((v) => Math.min(v * 2, 2000))}>
                 Zoom in
               </Button>
@@ -200,8 +198,8 @@ export function SyncPanel(props: Props) {
           )}
 
           {mode === "file" && (
-            <select
-              class="max-w-64 rounded bg-neutral-900 px-1 py-1"
+            <Select
+              class="max-w-64"
               aria-label="Audio file"
               value={filePath}
               onChange={(e) => setFilePath(e.currentTarget.value)}
@@ -216,7 +214,7 @@ export function SyncPanel(props: Props) {
                   {m.path}
                 </option>
               ))}
-            </select>
+            </Select>
           )}
         </div>
 
