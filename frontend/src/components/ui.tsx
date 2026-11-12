@@ -120,13 +120,13 @@ export function Select({
     <span class={`relative ${block ? CELL : "inline-flex"}`}>
       <select
         {...props}
-        class={`w-full cursor-pointer appearance-none truncate py-0 pr-6 ${DROP_FACE} [&>option]:bg-neutral-900 ${cls ?? ""}`}
+        class={`peer w-full cursor-pointer appearance-none truncate py-0 pr-6 ${DROP_FACE} [&>option]:bg-neutral-900 ${cls ?? ""}`}
       >
         {children}
       </select>
       <Icon
         icon={Down}
-        class={`pointer-events-none absolute top-1/2 -translate-y-1/2 text-xs ${block ? "right-[10px]" : "right-2"}`}
+        class={`pointer-events-none absolute top-1/2 -translate-y-1/2 text-xs peer-disabled:text-[#686868] ${block ? "right-[10px]" : "right-2"}`}
       />
     </span>
   );
