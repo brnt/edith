@@ -7,6 +7,7 @@ import {
   formatBitrate,
   formatBytes,
   formatNotes,
+  isLowRes,
   matchesFilter,
 } from "./mediaInfo";
 
@@ -148,4 +149,34 @@ test("the media filter: by kind, new files, and files the sync has not placed", 
   expect(matchesFilter(m({ id: "none" }), "unsynced", sync)).toBe(true);
   expect(matchesFilter(m({ kind: "image" }), "unsynced", sync)).toBe(false); // pictures aren't synced
   expect(matchesFilter(m({ included: false }), "unsynced", sync)).toBe(false); // not in the project
+});
+
+const sized = (width: number, height: number) =>
+  ({ kind: "video", width, height, fps: 29.97 }) as MediaItem;
+const project = { fps: 29.97, width: 1920, height: 1080 };
+
+test("a picture smaller than the output gets a note and a flagged Resolution row", () => {
+  expect(isLowRes(1280, 720, project)).toBe(true);
+  expect(formatNotes(sized(1280, 720), project)[0]).toMatch(
+    /1280×720 is smaller than the project's 1920×1080/,
+  );
+  const low = details({ video: { ...details().video!, width: 1280, height: 720 } });
+  const rows = detailSections(low, sized(1280, 720), project)
+    .flatMap((s) => s.rows)
+    .filter((r) => r.label === "Resolution");
+  expect(rows).toHaveLength(1);
+  expect(rows.every((r) => r.warn)).toBe(true);
+});
+
+test("a matching or larger picture, or an unknown size, is not flagged", () => {
+  expect(isLowRes(1920, 1080, project)).toBe(false);
+  expect(isLowRes(3840, 2160, project)).toBe(false);
+  expect(isLowRes(null, null, project)).toBe(false);
+  expect(isLowRes(1280, 720, { fps: 30 })).toBe(false); // no output size known
+  expect(formatNotes(sized(1920, 1080), project)).toEqual([]);
+});
+
+test("a portrait file fitted by its height is only low-res if that makes it bigger", () => {
+  expect(isLowRes(1080, 1920, project)).toBe(false); // shrunk to fit the frame
+  expect(isLowRes(360, 640, project)).toBe(true); // smaller than the frame's height
 });

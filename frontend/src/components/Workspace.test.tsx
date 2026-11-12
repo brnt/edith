@@ -1055,7 +1055,7 @@ describe("the media cards", () => {
     fireEvent.click(await screen.findByRole("tab", { name: /Media/ }));
     const [root, folderB] = await screen.findAllByTestId("media-folder");
     // The project folder: hide everything, then show it again (an edit, saved later).
-    fireEvent.click(within(root).getByRole("button", { name: "Hide all" }));
+    fireEvent.click(within(root).getByRole("button", { name: "Exclude all" }));
     expect(screen.getByText("unsaved changes")).toBeInTheDocument();
     expect(within(root).getByRole("button", { name: "Show all" })).toBeInTheDocument();
     // A folder of new files: one click includes them all.

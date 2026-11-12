@@ -36,7 +36,7 @@ export interface DetailSection {
 export function detailSections(
   d: MediaDetails,
   item: MediaItem,
-  project: { fps: number } | null,
+  project: ProjectFormat | null,
 ): DetailSection[] {
   const sections: DetailSection[] = [];
   const v = d.video;
@@ -59,7 +59,13 @@ export function detailSections(
     sections.push({ title: "File", rows: file });
     const w = v?.width ?? item.width;
     const h = v?.height ?? item.height;
-    const picture: DetailRow[] = [{ label: "Resolution", value: w ? `${w}×${h}` : "–" }];
+    const picture: DetailRow[] = [
+      {
+        label: "Resolution",
+        value: w ? `${w}×${h}` : "–",
+        warn: isLowRes(w, h, project) || undefined,
+      },
+    ];
     const colour = [v?.bit_depth ? `${v.bit_depth}-bit` : null, v?.pix_fmt, v?.color_space].filter(
       Boolean,
     );
@@ -81,7 +87,11 @@ export function detailSections(
   if (v) {
     const rows: DetailRow[] = [
       { label: "Codec", value: [v.codec, v.profile].filter(Boolean).join(" · ") || "–" },
-      { label: "Resolution", value: v.width ? `${v.width}×${v.height}` : "–" },
+      {
+        label: "Resolution",
+        value: v.width ? `${v.width}×${v.height}` : "–",
+        warn: isLowRes(v.width, v.height, project) || undefined,
+      },
     ];
     if (v.fps) {
       const variable = v.fps_variable;
@@ -119,11 +129,38 @@ export function detailSections(
   return sections;
 }
 
+/** The project's output format, for flagging files that don't match it. */
+export interface ProjectFormat {
+  fps: number;
+  width?: number;
+  height?: number;
+}
+
+/**
+ * Would this picture be scaled up to fill the output? True when, fitted inside the output frame, it
+ * ends up larger than it is (a portrait file in a landscape project is fitted by height, so it
+ * counts only if that makes it bigger).
+ */
+export function isLowRes(
+  width: number | null,
+  height: number | null,
+  project: ProjectFormat | null,
+): boolean {
+  if (!width || !height || !project?.width || !project.height) return false;
+  return Math.min(project.width / width, project.height / height) > 1.01;
+}
+
+const lowResNote = (w: number, h: number, project: ProjectFormat) =>
+  `${w}×${h} is smaller than the project's ${project.width}×${project.height}, so it will be scaled up and look soft`;
+
 /** Things about a file worth a second look, for a note on its card. */
-export function formatNotes(item: MediaItem, project: { fps: number } | null): string[] {
+export function formatNotes(item: MediaItem, project: ProjectFormat | null): string[] {
   const notes: string[] = [];
   if (item.kind === "video" && item.fps && project && Math.abs(item.fps - project.fps) > 0.05) {
     notes.push(`${item.fps.toFixed(2)} fps, but the project is ${project.fps.toFixed(2)} fps`);
+  }
+  if (item.kind !== "audio" && project && isLowRes(item.width, item.height, project)) {
+    notes.push(lowResNote(item.width!, item.height!, project));
   }
   if (item.kind !== "audio" && item.width && item.height && item.height > item.width) {
     notes.push("Portrait (vertical) picture");
