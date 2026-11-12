@@ -150,8 +150,10 @@ comes next.
    - **Stills:** a still is a channel: cut to it from the grid or its number key, and cut away
      again the same way. The audio always continues.
    - **Audio:** each included file gets a track on the timeline with an overall gain slider. To
-     change the level over just a stretch, drag-select it, pick the track under **Mix the
-     selection**, and press **Set level** (a dB change added to the track) or **Mute**. It shows on the
+     change the level over just a stretch, drag-select it, pick the track in the **Selection**
+     panel, and drag its level slider (a dB change added to the track, set when you let go) or press
+     **Mute** (pressed again, **Unmute**). The slider shows what the stretch is currently set to; the
+     track, slider and Mute are off until something is selected. It shows on the
      track as an amber (gain) or red (muted) band; a new one paints over what it overlaps. The
      **Mix** menu lists them. Mixing is part of the edit, so it reaches the preview, the exports
      and the render.

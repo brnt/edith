@@ -4,6 +4,7 @@ import {
   addCuts,
   addMix,
   insideCuts,
+  levelOver,
   overlapsCut,
   removeCut,
   removeMix,
@@ -12,10 +13,20 @@ import {
 import { effectiveTracks, formatTime, type Range } from "../lib/timeline";
 import type { EditorApi } from "../lib/useEditor";
 import { Dropdown, Select } from "./ui";
-import { RibbonButton, RibbonCell, RibbonGroup, RibbonNumber, RibbonSet } from "./RibbonGrid";
+import {
+  RibbonButton,
+  RibbonCell,
+  RibbonGroup,
+  RibbonNumber,
+  RibbonSet,
+  RibbonSlider,
+} from "./RibbonGrid";
 import { Icon } from "./Icon";
-import { Close, Plus, Scissor, Search, Sound } from "./icons";
-import { SoundOff } from "./SoundOff";
+import { Close, Plus, Scissor, Search, Speaker, SpeakerMuted } from "./icons";
+
+/** The slider's range, in dB; muted shows at the bottom. */
+const MIX_MIN_DB = -24;
+const MIX_MAX_DB = 12;
 
 interface Item {
   key: string;
@@ -63,22 +74,27 @@ export function EditTools({ ed }: { ed: EditorApi }) {
   // The mix applies to audio that is in the output.
   const outputTracks = effectiveTracks(edit, media).filter((t) => !t.muted);
   const [mixChoice, setMixChoice] = useState("");
-  const [mixGain, setMixGain] = useState(-6);
+  // The slider follows the drag, then shows what the selection's stretch is set to.
+  const [dragDb, setDragDb] = useState<number | null>(null);
   const mixTrack = outputTracks.some((t) => t.media_id === mixChoice)
     ? mixChoice
     : (outputTracks[0]?.media_id ?? "");
-  const mixOver = (muted: boolean) => {
+  const mixReady = !!selection && !!mixTrack;
+  const level = selection && mixTrack ? levelOver(edit, mixTrack, selection) : null;
+  const muted = !!level?.muted;
+  const shownDb = dragDb ?? (muted ? MIX_MIN_DB : (level?.gain_db ?? 0));
+  const setLevel = (gain_db: number, mute: boolean) => {
     if (!selection || !mixTrack) return;
     onEdit(
       addMix(edit, {
         media_id: mixTrack,
         start_s: selection[0],
         end_s: selection[1],
-        gain_db: muted ? 0 : mixGain,
-        muted,
+        gain_db,
+        muted: mute,
       }),
     );
-    ed.setSelection(null);
+    setDragDb(null);
   };
   // Same numbering as the buttons, timeline rows, and number keys: cameras first, then stills.
   const channelName = (id: string | null) => {
@@ -116,16 +132,14 @@ export function EditTools({ ed }: { ed: EditorApi }) {
             onClick={ed.uncutSelection}
           />
         </RibbonSet>
-      </RibbonGroup>
-
-      <RibbonGroup title="Mix the selection">
         <RibbonSet columns={4}>
           <RibbonCell columns={4}>
             <Select
               block
               aria-label="Mix track"
-              title="Which audio track to adjust"
+              title="Which audio track to adjust over the selection"
               value={mixTrack}
+              disabled={!mixReady}
               onChange={(e) => setMixChoice(e.currentTarget.value)}
             >
               {outputTracks.map((t) => (
@@ -135,24 +149,21 @@ export function EditTools({ ed }: { ed: EditorApi }) {
               ))}
             </Select>
           </RibbonCell>
-          <RibbonNumber
-            label="Level change (dB)"
-            unit="dB"
-            step={1}
-            value={mixGain}
-            onChange={setMixGain}
+          <RibbonSlider
+            label="Level over the selection (dB)"
+            min={MIX_MIN_DB}
+            max={MIX_MAX_DB}
+            value={shownDb}
+            display={dragDb === null && muted ? "muted" : `${shownDb > 0 ? "+" : ""}${shownDb} dB`}
+            disabled={!mixReady}
+            onInput={setDragDb}
+            onCommit={(db) => setLevel(db, false)}
           />
           <RibbonButton
-            icon={Sound}
-            label="Set level"
-            disabled={!selection || !mixTrack}
-            onClick={() => mixOver(false)}
-          />
-          <RibbonButton
-            custom={<SoundOff />}
-            label="Mute"
-            disabled={!selection || !mixTrack}
-            onClick={() => mixOver(true)}
+            icon={muted ? SpeakerMuted : Speaker}
+            label={muted ? "Unmute" : "Mute"}
+            disabled={!mixReady}
+            onClick={() => (muted ? setLevel(0, false) : setLevel(0, true))}
           />
         </RibbonSet>
       </RibbonGroup>

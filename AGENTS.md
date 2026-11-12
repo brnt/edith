@@ -123,7 +123,7 @@ Root `justfile` delegates to both; Compose runs `api` (:8000) and `web` (:8080).
   step with it (`CARD` in `MediaPanel.tsx`).
 - **Icons carry no line height** (`Icon` is `leading-none`; icon chips are fixed `h-5 w-5` squares)
   so they never drag a line's worth of space under them. Ant has no "speaker with a crossed circle",
-  so `SoundOff` composes `Sound` + `Stop`. Status uses icons, not text pills (`SyncStatus`); keep the
+  so `SoundOff` composes `Sound` + `Stop` (the Media tab's). The ribbon's Mute button is a two-mode filled-speaker glyph (`Speaker` / `SpeakerMuted` in `icons.ts`, speaker in the same place in both). Status uses icons, not text pills (`SyncStatus`); keep the
   words as `sr-only` text. Stills are described by their real image format, not ffprobe's container
   (an AVIF's container reads "QuickTime"), and a wrong extension is flagged.
 - **Proxies are automatic** (`services/autoproxy.py`): `GET /media` (polled) starts one background builder
@@ -202,6 +202,8 @@ from before the folder layout are converted once at startup from `LEGACY_LIBRARY
   filesystems).
 - **Icons only on buttons, never keyboard characters** (no `[`, `]`, `×` as text): a character reads as the
   key it names. Draw an icon (`components/icons.ts`) or compose one.
+- **The Selection panel holds Cut/Uncut and the selection's audio level** (track `Select`, `RibbonSlider`, Mute
+  toggle; `levelOver` reads what the stretch is set to). There is no Set button: the slider commits on release.
 - **A selection's two edges are timeline handles** (`selectionHandle` in `Timeline.tsx`; `Picked` kind
   `"edge"`, index 0 = start, 1 = end; a picked edge coexists with the selection, a picked segment/cut doesn't):
   click, drag (committed once on release), nudge with the arrows (`nudgeStep` in `lib/timeline.ts`, shared with the playhead: 1 s, Cmd 10 s, Option 0.1 s, Ctrl one frame; modifiers ordered by size along the keyboard, smaller to the left. Shift does nothing). Esc drops the handle, then

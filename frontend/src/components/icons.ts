@@ -62,3 +62,14 @@ export const Redo = glyph(
   "redo",
   "M0 9c0 2.389 1.048 4.534 2.709 6l1.323-1.5c-1.246-1.099-2.031-2.708-2.031-4.5 0-3.314 2.686-6 6-6 1.657 0 3.157 0.672 4.243 1.757l-2.243 2.243h6v-6l-2.343 2.343c-1.448-1.448-3.448-2.343-5.657-2.343-4.418 0-8 3.582-8 8z",
 );
+// A filled speaker, left of centre. Sound waves where the muted version has its cross, so the speaker
+// itself never shifts between the two.
+const SPEAKER = "M1 6h3l4.5-3.5v11L4 10H1z";
+export const Speaker = glyph(
+  "speaker",
+  `${SPEAKER}M10.94 6.3A3.4 3.4 0 0 1 10.94 9.7L11.98 10.3A4.6 4.6 0 0 0 11.98 5.7zM13.2 5.0A6 6 0 0 1 13.2 11.0L14.24 11.6A7.2 7.2 0 0 0 14.24 4.4z`,
+);
+export const SpeakerMuted = glyph(
+  "speaker-muted",
+  `${SPEAKER}M10.5 6.5l1-1L13 7l1.5-1.5 1 1L14 8l1.5 1.5-1 1L13 9l-1.5 1.5-1-1L12 8z`,
+);
