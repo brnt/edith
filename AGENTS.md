@@ -184,7 +184,8 @@ from before the folder layout are converted once at startup from `LEGACY_LIBRARY
   (4) units in all; a hairline in the 3px gap between sets is the only separator (no extra spacing, so
   everything stays on the unit grid). Controls flow left to right and wrap in written order; there are no
   coordinates. `RibbonButton` is large (`size={2}`: 2×2 cells, icon + one short word `text`) or small
-  (icon only, 1×1 cell but a 29px face centred in it, so neighbours read as separate); size follows how
+  (icon only; a 1×1 cell, but the 33px unit includes implicit padding: the button's face is 29px, centred, so
+  neighbours read as separate); size follows how
   prominent the action is. Drop-downs (`Dropdown block`) go in a `RibbonCell columns={N}`: whole units wide, one
   unit tall, the same width within a set. Every control needs a `label` (tooltip + aria-label); a hotkey is
   optional and is appended to both. Controls that aren't buttons (numeric inputs, selects) keep the

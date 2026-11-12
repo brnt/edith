@@ -15,7 +15,7 @@ import { NEUTRAL_BUTTON } from "./ui";
  */
 export const RIBBON_ROWS = 4;
 const UNIT = "2.0625rem";
-/** A small button's face: 4px smaller than its 33px cell, so neighbours read as separate. */
+/** A small button's face. A unit includes implicit padding: the 1×1 cell is 33px, the face 29px. */
 const SMALL = "1.8125rem";
 
 /** The frame every ribbon group shares: a rule on its right edge and its name underneath. */
