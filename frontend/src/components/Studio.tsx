@@ -10,10 +10,12 @@ import {
   type Peaks,
   type SyncState,
 } from "../lib/api";
+import { defaultCamera, exportedChannelIds } from "../lib/timeline";
 import { useEditor } from "../lib/useEditor";
 import { EditTools } from "./EditTools";
 import { MediaPanel } from "./MediaPanel";
 import { SyncStatus } from "./SyncStatus";
+import { ENCODINGS, ProjectPanel } from "./ProjectPanel";
 import { RenderPanel } from "./RenderPanel";
 import { Ribbon } from "./Ribbon";
 import { Stage } from "./Stage";
@@ -176,6 +178,8 @@ export function Studio(props: Props) {
             <RenderPanel
               slug={slug}
               disabled={dirty || !props.outputSeconds}
+              height={ed.edit.height}
+              container={ENCODINGS[ed.edit.encoding]?.container ?? "MP4"}
               title={
                 dirty
                   ? "Save first"
@@ -184,6 +188,17 @@ export function Studio(props: Props) {
                     : "Render"
               }
               onError={props.onError}
+            />
+            <ProjectPanel
+              edit={ed.edit}
+              media={media}
+              exported={exportedChannelIds(
+                ed.edit.switches,
+                defaultCamera(media, ed.offsets),
+                ed.end,
+                ed.keeps,
+              )}
+              onEdit={props.onEdit}
             />
           </div>
         )}

@@ -7,6 +7,7 @@ import structlog
 from edith.core.errors import MediaNotFound
 from edith.db.documents import MEDIA, MediaItem
 from edith.export import render
+from edith.export.encodings import ENCODINGS
 from edith.services import editing
 from edith.services import mediafiles as lib
 from edith.services.jobs import Job
@@ -14,7 +15,7 @@ from edith.services.projects import file_stem, open_project, project_folder
 
 log = structlog.get_logger()
 
-_NAME_RE = re.compile(r"^[A-Za-z0-9._-]+\.mp4$")
+_NAME_RE = re.compile(r"^[A-Za-z0-9._-]+\.(mp4|mov)$")
 
 
 def renders_dir(slug: str) -> Path:
@@ -22,7 +23,7 @@ def renders_dir(slug: str) -> Path:
 
 
 def render_project(slug: str, job: Job) -> dict:
-    """Render the saved edit to <project>/renders/<name>-<time>.mp4."""
+    """Render the saved edit to <project>/renders/<name>-<time>.<ext> (mp4, or mov for ProRes)."""
     plan = editing.build_project_plan(slug)
     with open_project(slug) as project:
         media = {
@@ -32,8 +33,9 @@ def render_project(slug: str, job: Job) -> dict:
         }
     out_dir = renders_dir(slug)
     out_dir.mkdir(parents=True, exist_ok=True)
-    name = f"{file_stem(slug)}-{datetime.now(UTC).strftime('%Y%m%d-%H%M%S')}.mp4"
-    partial = out_dir / f"{name}.partial.mp4"
+    ext = ENCODINGS[plan.encoding].ext
+    name = f"{file_stem(slug)}-{datetime.now(UTC).strftime('%Y%m%d-%H%M%S')}.{ext}"
+    partial = out_dir / f"{name}.partial.{ext}"
     command = render.build_command(
         plan, media, lambda item: lib.media_file(project_folder(slug), item.path), partial
     )
@@ -53,7 +55,7 @@ def list_renders(slug: str) -> list[dict]:
     if not folder.is_dir():
         return []
     files = sorted(
-        (f for f in folder.glob("*.mp4") if _NAME_RE.match(f.name) and ".partial" not in f.name),
+        (f for f in folder.iterdir() if _NAME_RE.match(f.name) and ".partial" not in f.name),
         key=lambda f: f.stat().st_mtime,
         reverse=True,
     )

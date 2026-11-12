@@ -23,7 +23,7 @@ export function GroupFrame({
   width,
   children,
 }: {
-  title: string;
+  title: ComponentChildren;
   width?: string;
   children: ComponentChildren;
 }) {
@@ -34,7 +34,7 @@ export function GroupFrame({
       {children}
       <div
         class="truncate pt-1 text-center text-[10px] uppercase tracking-wide text-neutral-500"
-        title={title}
+        title={typeof title === "string" ? title : undefined}
       >
         {title}
       </div>
@@ -43,7 +43,13 @@ export function GroupFrame({
 }
 
 /** A ribbon panel: button groups (`RibbonSet`) stacked, with a hairline in the gap between them. */
-export function RibbonGroup({ title, children }: { title: string; children: ComponentChildren }) {
+export function RibbonGroup({
+  title,
+  children,
+}: {
+  title: ComponentChildren;
+  children: ComponentChildren;
+}) {
   return (
     <GroupFrame title={title}>
       <div class="flex flex-col gap-[3px] [&>*+*]:relative [&>*+*]:before:absolute [&>*+*]:before:-top-[2px] [&>*+*]:before:h-px [&>*+*]:before:w-full [&>*+*]:before:bg-neutral-700">
@@ -205,7 +211,7 @@ export function RibbonSlider({
           ? // Framed in the button's own colours (its face, its top highlight, its disabled edge), so the
             // two read as one object.
             `rounded-l-[5px] ${disabled || action.disabled ? "shadow-[inset_1px_0_0_#4a4a4a,inset_0_1px_0_#4a4a4a,inset_0_-1px_0_#4a4a4a]" : "shadow-[inset_1px_0_0_#505050,inset_0_1px_0_#686868,inset_0_-1px_0_#505050]"}`
-          : "rounded-[5px] shadow-[inset_0_0_0_1px_#3a3a3a]"
+          : "rounded-[5px] shadow-[inset_0_0_0_1px_#505050]"
       } ${disabled ? "text-neutral-600" : "text-neutral-300"}`}
     >
       <input
@@ -269,7 +275,7 @@ export function RibbonNumber({
   return (
     <label
       title={label}
-      class="m-[2px] flex min-w-0 items-center gap-[3px] rounded-[5px] bg-[#1c1c1c] px-1.5 text-[12.5px] shadow-[inset_0_0_0_1px_#3a3a3a]"
+      class="m-[2px] flex min-w-0 items-center gap-[3px] rounded-[5px] bg-[#1c1c1c] px-1.5 text-[12.5px] shadow-[inset_0_0_0_1px_#505050]"
       style={{ gridColumn: `span ${columns}` }}
     >
       {prefix && <span class="text-neutral-400">{prefix}</span>}

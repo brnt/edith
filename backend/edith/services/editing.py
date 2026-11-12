@@ -15,6 +15,7 @@ from edith.db.documents import (
 from edith.db.project_file import ProjectFile
 from edith.edit import plan as planning
 from edith.edit import silence
+from edith.export.encodings import ENCODINGS
 from edith.services import mediafiles as lib
 from edith.services import peaks
 from edith.services.projects import open_project, project_folder
@@ -62,6 +63,10 @@ def validate(edit: EditList, media: dict[str, MediaItem]) -> None:
     for track in edit.tracks:
         if track.media_id not in media:
             raise InvalidEdit(f"track refers to unknown media {track.media_id}")
+    if edit.encoding not in ENCODINGS:
+        raise InvalidEdit(
+            f"unknown output format {edit.encoding!r}; use one of {', '.join(ENCODINGS)}"
+        )
     if edit.fps_num <= 0 or edit.fps_den <= 0 or edit.width <= 0 or edit.height <= 0:
         raise InvalidEdit("frame rate and size must be positive")
 

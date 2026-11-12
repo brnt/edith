@@ -4,10 +4,13 @@ from fastapi.responses import FileResponse
 from edith.api.schemas import JobRead, RenderRead
 from edith.core.auth import require_token
 from edith.core.config import Settings, get_settings
+from edith.export.encodings import ENCODINGS
 from edith.services import rendering
 from edith.services.jobs import Job, jobs
 
 router = APIRouter()
+
+_MIME = {"." + e.ext: e.mime for e in ENCODINGS.values()}
 
 
 @router.post(
@@ -33,4 +36,4 @@ def get_renders(slug: str, settings: Settings = Depends(get_settings)):
 @router.get("/projects/{slug}/renders/{name}")
 def get_render(slug: str, name: str, settings: Settings = Depends(get_settings)):
     path = rendering.render_file(slug, name)
-    return FileResponse(path, media_type="video/mp4", filename=name)
+    return FileResponse(path, media_type=_MIME[path.suffix], filename=name)

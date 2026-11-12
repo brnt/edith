@@ -67,6 +67,16 @@ def test_no_audio_means_no_audio_mapping():
     assert "[aout]" not in " ".join(args) and "-c:a" not in args
 
 
+def test_the_encoding_decides_the_codec_audio_and_container():
+    h265 = " ".join(command(plan(encoding="h265")).args)
+    assert "libx265" in h265 and "-tag:v hvc1" in h265 and "-c:a aac" in h265
+    assert "libx264" not in h265
+    prores = " ".join(command(plan(encoding="prores")).args)
+    assert "prores_ks" in prores and "yuv422p10le" in prores and "-c:a pcm_s24le" in prores
+    assert "faststart" not in prores  # an MP4 flag
+    assert "libx264" in " ".join(command(plan()).args)  # the default is unchanged
+
+
 def test_an_edit_without_video_cannot_render():
     with pytest.raises(MediaError):
         command(plan(video=[]))
@@ -109,6 +119,26 @@ def test_renders_a_real_edit_to_1080p_with_audio(client: TestClient, project_dir
     assert download.status_code == 200 and download.headers["content-type"] == "video/mp4"
     assert client.get(f"/projects/{project}/renders/..%2Fproject.edith").status_code == 404
     assert not list((project_dir / "renders").glob("*.partial*"))
+
+
+@needs_ffmpeg
+def test_a_prores_render_is_a_mov_and_listed_and_downloadable(
+    client: TestClient, project_dir, project
+):
+    write_video(project_dir / "cam.mp4", seconds=2)
+    client.post(f"/projects/{project}/media", json={"path": "cam.mp4"})
+    edit = client.get(f"/projects/{project}/edit").json()["edit"]
+    edit.update(encoding="prores", width=640, height=360)
+    assert client.put(f"/projects/{project}/edit", json=edit).status_code == 200
+    done = jobs.wait(client.post(f"/projects/{project}/render").json()["id"], timeout=120)
+    assert done.state == "done", done.error
+    name = done.result["name"]
+    assert name.endswith(".mov")
+    assert [r["name"] for r in client.get(f"/projects/{project}/renders").json()] == [name]
+    download = client.get(f"/projects/{project}/renders/{name}")
+    assert download.status_code == 200 and download.headers["content-type"] == "video/quicktime"
+    info = probing.probe(project_dir / "renders" / name)
+    assert (info.width, info.height) == (640, 360)
 
 
 @needs_ffmpeg

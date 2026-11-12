@@ -43,6 +43,7 @@ class RenderPlan:
     width: int
     height: int
     warnings: list[str] = field(default_factory=list)
+    encoding: str = "h264"
 
 
 def media_offsets(media: dict[str, MediaItem], sync: SyncState) -> dict[str, float]:
@@ -238,4 +239,5 @@ def build_plan(edit: EditList, media: dict[str, MediaItem], sync: SyncState) -> 
         width=edit.width,
         height=edit.height,
         warnings=warnings,
+        encoding=edit.encoding,
     )
