@@ -80,6 +80,7 @@ export function RibbonButton({
   text,
   icon,
   glyph,
+  custom,
   size = 1,
   disabled,
   onClick,
@@ -91,6 +92,8 @@ export function RibbonButton({
   icon?: IconDefinition;
   /** A character to draw instead of an icon, where no icon says it (e.g. "[" for an in point). */
   glyph?: string;
+  /** Any other drawn icon (a composed one such as SoundOff). */
+  custom?: ComponentChildren;
   size?: 1 | 2;
   disabled?: boolean;
   onClick: () => void;
@@ -113,6 +116,7 @@ export function RibbonButton({
       onClick={onClick}
     >
       {icon && <Icon icon={icon} />}
+      {custom}
       {glyph && <span class="font-mono leading-none">{glyph}</span>}
       {big && text && <span class="text-[11px] leading-none">{text}</span>}
     </button>
@@ -131,5 +135,46 @@ export function RibbonCell({
     <div class="min-w-0" style={{ gridColumn: `span ${columns}` }}>
       {children}
     </div>
+  );
+}
+
+/**
+ * A number field on the grid: sunken (so it reads as typeable), one unit tall, `columns` units wide, with
+ * its prefix and unit inside the field. `label` is its name (tooltip + aria-label).
+ */
+export function RibbonNumber({
+  label,
+  prefix,
+  unit,
+  value,
+  step,
+  columns = 2,
+  onChange,
+}: {
+  label: string;
+  prefix?: string;
+  unit?: string;
+  value: number;
+  step: number;
+  columns?: number;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <label
+      title={label}
+      class="flex min-w-0 items-center gap-[3px] rounded-[5px] bg-[#1c1c1c] px-1.5 text-[12.5px] shadow-[inset_0_0_0_1px_#3a3a3a]"
+      style={{ gridColumn: `span ${columns}` }}
+    >
+      {prefix && <span class="text-neutral-400">{prefix}</span>}
+      <input
+        type="number"
+        step={step}
+        aria-label={label}
+        class="min-w-0 flex-1 bg-transparent text-right [appearance:textfield] focus:outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+        value={value}
+        onChange={(e) => onChange(Number(e.currentTarget.value))}
+      />
+      {unit && <span class="text-neutral-400">{unit}</span>}
+    </label>
   );
 }

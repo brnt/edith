@@ -543,7 +543,7 @@ describe("choosing the registration sound", () => {
 test("mixing a stretch of one track: select it, set a level, see it on the track, and save it", async () => {
   render(<Workspace slug="show" />);
   const timeline = await screen.findByTestId("timeline");
-  expect(screen.getByRole("button", { name: "Set" })).toBeDisabled(); // nothing selected yet
+  expect(screen.getByRole("button", { name: "Set level" })).toBeDisabled(); // nothing selected yet
 
   // Drag across the timeline: in jsdom the lanes start at x=0 and run at 20 px per second.
   const lanes = timeline.querySelector(".cursor-crosshair") as HTMLElement;
@@ -552,7 +552,7 @@ test("mixing a stretch of one track: select it, set a level, see it on the track
   fireEvent.pointerUp(lanes, { clientX: 400, pointerId: 1 });
 
   fireEvent.change(screen.getByLabelText("Level change (dB)"), { target: { value: "-8" } });
-  fireEvent.click(screen.getByRole("button", { name: "Set" }));
+  fireEvent.click(screen.getByRole("button", { name: "Set level" }));
   expect(within(timeline).getByText("-8 dB")).toBeInTheDocument(); // drawn on the mic's row
 
   fireEvent.click(screen.getByRole("button", { name: /Mix \(1\)/ }));

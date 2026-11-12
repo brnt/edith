@@ -19,12 +19,12 @@ type ButtonProps = JSX.IntrinsicElements["button"] & {
  * button's size doesn't change.
  */
 export const NEUTRAL_BUTTON =
-  "bg-[#505050] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.14)] hover:bg-[#5c5c5c] disabled:bg-[#292929] disabled:text-[#5e5e5e] disabled:shadow-[inset_0_0_0_1px_#3a3a3a] disabled:hover:bg-[#292929]";
+  "bg-[#505050] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.14)] hover:bg-[#5c5c5c] disabled:bg-[#2c2c2c] disabled:text-[#686868] disabled:shadow-[inset_0_0_0_1px_#4a4a4a] disabled:hover:bg-[#2c2c2c]";
 /** The same look for a link that is styled as a button and can be off. */
 export const neutralLink = (on: boolean) =>
   on
     ? "bg-[#505050] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.14)] hover:bg-[#5c5c5c]"
-    : "pointer-events-none bg-[#292929] text-[#5e5e5e] shadow-[inset_0_0_0_1px_#3a3a3a]";
+    : "pointer-events-none bg-[#2c2c2c] text-[#686868] shadow-[inset_0_0_0_1px_#4a4a4a]";
 
 const VARIANTS = {
   default: NEUTRAL_BUTTON,
@@ -84,6 +84,35 @@ export function Badge({
     <span class={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs ${tones[tone]}`}>
       {icon && <Icon icon={icon} />}
       {children}
+    </span>
+  );
+}
+
+/**
+ * A native drop-down styled like `Dropdown`: raised neutral, label left, caret right. `block` fills
+ * the cell it sits in (the ribbon's grid). Use it for every select in a panel.
+ */
+export function Select({
+  block = false,
+  class: cls,
+  children,
+  ...props
+}: { block?: boolean; class?: string } & Omit<
+  JSX.SelectHTMLAttributes<HTMLSelectElement>,
+  "class"
+>) {
+  return (
+    <span class={`relative inline-flex ${block ? "h-full w-full" : ""}`}>
+      <select
+        {...props}
+        class={`w-full cursor-pointer appearance-none truncate rounded-[5px] pl-2 pr-6 text-[13px] ${block ? "h-full py-0" : "py-1"} ${NEUTRAL_BUTTON} [&>option]:bg-neutral-900 ${cls ?? ""}`}
+      >
+        {children}
+      </select>
+      <Icon
+        icon={Down}
+        class="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-xs"
+      />
     </span>
   );
 }

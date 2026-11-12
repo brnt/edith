@@ -1,31 +1,13 @@
-import type { ComponentChildren } from "preact";
 import { useState } from "preact/hooks";
 
 import { addCuts, addMix, removeCut, removeMix, removeSwitch, setRange } from "../lib/editOps";
 import { effectiveTracks, formatTime, type Range } from "../lib/timeline";
 import type { EditorApi } from "../lib/useEditor";
-import { Button, Dropdown } from "./ui";
-import { GroupFrame, RibbonButton, RibbonCell, RibbonGroup, RibbonSet } from "./RibbonGrid";
+import { Dropdown, Select } from "./ui";
+import { RibbonButton, RibbonCell, RibbonGroup, RibbonNumber, RibbonSet } from "./RibbonGrid";
 import { Icon } from "./Icon";
 import { Check, Close, Scissor, Search, Sound } from "./icons";
 import { SoundOff } from "./SoundOff";
-
-/** A free-flowing ribbon group (for controls that aren't unit-grid buttons): they wrap within `width`. */
-function Group({
-  title,
-  width,
-  children,
-}: {
-  title: string;
-  width?: string;
-  children: ComponentChildren;
-}) {
-  return (
-    <GroupFrame title={title} width={width}>
-      <div class="flex flex-wrap content-start items-center gap-2">{children}</div>
-    </GroupFrame>
-  );
-}
 
 interface Item {
   key: string;
@@ -100,17 +82,6 @@ export function EditTools({ ed }: { ed: EditorApi }) {
     return n ? `Still ${n} · ${channel.item.label}` : channel.item.label;
   };
 
-  const num = (key: keyof typeof silence, step: number) => (
-    <input
-      type="number"
-      step={step}
-      class="w-11 rounded bg-neutral-900 px-1 py-0.5"
-      value={silence[key]}
-      aria-label={key}
-      onChange={(e) => ed.setSilence({ ...silence, [key]: Number(e.currentTarget.value) })}
-    />
-  );
-
   const selectionText = selection
     ? `${formatTime(selection[0], 2)}–${formatTime(selection[1], 2)}`
     : "";
@@ -167,78 +138,101 @@ export function EditTools({ ed }: { ed: EditorApi }) {
         </RibbonSet>
       </RibbonGroup>
 
-      <Group title="Mix the selection" width="w-44">
-        <select
-          class="w-full rounded bg-neutral-900 px-1 py-1"
-          aria-label="Mix track"
-          title="Which audio track to adjust"
-          value={mixTrack}
-          onChange={(e) => setMixChoice(e.currentTarget.value)}
-        >
-          {outputTracks.map((t) => (
-            <option key={t.media_id} value={t.media_id}>
-              {label(t.media_id)}
-            </option>
-          ))}
-        </select>
-        <input
-          type="number"
-          step={1}
-          class="w-14 rounded bg-neutral-900 px-1 py-0.5"
-          aria-label="Level change (dB)"
-          value={mixGain}
-          onChange={(e) => setMixGain(Number(e.currentTarget.value))}
-        />
-        <span>dB</span>
-        <Button
-          size="sm"
-          icon={Sound}
-          disabled={!selection || !mixTrack}
-          onClick={() => mixOver(false)}
-        >
-          Set
-        </Button>
-        <Button size="sm" disabled={!selection || !mixTrack} onClick={() => mixOver(true)}>
-          <SoundOff />
-          Mute
-        </Button>
-      </Group>
-
-      <Group title="Dead time (uses saved range and tracks)" width="w-44">
-        <label>&lt; {num("threshold", 1)} dB</label>
-        <label>≥ {num("minS", 0.5)} s</label>
-        <label>keep {num("pad", 0.1)} s</label>
-        <Button size="sm" icon={Search} onClick={ed.findDeadTime}>
-          Find
-        </Button>
-        {suggestions.length > 0 && (
-          <>
-            <Button
-              size="sm"
-              icon={Scissor}
-              onClick={() => {
-                onEdit(
-                  addCuts(
-                    edit,
-                    suggestions.map(([a, b]: Range) => ({ start_s: a, end_s: b })),
-                  ),
-                );
-                ed.setSuggestions([]);
-              }}
+      <RibbonGroup title="Mix the selection">
+        <RibbonSet columns={4}>
+          <RibbonCell columns={4}>
+            <Select
+              block
+              aria-label="Mix track"
+              title="Which audio track to adjust"
+              value={mixTrack}
+              onChange={(e) => setMixChoice(e.currentTarget.value)}
             >
-              Cut all ({suggestions.length})
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              icon={Close}
-              aria-label="Dismiss suggestions"
-              title="Dismiss suggestions"
-              onClick={() => ed.setSuggestions([])}
-            />
-          </>
-        )}
-      </Group>
+              {outputTracks.map((t) => (
+                <option key={t.media_id} value={t.media_id}>
+                  {label(t.media_id)}
+                </option>
+              ))}
+            </Select>
+          </RibbonCell>
+          <RibbonNumber
+            label="Level change (dB)"
+            unit="dB"
+            step={1}
+            value={mixGain}
+            onChange={setMixGain}
+          />
+          <RibbonButton
+            icon={Sound}
+            label="Set level"
+            disabled={!selection || !mixTrack}
+            onClick={() => mixOver(false)}
+          />
+          <RibbonButton
+            custom={<SoundOff />}
+            label="Mute"
+            disabled={!selection || !mixTrack}
+            onClick={() => mixOver(true)}
+          />
+        </RibbonSet>
+      </RibbonGroup>
+
+      <RibbonGroup
+        title={suggestions.length > 0 ? `Dead time · ${suggestions.length} found` : "Dead time"}
+      >
+        <RibbonSet columns={5}>
+          <RibbonNumber
+            label="Quieter than (dB)"
+            prefix="<"
+            unit="dB"
+            step={1}
+            value={silence.threshold}
+            onChange={(v) => ed.setSilence({ ...silence, threshold: v })}
+          />
+          <RibbonNumber
+            label="At least this long (s)"
+            prefix="≥"
+            unit="s"
+            step={0.5}
+            value={silence.minS}
+            onChange={(v) => ed.setSilence({ ...silence, minS: v })}
+          />
+          <RibbonButton
+            icon={Search}
+            label="Find dead time (in the saved range, using the saved tracks)"
+            onClick={ed.findDeadTime}
+          />
+          <RibbonNumber
+            label="Keep this much (s)"
+            prefix="keep"
+            unit="s"
+            step={0.1}
+            columns={3}
+            value={silence.pad}
+            onChange={(v) => ed.setSilence({ ...silence, pad: v })}
+          />
+          <RibbonButton
+            icon={Scissor}
+            label={`Cut all (${suggestions.length})`}
+            disabled={suggestions.length === 0}
+            onClick={() => {
+              onEdit(
+                addCuts(
+                  edit,
+                  suggestions.map(([a, b]: Range) => ({ start_s: a, end_s: b })),
+                ),
+              );
+              ed.setSuggestions([]);
+            }}
+          />
+          <RibbonButton
+            icon={Close}
+            label="Dismiss suggestions"
+            disabled={suggestions.length === 0}
+            onClick={() => ed.setSuggestions([])}
+          />
+        </RibbonSet>
+      </RibbonGroup>
 
       <RibbonGroup title="Edit list">
         <RibbonSet columns={4}>
