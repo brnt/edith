@@ -1156,15 +1156,15 @@ describe("the media cards", () => {
     }
   });
 
-  test("a camera whose own audio is out of the output shows a crossed-out speaker", async () => {
+  test("a camera whose own audio is out of the output shows the muted speaker", async () => {
     render(<Workspace slug="show" />);
     fireEvent.click(await screen.findByRole("tab", { name: /Media/ }));
     const camA = () =>
       screen.getAllByTestId("media-card").find((c) => within(c).queryByText("Cam A"))!;
-    expect(camA().querySelector('[data-icon="stop"]')).not.toBeNull(); // off by default
+    expect(camA().querySelector('[data-icon="speaker-muted"]')).not.toBeNull(); // off by default
     fireEvent.click(within(camA()).getByLabelText("Use audio from Cam A"));
-    expect(camA().querySelector('[data-icon="stop"]')).toBeNull();
-    expect(camA().querySelector('[data-icon="sound"]')).not.toBeNull();
+    expect(camA().querySelector('[data-icon="speaker-muted"]')).toBeNull();
+    expect(camA().querySelector('[data-icon="speaker"]')).not.toBeNull();
   });
 
   test("the Sync tab shows its state as an icon, with the words for screen readers", async () => {
