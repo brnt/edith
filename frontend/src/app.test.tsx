@@ -224,18 +224,14 @@ test("opening a project: select a folder that has one .edith file, then Open", a
   const open = within(dialog).getByRole("button", { name: "Open this project" });
   expect(open).toBeDisabled(); // /Volumes/SSD itself has no project in it
 
-  // Selecting a folder without one says so, and doesn't enable Open.
+  // Selecting a folder without one just leaves Open off: no warning text.
   fireEvent.click(await within(dialog).findByRole("button", { name: "media" }));
-  expect(within(dialog).getByTestId("folder-hint")).toHaveTextContent(
-    "no .edith project file in “media”",
-  );
+  await waitFor(() => expect(within(dialog).getByTestId("folder-hint").textContent).toBe("")); // no nagging text
   expect(open).toBeDisabled();
 
   // The one with a project is all it takes: no need to go inside it.
   fireEvent.click(within(dialog).getByRole("button", { name: "pilot" }));
-  expect(within(dialog).getByTestId("folder-hint")).toHaveTextContent(
-    "Open the project in “pilot”",
-  );
+  expect(within(dialog).getByTestId("folder-hint").textContent).toBe(""); // Open says nothing
   await waitFor(() => expect(open).not.toBeDisabled());
   fireEvent.click(open);
   await waitFor(() => expect(window.location.hash).toBe("#/p/pilot"));
@@ -251,12 +247,12 @@ test("a folder with several projects asks you to choose one; naming the file set
   const open = within(dialog).getByRole("button", { name: "Open this project" });
 
   fireEvent.click(await within(dialog).findByRole("button", { name: "twin" }));
-  expect(within(dialog).getByTestId("folder-hint")).toHaveTextContent("has 2 projects");
+  expect(within(dialog).getByTestId("folder-hint").textContent).toBe(""); // no warning, just no Open
   expect(open).toBeDisabled(); // which one? not clear from the folder alone
 
   fireEvent.dblClick(within(dialog).getByRole("button", { name: "twin" }));
   fireEvent.click(await within(dialog).findByRole("button", { name: "Cut B.edith" })); // a file
-  expect(within(dialog).getByTestId("folder-hint")).toHaveTextContent("Open “Cut B.edith”");
+  expect(within(dialog).getByTestId("folder-hint").textContent).toBe("");
   await waitFor(() => expect(open).not.toBeDisabled());
   fireEvent.click(open);
   await waitFor(() => expect(posts()).toHaveLength(1));
@@ -445,4 +441,28 @@ test("Enter in the project name field creates the project, like the button", asy
   await waitFor(() => expect(posts()).toHaveLength(1));
   expect(posts()[0]).toEqual(["/projects", { name: "Ep 7", folder: "/Volumes/SSD/media" }]);
   await waitFor(() => expect(window.location.hash).toBe("#/p/new"));
+});
+
+test("a file's tooltip in the picker is its path", async () => {
+  const withMedia = {
+    ...(folders["/Volumes/SSD/pilot"] as object),
+    media: [{ name: "A001.MP4", kind: "video" }],
+    media_more: 0,
+  };
+  const original = fetchMock.getMockImplementation()!;
+  fetchMock.mockImplementation((url: string, init?: RequestInit) =>
+    url.includes("dir=%2FVolumes%2FSSD%2Fpilot") ? reply(withMedia) : original(url, init),
+  );
+  render(<App />);
+  await screen.findByText("Pilot");
+  fireEvent.click(screen.getByRole("button", { name: /Open project/ }));
+  const dialog = await screen.findByRole("dialog");
+  fireEvent.click(await within(dialog).findByRole("button", { name: "SSD" }));
+  fireEvent.dblClick(await within(dialog).findByRole("button", { name: "pilot" }));
+  const project = await within(dialog).findByRole("button", { name: "project.edith" });
+  expect(project).toHaveAttribute("title", "/Volumes/SSD/pilot/project.edith");
+  expect(within(dialog).getByTestId("media-file")).toHaveAttribute(
+    "title",
+    "/Volumes/SSD/pilot/A001.MP4",
+  );
 });
