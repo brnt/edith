@@ -193,8 +193,8 @@ from before the folder layout are converted once at startup from `LEGACY_LIBRARY
   unit tall, the same width within a set. Every control needs a `label` (tooltip + aria-label); a hotkey is
   optional and is appended to both. Other controls sit on the same grid: number fields (`RibbonNumber`:
   sunken, one unit tall, prefix/unit inside the field) and drop-downs. **Every drop-down in every panel is
-  styled alike** (`Dropdown` for menus, `Select` for native selects: raised neutral, label left, caret
-  right); don't style a `<select>` by hand. **Default to small buttons.** A large button is for
+  styled alike** (`Dropdown` for menus, `Select` for native selects, both built on the one `DROP_FACE` in `ui.tsx`:
+  29 px tall like a small button's face, centred in its 33 px unit; raised neutral, 5 px corners, label left, caret right); don't style a `<select>` by hand. **Icon sources:** Ant (most), IcoMoon Free (undo/redo), Tabler (Premiere, `{}`, EDL list) and Simple Icons (DaVinci Resolve) are copied into `icons.ts` as path data with attribution there; export buttons carry the program's or format's own icon. **No icon is used twice in the ribbon** (tabs and buttons; a test enforces it): each action gets its own, e.g. each export its own. **Every button in the ribbon is a `RibbonButton`** (including download links, via `href`), on every tab; don't use `Button` or `neutralLink` there. **Default to small buttons.** A large button is for
   findability, to help users hit a common task when it is surrounded by many other buttons; never put one
   or two alone in a panel (Cut/Uncut stay large for now as the reference). **Pack well:** bias toward making
   a panel taller, not wider, while it hasn't used its 4 rows, applied with judgement (keep related controls

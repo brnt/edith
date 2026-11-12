@@ -496,7 +496,7 @@ describe("choosing the registration sound", () => {
     fireEvent.input(screen.getByLabelText("Registration text"), {
       target: { value: "stickshift" },
     });
-    expect(screen.getByRole("link", { name: "Download .wav" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /Download the sound/ })).toHaveAttribute(
       "href",
       "/api/registration/sound?seed=stickshift",
     );
@@ -1376,4 +1376,22 @@ test("the level slider starts at the track's own gain and stores the change from
   expect((puts[0] as { mix: unknown[] }).mix).toEqual([
     { media_id: "mic", start_s: 10, end_s: 20, gain_db: 4, muted: false }, // +4 on top of the track's -6
   ]);
+});
+
+test("no icon is used twice among the ribbon's tabs and buttons", async () => {
+  render(<Workspace slug="show" />);
+  const ribbon = await screen.findByTestId("ribbon");
+  await screen.findByTestId("timeline");
+  const names: string[] = [];
+  const collect = (selector: string) =>
+    ribbon.querySelectorAll(selector).forEach((el) => names.push(el.getAttribute("data-icon")!));
+  collect('[role="tab"] [data-icon]'); // the tabs' own icons, once
+  for (const tab of ["Sync", "Edit", "Export"]) {
+    fireEvent.click(within(ribbon).getByRole("tab", { name: new RegExp(tab) }));
+    // The panel's buttons and links (the drop-downs' carets are the one icon meant to repeat).
+    collect(':scope > :not([role="tablist"]) :is(button, a) [data-icon]:not([data-icon="down"])');
+  }
+  const twice = names.filter((n, i) => names.indexOf(n) !== i);
+  expect(twice).toEqual([]);
+  expect(names.length).toBeGreaterThan(12); // it did look at the buttons
 });

@@ -22,7 +22,16 @@ import {
   RibbonSlider,
 } from "./RibbonGrid";
 import { Icon } from "./Icon";
-import { Close, Plus, Scissor, Search, Speaker, SpeakerMuted } from "./icons";
+import {
+  Close,
+  Compress,
+  EyeInvisible,
+  Plus,
+  Scissor,
+  Search,
+  Speaker,
+  SpeakerMuted,
+} from "./icons";
 
 /** A level for display: signed, in dB. */
 const dbText = (db: number) => `${db > 0 ? "+" : ""}${db} dB`;
@@ -206,7 +215,7 @@ export function EditTools({ ed }: { ed: EditorApi }) {
           />
           <RibbonButton
             icon={Search}
-            label="Find dead time (in the saved range, using the saved tracks)"
+            label="Find dead time (in the selection, else the whole timeline)"
             onClick={ed.findDeadTime}
           />
           <RibbonNumber
@@ -219,7 +228,7 @@ export function EditTools({ ed }: { ed: EditorApi }) {
             onChange={(v) => ed.setSilence({ ...silence, pad: v })}
           />
           <RibbonButton
-            icon={Scissor}
+            icon={Compress}
             label={`Cut all (${suggestions.length})`}
             disabled={suggestions.length === 0}
             onClick={() => {
@@ -233,7 +242,7 @@ export function EditTools({ ed }: { ed: EditorApi }) {
             }}
           />
           <RibbonButton
-            icon={Close}
+            icon={EyeInvisible}
             label="Dismiss suggestions"
             disabled={suggestions.length === 0}
             onClick={() => ed.setSuggestions([])}

@@ -2,16 +2,20 @@ import { useEffect, useState } from "preact/hooks";
 
 import { fetchRenders, renderUrl, startRender, type Job, type RenderFile } from "../lib/api";
 import { waitForJob } from "../lib/jobs";
-import { Button, Dropdown, Progress } from "./ui";
+import { Dropdown, Progress } from "./ui";
+import { RibbonButton, RibbonCell, RibbonGroup, RibbonSet } from "./RibbonGrid";
 import { PlayCircle } from "./icons";
 
 export function RenderPanel({
   slug,
   disabled,
+  title,
   onError,
 }: {
   slug: string;
   disabled: boolean;
+  /** The panel's caption (the output length, or a reminder to save first). */
+  title: string;
   onError: (message: string) => void;
 }) {
   const [files, setFiles] = useState<RenderFile[]>([]);
@@ -36,27 +40,42 @@ export function RenderPanel({
   };
 
   return (
-    <>
-      <Button icon={PlayCircle} disabled={disabled || job !== null} onClick={render}>
-        Render MP4 (1080p)
-      </Button>
-      {job && <Progress value={job.progress} label={job.message} />}
-      <Dropdown label={`Renders (${files.length})`}>
-        {files.length === 0 ? (
-          <p class="text-neutral-500">No renders yet.</p>
-        ) : (
-          <ul class="space-y-1">
-            {files.map((f) => (
-              <li key={f.name}>
-                <a class="text-sky-300 underline" href={renderUrl(slug, f.name)} download>
-                  {f.name}
-                </a>{" "}
-                <span class="text-neutral-500">{(f.size / 1e6).toFixed(1)} MB</span>
-              </li>
-            ))}
-          </ul>
+    <RibbonGroup title={title}>
+      <RibbonSet columns={4}>
+        <RibbonButton
+          size={2}
+          icon={PlayCircle}
+          label="Render MP4 (1080p)"
+          text="Render"
+          disabled={disabled || job !== null}
+          onClick={render}
+        />
+        {job && (
+          <RibbonCell columns={2}>
+            <Progress value={job.progress} label={job.message} />
+          </RibbonCell>
         )}
-      </Dropdown>
-    </>
+      </RibbonSet>
+      <RibbonSet columns={4}>
+        <RibbonCell columns={4}>
+          <Dropdown block label={`Renders (${files.length})`}>
+            {files.length === 0 ? (
+              <p class="text-neutral-500">No renders yet.</p>
+            ) : (
+              <ul class="space-y-1">
+                {files.map((f) => (
+                  <li key={f.name}>
+                    <a class="text-sky-300 underline" href={renderUrl(slug, f.name)} download>
+                      {f.name}
+                    </a>{" "}
+                    <span class="text-neutral-500">{(f.size / 1e6).toFixed(1)} MB</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Dropdown>
+        </RibbonCell>
+      </RibbonSet>
+    </RibbonGroup>
   );
 }
