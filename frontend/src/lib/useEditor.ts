@@ -4,11 +4,13 @@ import { fetchSilence, type EditList, type MediaItem, type SyncState } from "./a
 import {
   addCuts,
   deleteSegment,
+  insideCuts,
   moveSegmentEdge,
+  uncut,
+  moveSelectionEdge,
   removeCut,
   setCamera,
   setCut,
-  setRange,
   showOver,
 } from "./editOps";
 import {
@@ -47,11 +49,9 @@ interface Args {
 export function useEditor({ slug, media, sync, edit, onEdit, onError, ready }: Args) {
   const offsets = useMemo(() => mediaOffsets(media, sync), [media, sync]);
   const end = timelineEnd(media, offsets);
-  const lo = edit.range_in_s ?? 0;
-  const hi = edit.range_out_s ?? end;
-  const keeps = useMemo(() => keepIntervals(lo, hi, cutRanges(edit.cuts)), [lo, hi, edit.cuts]);
+  const keeps = useMemo(() => keepIntervals(0, end, cutRanges(edit.cuts)), [end, edit.cuts]);
   const outputLength = keeps.reduce((sum, [a, b]) => sum + (b - a), 0);
-  const firstKept = firstKeptMoment(keeps, lo);
+  const firstKept = firstKeptMoment(keeps, 0);
 
   const [t, setT] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -75,8 +75,8 @@ export function useEditor({ slug, media, sync, edit, onEdit, onError, ready }: A
   const fitPx = fitPxPerSec(width, end);
   const pxPerSec = zoom ?? fitPx;
 
-  const state = useRef({ t, playing, keeps, selection, picked, edit, lo, fallback });
-  state.current = { t, playing, keeps, selection, picked, edit, lo, fallback };
+  const state = useRef({ t, playing, keeps, selection, picked, edit, fallback });
+  state.current = { t, playing, keeps, selection, picked, edit, fallback };
 
   useEffect(() => {
     const el = timelineBox.current;
@@ -117,9 +117,9 @@ export function useEditor({ slug, media, sync, edit, onEdit, onError, ready }: A
   }, [playing]);
 
   const togglePlay = () => {
-    const { playing: on, t: current, keeps: ks, lo: start } = state.current;
+    const { playing: on, t: current, keeps: ks } = state.current;
     if (on) return setPlaying(false);
-    setT(current >= playbackEnd(ks) - 0.05 ? skipCuts(start, ks) : skipCuts(current, ks));
+    setT(current >= playbackEnd(ks) - 0.05 ? skipCuts(0, ks) : skipCuts(current, ks));
     setPlaying(true);
   };
 
@@ -128,20 +128,28 @@ export function useEditor({ slug, media, sync, edit, onEdit, onError, ready }: A
     const { edit: current, t: at, selection: sel, fallback: fb } = state.current;
     if (sel && mediaId !== null) {
       onEdit(showOver(current, fb, mediaId, sel[0], sel[1]));
-      setSelection(null);
+      select(null);
     } else onEdit(setCamera(current, at, mediaId));
   };
 
   const cutSelection = () => {
     const sel = state.current.selection;
-    if (!sel) return;
+    if (!sel || insideCuts(state.current.edit, sel)) return;
     onEdit(addCuts(state.current.edit, [{ start_s: sel[0], end_s: sel[1] }]));
-    setSelection(null);
+    select(null);
+  };
+
+  /** Take the selection back out of any cuts it overlaps. */
+  const uncutSelection = () => {
+    const sel = state.current.selection;
+    if (!sel) return;
+    onEdit(uncut(state.current.edit, sel[0], sel[1]));
   };
 
   const deletePicked = () => {
     const { picked: p, edit: current } = state.current;
     if (!p) return;
+    if (p.kind === "edge") return; // a selection handle is moved, not deleted
     onEdit(p.kind === "segment" ? deleteSegment(current, p.index) : removeCut(current, p.index));
     setPicked(null);
   };
@@ -149,13 +157,17 @@ export function useEditor({ slug, media, sync, edit, onEdit, onError, ready }: A
   /** Select a range; it replaces a picked segment or cut (the two don't coexist). */
   const select = (range: Range | null) => {
     setSelection(range);
-    if (range) setPicked(null);
+    // A selected handle belongs to the selection, so it goes with it.
+    setPicked((p) => (range === null && p?.kind === "edge" ? null : range ? null : p));
   };
 
-  /** Pick something to work on; a range selection and a picked item don't coexist. */
+  /** Pick something to work on; a selection and a picked segment or cut don't coexist (its handles do). */
   const pick = (next: Picked | null) => {
     setPicked(next);
-    if (next) setSelection(null);
+    if (next && next.kind !== "edge") setSelection(null);
+    // Selecting a handle puts the playhead on that edge, so the frame there can be checked.
+    const sel = state.current.selection;
+    if (next?.kind === "edge" && sel) scrub(sel[next.index]);
   };
 
   /** Put the playhead on `at` (stopping playback), e.g. while an edge is being dragged. */
@@ -175,6 +187,15 @@ export function useEditor({ slug, media, sync, edit, onEdit, onError, ready }: A
     setPicked(now >= 0 ? { kind: "cut", index: now } : null);
   };
 
+  /** A selection handle was dragged (or nudged): move that edge and put the playhead on it. */
+  const changeSelectionEdge = (edge: 0 | 1, at_s: number) => {
+    const sel = state.current.selection;
+    if (!sel) return;
+    const next = moveSelectionEdge(sel, edge, at_s, end);
+    setSelection(next);
+    scrub(next[edge]);
+  };
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (isTyping(e.target) || e.metaKey || e.ctrlKey || e.altKey) return;
@@ -185,11 +206,18 @@ export function useEditor({ slug, media, sync, edit, onEdit, onError, ready }: A
         else setSelection(null);
       } else if ((e.key === "Delete" || e.key === "Backspace") && cur.picked) deletePicked();
       else if (e.key === " ") togglePlay();
-      else if (e.key === "ArrowLeft") setT(Math.max(0, cur.t - (e.shiftKey ? 10 : 1)));
+      else if (
+        (e.key === "ArrowLeft" || e.key === "ArrowRight") &&
+        cur.picked?.kind === "edge" &&
+        cur.selection
+      ) {
+        // A selected handle is nudged by the arrow keys: 0.1 s, or 1 s with shift.
+        const edge = cur.picked.index === 0 ? 0 : 1;
+        const from = cur.selection[edge];
+        changeSelectionEdge(edge, from + (e.key === "ArrowLeft" ? -1 : 1) * (e.shiftKey ? 1 : 0.1));
+      } else if (e.key === "ArrowLeft") setT(Math.max(0, cur.t - (e.shiftKey ? 10 : 1)));
       else if (e.key === "ArrowRight") setT(Math.min(end, cur.t + (e.shiftKey ? 10 : 1)));
       else if (e.key === "x") cutSelection();
-      else if (e.key === "i") onEdit(setRange(cur.edit, cur.t, cur.edit.range_out_s));
-      else if (e.key === "o") onEdit(setRange(cur.edit, cur.edit.range_in_s, cur.t));
       else if (/^[1-9]$/.test(e.key) && channels.find((c) => c.number === Number(e.key)))
         cutTo(channels.find((c) => c.number === Number(e.key))!.item.id);
       else return;
@@ -201,7 +229,13 @@ export function useEditor({ slug, media, sync, edit, onEdit, onError, ready }: A
 
   const findDeadTime = async () => {
     try {
-      const { cuts } = await fetchSilence(slug, silence.threshold, silence.minS, silence.pad);
+      const { cuts } = await fetchSilence(
+        slug,
+        silence.threshold,
+        silence.minS,
+        silence.pad,
+        state.current.selection,
+      );
       setSuggestions(cuts.map((c): Range => [c.start_s, c.end_s]));
     } catch (e) {
       onError(e instanceof Error ? e.message : String(e));
@@ -214,7 +248,6 @@ export function useEditor({ slug, media, sync, edit, onEdit, onError, ready }: A
     onEdit,
     offsets,
     end,
-    lo,
     firstKept,
     keeps,
     outputLength,
@@ -231,6 +264,7 @@ export function useEditor({ slug, media, sync, edit, onEdit, onError, ready }: A
     preview,
     setPreview,
     changeCut,
+    changeSelectionEdge,
     zoom,
     setZoom,
     pxPerSec,
@@ -245,6 +279,7 @@ export function useEditor({ slug, media, sync, edit, onEdit, onError, ready }: A
     fallback,
     cutTo,
     cutSelection,
+    uncutSelection,
   };
 }
 

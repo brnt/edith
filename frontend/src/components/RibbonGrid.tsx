@@ -79,7 +79,6 @@ export function RibbonButton({
   hotkey,
   text,
   icon,
-  glyph,
   custom,
   size = 1,
   disabled,
@@ -90,8 +89,6 @@ export function RibbonButton({
   /** The one word shown on a 2×2 button. */
   text?: string;
   icon?: IconDefinition;
-  /** A character to draw instead of an icon, where no icon says it (e.g. "[" for an in point). */
-  glyph?: string;
   /** Any other drawn icon (a composed one such as SoundOff). */
   custom?: ComponentChildren;
   size?: 1 | 2;
@@ -117,7 +114,6 @@ export function RibbonButton({
     >
       {icon && <Icon icon={icon} />}
       {custom}
-      {glyph && <span class="font-mono leading-none">{glyph}</span>}
       {big && text && <span class="text-[11px] leading-none">{text}</span>}
     </button>
   );

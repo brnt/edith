@@ -189,9 +189,8 @@ def build_plan(edit: EditList, media: dict[str, MediaItem], sync: SyncState) -> 
                     f"{media[i].label} is not synced; assuming it starts at the nudge offset"
                 )
 
-    lo = max(0.0, edit.range_in_s or 0.0)
-    hi = edit.range_out_s if edit.range_out_s is not None else timeline_end(media, offsets)
-    keep = keep_intervals(lo, hi, [(c.start_s, c.end_s) for c in edit.cuts]) if hi > lo else []
+    hi = timeline_end(media, offsets)
+    keep = keep_intervals(0.0, hi, [(c.start_s, c.end_s) for c in edit.cuts]) if hi > 0 else []
 
     fallback = default_camera(media, offsets)
     tracks = output_tracks(edit, media)
@@ -215,9 +214,7 @@ def build_plan(edit: EditList, media: dict[str, MediaItem], sync: SyncState) -> 
             end = offsets[channel] + (media[channel].duration_s or 0.0)
             if (src_in < -EPS or y > end + EPS) and channel not in warned:
                 warned.add(channel)
-                warnings.append(
-                    f"{media[channel].label} has no footage for part of the selected range"
-                )
+                warnings.append(f"{media[channel].label} has no footage for part of the timeline")
             _append_video(
                 video, VideoSeg(channel, "camera", rec + (x - a), y - x, max(0.0, src_in))
             )

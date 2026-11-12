@@ -48,7 +48,6 @@ def test_edit_defaults_then_saves_and_round_trips(client: TestClient, project, i
     [
         {"switches": [{"at_s": 1, "media_id": "nope"}]},
         {"cuts": [{"start_s": 5, "end_s": 5}]},
-        {"range_in_s": 5, "range_out_s": 2},
         {"fps_num": 0},
     ],
 )
@@ -103,6 +102,16 @@ def test_silence_suggestions_come_from_the_audio_envelope(client: TestClient, pr
         (0.0, 1.8),
         (4.2, 7.8),
     ]
+
+
+def test_silence_suggestions_stay_inside_the_selection(client: TestClient, project, ids):
+    response = client.get(
+        f"/projects/{project}/silence",
+        params={"min_s": 1.5, "pad_s": 0.2, "from_s": 3.0, "to_s": 9.0},
+    )
+    cuts = [(round(c["start_s"], 1), round(c["end_s"], 1)) for c in response.json()["cuts"]]
+    assert cuts and all(3.0 <= a and b <= 9.0 for a, b in cuts)
+    assert (0.0, 1.8) not in cuts
 
 
 def _beep_session(

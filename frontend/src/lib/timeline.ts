@@ -264,9 +264,12 @@ export function boundaryPreview(args: {
 export const inTimeOrder = (switches: CameraSwitch[]) =>
   [...switches].sort((a, b) => a.at_s - b.at_s);
 
-/** What is selected on the timeline: a channel segment (by its switch) or a cut. */
+/**
+ * What is selected on the timeline: a channel segment (by its switch), a cut, or a selection handle
+ * (index 0 = the in point, 1 = the out point).
+ */
 export interface Picked {
-  kind: "segment" | "cut";
+  kind: "segment" | "cut" | "edge";
   index: number;
 }
 

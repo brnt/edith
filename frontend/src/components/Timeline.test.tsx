@@ -65,21 +65,22 @@ const edit: EditList = {
   tracks: [],
   mix: [],
   disabled: [],
-  range_in_s: null,
-  range_out_s: null,
   fps_num: 30000,
   fps_den: 1001,
   width: 1920,
   height: 1080,
 };
 
-function setup(opts: { edit?: Partial<EditList>; picked?: Picked | null } = {}) {
+function setup(
+  opts: { edit?: Partial<EditList>; picked?: Picked | null; selection?: [number, number] } = {},
+) {
   const handlers = {
     onSeek: vi.fn(),
     onSelect: vi.fn(),
     onCamera: vi.fn(),
     onTrack: vi.fn(),
     onCutChange: vi.fn(),
+    onSelectionEdge: vi.fn(),
     onPick: vi.fn(),
     onSegmentEdge: vi.fn(),
     onScrub: vi.fn(),
@@ -94,7 +95,7 @@ function setup(opts: { edit?: Partial<EditList>; picked?: Picked | null } = {}) 
       playhead={0}
       end={100}
       pxPerSec={10}
-      selection={null}
+      selection={opts.selection ?? null}
       suggestions={[]}
       picked={opts.picked ?? null}
       {...handlers}
@@ -386,4 +387,53 @@ test("rows for media that can't be read carry a warning flag (cameras and audio)
   fireEvent.click(screen.getByRole("img", { name: "Cam 2 can't be read" }));
   expect(onShowProblem).toHaveBeenCalledTimes(1);
   expect(onCamera).not.toHaveBeenCalled();
+});
+
+const SEL: [number, number] = [10, 50];
+
+test("selection handles show only while there is a selection", () => {
+  setup();
+  expect(screen.queryByRole("separator", { name: /Selection (start|end)/ })).toBeNull();
+  cleanup();
+  setup({ selection: SEL });
+  expect(screen.getByRole("separator", { name: "Selection start" })).toBeInTheDocument();
+  expect(screen.getByRole("separator", { name: "Selection end" })).toBeInTheDocument();
+});
+
+test("pressing a selection handle selects it (start = 0, end = 1) and does not seek or select a span", () => {
+  const h = setup({ selection: SEL });
+  fireEvent.pointerDown(screen.getByRole("separator", { name: "Selection end" }), {
+    clientX: 500,
+    pointerId: 1,
+  });
+  expect(h.onPick).toHaveBeenCalledWith({ kind: "edge", index: 1 });
+  expect(h.onSeek).not.toHaveBeenCalled();
+  expect(h.onSelect).not.toHaveBeenCalled();
+});
+
+test("dragging a selection handle moves it, committing once on release, and keeps it clear of the other", () => {
+  const h = setup({ selection: SEL, picked: { kind: "edge", index: 0 } });
+  const handle = screen.getByRole("separator", { name: "Selection start" });
+  drag(handle, 100, 150, 200);
+  expect(h.onSelectionEdge).not.toHaveBeenCalled();
+  expect(screen.getByText("0:20.00")).toBeInTheDocument(); // the readout while dragging
+  fireEvent.pointerUp(handle, { clientX: 200, pointerId: 1 });
+  expect(h.onSelectionEdge).toHaveBeenCalledTimes(1);
+  expect(h.onSelectionEdge).toHaveBeenCalledWith(0, 20);
+});
+
+test("a selection handle cannot be dragged past the other handle", () => {
+  const h = setup({ selection: SEL, picked: { kind: "edge", index: 0 } });
+  const handle = screen.getByRole("separator", { name: "Selection start" });
+  drag(handle, 100, 900);
+  fireEvent.pointerUp(handle, { clientX: 900, pointerId: 1 });
+  expect(h.onSelectionEdge).toHaveBeenCalledWith(0, 49.9);
+});
+
+test("a click on a selection handle without moving changes nothing", () => {
+  const h = setup({ selection: SEL });
+  const handle = screen.getByRole("separator", { name: "Selection start" });
+  fireEvent.pointerDown(handle, { clientX: 100, pointerId: 1 });
+  fireEvent.pointerUp(handle, { clientX: 100, pointerId: 1 });
+  expect(h.onSelectionEdge).not.toHaveBeenCalled();
 });

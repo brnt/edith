@@ -32,7 +32,11 @@ def get_silence(
     threshold_db: float = -50.0,
     min_s: float = 2.0,
     pad_s: float = 0.4,
+    from_s: float | None = None,
+    to_s: float | None = None,
     settings: Settings = Depends(get_settings),
 ):
-    cuts = editing.suggest_silence(slug, threshold_db=threshold_db, min_s=min_s, pad_s=pad_s)
+    cuts = editing.suggest_silence(
+        slug, threshold_db=threshold_db, min_s=min_s, pad_s=pad_s, from_s=from_s, to_s=to_s
+    )
     return SilenceRead(cuts=[CutRange(start_s=a, end_s=b) for a, b in cuts])

@@ -7,6 +7,10 @@ import {
   removeCut,
   setAudioIncluded,
   deleteSegment,
+  insideCuts,
+  moveSelectionEdge,
+  overlapsCut,
+  uncut,
   moveSegmentEdge,
   renameMedia,
   setAllEnabled,
@@ -68,8 +72,6 @@ const edit = (patch: Partial<EditList> = {}): EditList => ({
   tracks: [],
   mix: [],
   disabled: [],
-  range_in_s: null,
-  range_out_s: null,
   fps_num: 30000,
   fps_den: 1001,
   width: 1920,
@@ -711,5 +713,44 @@ describe("history and formatting", () => {
     expect(formatTime(75.34)).toBe("1:15.3");
     expect(formatTime(5, 0)).toBe("0:05");
     expect(formatTime(-3)).toBe("0:00.0");
+  });
+});
+
+describe("moveSelectionEdge", () => {
+  const sel: [number, number] = [10, 50];
+  test("moves one edge and leaves the other", () => {
+    expect(moveSelectionEdge(sel, 0, 12, 100)).toEqual([12, 50]);
+    expect(moveSelectionEdge(sel, 1, 60, 100)).toEqual([10, 60]);
+  });
+  test("keeps the edges on the timeline and apart", () => {
+    expect(moveSelectionEdge(sel, 0, -5, 100)[0]).toBe(0);
+    expect(moveSelectionEdge(sel, 0, 70, 100)[0]).toBeCloseTo(49.9);
+    expect(moveSelectionEdge(sel, 1, 500, 100)[1]).toBe(100);
+    expect(moveSelectionEdge(sel, 1, 3, 100)[1]).toBeCloseTo(10.1);
+  });
+});
+
+describe("uncut", () => {
+  const cutEdit = edit({ cuts: [{ start_s: 10, end_s: 30 }] });
+  test("splits a cut around a stretch inside it", () => {
+    expect(uncut(cutEdit, 15, 20).cuts).toEqual([
+      { start_s: 10, end_s: 15 },
+      { start_s: 20, end_s: 30 },
+    ]);
+  });
+  test("trims a cut from either side, or removes it entirely", () => {
+    expect(uncut(cutEdit, 5, 15).cuts).toEqual([{ start_s: 15, end_s: 30 }]);
+    expect(uncut(cutEdit, 25, 40).cuts).toEqual([{ start_s: 10, end_s: 25 }]);
+    expect(uncut(cutEdit, 0, 40).cuts).toEqual([]);
+  });
+  test("leaves cuts it doesn't touch, and says whether it touches any", () => {
+    expect(uncut(cutEdit, 40, 50).cuts).toEqual(cutEdit.cuts);
+    expect(overlapsCut(cutEdit, [5, 15])).toBe(true);
+    expect(overlapsCut(cutEdit, [30, 40])).toBe(false);
+  });
+  test("a selection wholly inside a cut has nothing left to cut", () => {
+    expect(insideCuts(cutEdit, [12, 25])).toBe(true);
+    expect(insideCuts(cutEdit, [5, 15])).toBe(false);
+    expect(insideCuts(cutEdit, [25, 35])).toBe(false);
   });
 });
