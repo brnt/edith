@@ -18,15 +18,24 @@ import {
 import { waitForJob } from "../lib/jobs";
 import { formatTime } from "../lib/timeline";
 import { MAX_CANVAS_PX, Waveform } from "./Waveform";
-import { Badge, Progress, Select } from "./ui";
+import { Badge, Select } from "./ui";
 import { Icon } from "./Icon";
-import { RibbonButton, RibbonSet } from "./RibbonGrid";
 import {
-  Aim,
+  RibbonButton,
+  RibbonButtonStack,
+  RibbonCell,
+  RibbonGroup,
+  RibbonNumber,
+  RibbonProgress,
+  RibbonSet,
+  RibbonText,
+} from "./RibbonGrid";
+import {
   CaretRight,
   CheckCircle,
   CloseCircle,
   Download,
+  FileSearch,
   PlaySquare,
   StopSquare,
   Warning,
@@ -51,7 +60,15 @@ interface Props {
 type Mode = SyncTemplate["kind"];
 
 const MAX_TEMPLATE_S = 5;
-const WAVE_HEIGHT = 56;
+// The first panel is this many units wide: the source drop-down, its controls and Find fill row one.
+const PANEL_COLS = 17;
+// The waveform fills its box: two units tall (69 px) less the 2 px inset a side, less the 1 px border.
+const WAVE_HEIGHT = 63;
+// Only the start of a recording is shown: that is where the registration sound is marked.
+const WAVE_LIMIT_S = 120;
+// The generated burst is 0.2 s; a marked stretch is trimmed to it, with a little air either side.
+const BURST_S = 0.2;
+const BURST_PAD_S = 0.005;
 const TONES = { synced: "good", low_confidence: "warn", unsynced: "bad" } as const;
 const LABELS = { synced: "synced", low_confidence: "check", unsynced: "not found" } as const;
 const MODES: { id: Mode; label: string }[] = [
@@ -91,13 +108,17 @@ export function SyncPanel(props: Props) {
   const [filePath, setFilePath] = useState(saved?.path ?? "");
   // Any audio file in the project folder will do as the sound: it is searched for, not added.
   const audioFiles = props.available.filter((m) => m.kind === "audio" && !m.missing);
-  const [pxPerSec, setPxPerSec] = useState(20);
+  // The waveform fits the width of the controls above it; zoom magnifies from there (1 = fit).
+  const [zoom, setZoom] = useState(1);
+  const [boxW, setBoxW] = useState(0);
+  const box = useRef<HTMLDivElement>(null);
   const [progress, setProgress] = useState<{ value: number; label: string } | null>(null);
   const drag = useRef<{ x0: number; t0: number; moved: boolean } | null>(null);
   const source = withAudio.find((m) => m.id === sourceId);
   const data = source ? peaks[source.id] : undefined;
-  const duration = source?.duration_s ?? 0;
-  const px = Math.min(pxPerSec, MAX_CANVAS_PX / Math.max(duration, 1));
+  const duration = Math.min(source?.duration_s ?? 0, WAVE_LIMIT_S);
+  const fitPx = boxW > 0 ? boxW / Math.max(duration, 1) : 20; // 20 px/s where nothing can be measured
+  const px = Math.min(fitPx * zoom, MAX_CANVAS_PX / Math.max(duration, 1));
   const tooLong = range !== null && range[1] - range[0] > MAX_TEMPLATE_S;
 
   // Show the saved sound once it loads (the sync state arrives after the first render).
@@ -119,6 +140,15 @@ export function SyncPanel(props: Props) {
   // Reading the marked stretch back: a registration sound is always the generated 32-bit burst, so
   // the server decodes the stretch and says whether it holds one (and which, by its code).
   const [inspection, setInspection] = useState<RegistrationInspection | null>(null);
+  // Measure the waveform's box, which is as wide as the controls above it.
+  useEffect(() => {
+    const el = box.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const watch = new ResizeObserver(() => setBoxW(el.clientWidth));
+    watch.observe(el);
+    setBoxW(el.clientWidth);
+    return () => watch.disconnect();
+  }, [mode]);
   useEffect(() => {
     setInspection(null);
     if (mode !== "excerpt" || !source || !range || tooLong || range[1] - range[0] > 10) return;
@@ -134,6 +164,17 @@ export function SyncPanel(props: Props) {
       clearTimeout(timer);
     };
   }, [mode, source?.id, range?.[0], range?.[1]]);
+
+  // A burst that was found is the sound: the marked stretch is trimmed to it, so the search uses
+  // exactly the sound however roughly it was marked.
+  useEffect(() => {
+    if (mode !== "excerpt" || !range || !inspection?.found || inspection.offset_s === null) return;
+    const at = range[0] + inspection.offset_s;
+    const trimmed: [number, number] = [Math.max(0, at - BURST_PAD_S), at + BURST_S + BURST_PAD_S];
+    if (Math.abs(range[0] - trimmed[0]) > 0.01 || Math.abs(range[1] - trimmed[1]) > 0.01) {
+      setRange(trimmed);
+    }
+  }, [inspection]);
 
   // Listening, to check the marked stretch is the sound: the whole recording, or just the stretch.
   const audio = useRef<{ el: HTMLAudioElement; timer: number } | null>(null);
@@ -152,8 +193,24 @@ export function SyncPanel(props: Props) {
   };
   useEffect(() => {
     setCursor(null); // a different recording starts from its beginning
+    setZoom(1);
     return stopPlaying; // and so does leaving
   }, [sourceId, mode]);
+  // Zooming stays centred on the playhead, else on the marked stretch, else on what is in view.
+  const anchor = useRef<number | null>(null);
+  const zoomBy = (factor: number) => {
+    const focus = playT ?? cursor ?? (range ? (range[0] + range[1]) / 2 : null);
+    const view = box.current;
+    anchor.current =
+      focus ?? (view ? (view.scrollLeft + view.clientWidth / 2) / Math.max(px, 1e-6) : null);
+    setZoom((v) => Math.min(256, Math.max(1, v * factor)));
+  };
+  useEffect(() => {
+    const view = box.current;
+    const t = anchor.current;
+    anchor.current = null;
+    if (view && t !== null) view.scrollLeft = Math.max(0, t * px - view.clientWidth / 2);
+  }, [zoom]);
   // Clicking the waveform puts the playhead there; if something is playing it jumps there too.
   const seek = (t: number) => {
     setCursor(t);
@@ -190,7 +247,7 @@ export function SyncPanel(props: Props) {
 
   const timeAt = (event: PointerEvent) => {
     const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
-    return Math.max(0, (event.clientX - rect.left) / px);
+    return Math.min(duration, Math.max(0, (event.clientX - rect.left) / px));
   };
 
   const template = (): SyncTemplate | null => {
@@ -269,14 +326,18 @@ export function SyncPanel(props: Props) {
       onError(String(e)),
     );
 
+  const results = sync && Object.keys(sync.results).length > 0 ? sync.results : null;
+
   return (
-    <div class="grid h-full grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)] gap-4">
-      <div class="flex min-h-0 min-w-0 flex-col gap-2">
-        <div class="flex flex-wrap items-center gap-2 text-sm">
-          <label>
-            Registration sound{" "}
+    <div class="flex h-full gap-3 overflow-x-auto">
+      <RibbonGroup title="Registration sound">
+        <RibbonSet columns={PANEL_COLS}>
+          {/* The first row is always full: the source, what it needs, and Find in the last cell. */}
+          <RibbonCell columns={5}>
             <Select
+              block
               aria-label="Registration sound source"
+              title="Where the registration sound comes from"
               value={mode}
               onChange={(e) => setMode(e.currentTarget.value as Mode)}
             >
@@ -286,62 +347,52 @@ export function SyncPanel(props: Props) {
                 </option>
               ))}
             </Select>
-          </label>
+          </RibbonCell>
 
           {mode === "excerpt" && (
             <>
-              <Select
-                aria-label="Recording"
-                value={sourceId}
-                onChange={(e) => {
-                  setSourceId(e.currentTarget.value);
-                  setRange(null);
-                }}
-              >
-                {withAudio.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.label}
-                  </option>
-                ))}
-              </Select>
-              <RibbonSet columns={4}>
-                <RibbonButton
-                  icon={ZoomIn}
-                  label="Zoom in"
-                  onClick={() => setPxPerSec((v) => Math.min(v * 2, 2000))}
-                />
-                <RibbonButton
-                  icon={ZoomOut}
-                  label="Zoom out"
-                  onClick={() => setPxPerSec((v) => Math.max(v / 2, 2))}
-                />
-                <RibbonButton
-                  icon={playing === "recording" ? StopSquare : CaretRight}
-                  label={
-                    playing === "recording" ? "Stop the recording" : "Play the whole recording"
-                  }
-                  disabled={!source}
-                  onClick={() => play("recording")}
-                />
-                <RibbonButton
-                  icon={playing === "selection" ? StopSquare : PlaySquare}
-                  label={playing === "selection" ? "Stop the selection" : "Play just the selection"}
-                  disabled={!source || !range}
-                  onClick={() => play("selection")}
-                />
-              </RibbonSet>
+              <RibbonCell columns={9}>
+                <Select
+                  block
+                  aria-label="Recording"
+                  title="The recording to mark the sound in"
+                  value={sourceId}
+                  onChange={(e) => {
+                    setSourceId(e.currentTarget.value);
+                    setRange(null);
+                  }}
+                >
+                  {withAudio.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.label}
+                    </option>
+                  ))}
+                </Select>
+              </RibbonCell>
+              <RibbonButton
+                icon={playing === "recording" ? StopSquare : CaretRight}
+                label={playing === "recording" ? "Stop the recording" : "Play the whole recording"}
+                disabled={!source}
+                onClick={() => play("recording")}
+              />
+              <RibbonButton
+                icon={playing === "selection" ? StopSquare : PlaySquare}
+                label={playing === "selection" ? "Stop the selection" : "Play just the selection"}
+                disabled={!source || !range}
+                onClick={() => play("selection")}
+              />
             </>
           )}
 
           {mode === "seed" && (
             <>
-              <input
-                class="w-36 rounded bg-neutral-900 px-2 py-1"
-                aria-label="Registration text"
+              <RibbonText
+                columns={10}
+                label="Registration text"
                 placeholder="e.g. stickshift"
                 maxLength={64}
                 value={seed}
-                onInput={(e) => setSeed(e.currentTarget.value)}
+                onInput={setSeed}
                 onBlur={commitSeed}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
@@ -351,183 +402,234 @@ export function SyncPanel(props: Props) {
                   }
                 }}
               />
-              <RibbonSet columns={1}>
-                <RibbonButton
-                  icon={Download}
-                  label="Download the sound to play on set (.wav)"
-                  href={seed.trim() ? registrationSoundUrl(seed.trim()) : ""}
-                  download={registrationFileName(seed.trim())}
-                  disabled={seed.trim() === ""}
-                />
-              </RibbonSet>
+              <RibbonButton
+                icon={Download}
+                label="Download the sound to play on set (.wav)"
+                href={seed.trim() ? registrationSoundUrl(seed.trim()) : ""}
+                download={registrationFileName(seed.trim())}
+                disabled={seed.trim() === ""}
+              />
             </>
           )}
 
           {mode === "file" && (
-            <Select
-              class="max-w-64"
-              aria-label="Audio file"
-              value={filePath}
-              onChange={(e) => setFilePath(e.currentTarget.value)}
-            >
-              <option value="">
-                {audioFiles.length
-                  ? "Choose an audio file…"
-                  : "No audio files in the project folder"}
-              </option>
-              {audioFiles.map((m) => (
-                <option key={m.path} value={m.path}>
-                  {m.path}
+            <RibbonCell columns={11}>
+              <Select
+                block
+                aria-label="Audio file"
+                title="An audio file of the sound, from the project folder"
+                value={filePath}
+                onChange={(e) => setFilePath(e.currentTarget.value)}
+              >
+                <option value="">
+                  {audioFiles.length
+                    ? "Choose an audio file…"
+                    : "No audio files in the project folder"}
                 </option>
-              ))}
-            </Select>
+                {audioFiles.map((m) => (
+                  <option key={m.path} value={m.path}>
+                    {m.path}
+                  </option>
+                ))}
+              </Select>
+            </RibbonCell>
           )}
-        </div>
 
-        <div class="flex flex-wrap items-center gap-2 text-sm">
-          <RibbonSet columns={1}>
-            <RibbonButton
-              icon={Aim}
-              label="Find the sound in every file"
-              disabled={template() === null || progress !== null}
-              onClick={run}
-            />
-          </RibbonSet>
-          {progress && <Progress value={progress.value} label={progress.label} />}
-          {mode === "excerpt" && (
-            <span class="text-xs text-neutral-400">
-              {range
-                ? `Selected ${formatTime(range[0], 2)} – ${formatTime(range[1], 2)} (${(range[1] - range[0]).toFixed(2)} s)`
-                : "Drag across the beep (a quiet one shows as a small bump) to select it, or click the waveform to start playing from there."}
-            </span>
-          )}
-          {mode === "excerpt" && range && inspection && (
-            <span
-              class={`inline-flex items-center gap-1 text-xs ${inspection.found ? "text-emerald-300" : "text-amber-300"}`}
-              data-testid="decode-result"
-              title={
-                inspection.found
-                  ? "Read back from the sound: the 32 bits a registration sound carries. The same seed always gives the same code."
-                  : "Nothing in this stretch reads as a registration sound."
-              }
-            >
-              <Icon icon={inspection.found ? CheckCircle : Warning} />
-              {inspection.found
-                ? `Registration sound found · code ${inspection.code}`
-                : "No registration sound found in this stretch"}
-            </span>
-          )}
-          {tooLong && (
-            <span class="text-xs text-amber-300">Select just the sound (at most 5 s).</span>
-          )}
-        </div>
+          <RibbonButton
+            icon={FileSearch}
+            label="Find the sound in every file"
+            disabled={template() === null || progress !== null}
+            onClick={run}
+          />
 
-        {mode === "excerpt" ? (
-          <div class="min-h-0 overflow-x-auto overflow-y-hidden rounded border border-neutral-700 bg-neutral-950">
-            <div
-              class="relative cursor-crosshair"
-              style={{ width: Math.max(1, duration * px), height: WAVE_HEIGHT }}
-              onPointerDown={(e) => {
-                (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
-                drag.current = { x0: e.clientX, t0: timeAt(e), moved: false };
-              }}
-              onPointerMove={(e) => {
-                const d = drag.current;
-                if (!d) return;
-                if (Math.abs(e.clientX - d.x0) > 3) d.moved = true; // a drag, not a click
-                if (!d.moved) return;
-                const t = timeAt(e);
-                setRange([Math.min(d.t0, t), Math.max(d.t0, t)]);
-              }}
-              onPointerUp={(e) => {
-                const d = drag.current;
-                drag.current = null;
-                if (d && !d.moved) seek(timeAt(e)); // a click
-              }}
-            >
-              <Waveform peaks={data} pxPerSec={px} width={duration * px} height={WAVE_HEIGHT} />
-              {(playT ?? cursor) !== null && (
+          {/* Two rows: the waveform to mark on (with zoom beside it), or what the other sources do. */}
+          <div
+            class="m-[2px] min-w-0"
+            style={{
+              gridColumn: `span ${mode === "excerpt" ? PANEL_COLS - 1 : PANEL_COLS}`,
+              gridRow: "span 2",
+              // The zoom buttons are joined to the waveform: it reaches across the gap to them.
+              marginRight: mode === "excerpt" ? -5 : undefined,
+            }}
+          >
+            {mode === "excerpt" ? (
+              <div
+                ref={box}
+                class={`h-full overflow-x-auto overflow-y-hidden border border-[#505050] bg-neutral-950 ${mode === "excerpt" ? "rounded-l-[5px]" : "rounded-[5px]"}`}
+              >
                 <div
-                  class="pointer-events-none absolute inset-y-0 z-10 w-0.5 bg-white"
-                  style={{ left: (playT ?? cursor ?? 0) * px }}
-                  data-testid="sync-playhead"
-                />
-              )}
-              {range && inspection?.found && inspection.offset_s !== null && (
-                <div
-                  class="pointer-events-none absolute inset-y-1 bg-emerald-400/40 ring-1 ring-emerald-300"
-                  style={{ left: (range[0] + inspection.offset_s) * px, width: 0.2 * px }}
-                  data-testid="decoded-burst"
-                />
-              )}
-              {range && (
-                <div
-                  class="absolute inset-y-0 bg-amber-400/30 ring-1 ring-amber-400"
-                  style={{ left: range[0] * px, width: Math.max(1, (range[1] - range[0]) * px) }}
-                />
-              )}
-            </div>
+                  class="relative cursor-crosshair"
+                  style={{ width: Math.max(1, duration * px), height: WAVE_HEIGHT }}
+                  onPointerDown={(e) => {
+                    (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+                    drag.current = { x0: e.clientX, t0: timeAt(e), moved: false };
+                  }}
+                  onPointerMove={(e) => {
+                    const d = drag.current;
+                    if (!d) return;
+                    if (Math.abs(e.clientX - d.x0) > 3) d.moved = true; // a drag, not a click
+                    if (!d.moved) return;
+                    const t = timeAt(e);
+                    setRange([Math.min(d.t0, t), Math.max(d.t0, t)]);
+                  }}
+                  onPointerUp={(e) => {
+                    const d = drag.current;
+                    drag.current = null;
+                    if (d && !d.moved) seek(timeAt(e)); // a click
+                  }}
+                >
+                  <Waveform peaks={data} pxPerSec={px} width={duration * px} height={WAVE_HEIGHT} />
+                  {(playT ?? cursor) !== null && (
+                    <div
+                      class="pointer-events-none absolute inset-y-0 z-10 w-0.5 bg-white"
+                      style={{ left: (playT ?? cursor ?? 0) * px }}
+                      data-testid="sync-playhead"
+                    />
+                  )}
+                  {range && inspection?.found && inspection.offset_s !== null && (
+                    <div
+                      class="pointer-events-none absolute inset-y-1 bg-emerald-400/40 ring-1 ring-emerald-300"
+                      style={{ left: (range[0] + inspection.offset_s) * px, width: 0.2 * px }}
+                      data-testid="decoded-burst"
+                    />
+                  )}
+                  {range && (
+                    <div
+                      class="absolute inset-y-0 bg-amber-400/30 ring-1 ring-amber-400"
+                      style={{
+                        left: range[0] * px,
+                        width: Math.max(1, (range[1] - range[0]) * px),
+                      }}
+                    />
+                  )}
+                </div>
+              </div>
+            ) : (
+              <p class="text-xs text-neutral-400">
+                {mode === "seed"
+                  ? "Press Enter to download the sound and search every recording for it. Play it after starting and before stopping each device. A different text can still partly match, so check each Match."
+                  : "An audio file of the sound (silence around it is trimmed), searched for in every recording and not added to the project."}
+              </p>
+            )}
           </div>
-        ) : (
-          <p class="text-xs text-neutral-400">
-            {mode === "seed"
-              ? "Download the sound and play it after starting and before stopping each device. A different text can still partly match, so check each Match."
-              : "An audio file of the sound (silence around it is trimmed), searched for in every recording and not added to the project."}
-          </p>
-        )}
-      </div>
 
-      <div class="min-h-0 min-w-0 overflow-hidden text-sm">
-        {sync && Object.keys(sync.results).length > 0 ? (
-          <ul class="grid auto-cols-[21.5rem] grid-flow-col grid-rows-5 content-start gap-x-4 gap-y-0.5">
+          {mode === "excerpt" && (
+            <RibbonButtonStack
+              column={PANEL_COLS}
+              row={2}
+              actions={[
+                {
+                  icon: ZoomIn,
+                  label: "Zoom in",
+                  onClick: () => zoomBy(2),
+                },
+                {
+                  icon: ZoomOut,
+                  label: "Zoom out",
+                  disabled: zoom <= 1,
+                  onClick: () => zoomBy(0.5),
+                },
+              ]}
+            />
+          )}
+
+          {/* The last row: progress, and what is marked and whether it reads as the sound. */}
+          {progress && <RibbonProgress value={progress.value} label={progress.label} columns={4} />}
+          <div
+            class="m-[2px] flex min-w-0 items-center gap-3 text-xs"
+            style={{ gridColumn: `span ${progress ? PANEL_COLS - 4 : PANEL_COLS}` }}
+          >
+            {mode === "excerpt" && (
+              <span class="truncate text-neutral-400">
+                {range
+                  ? `Selected ${formatTime(range[0], 2)} – ${formatTime(range[1], 2)} (${(range[1] - range[0]).toFixed(2)} s)`
+                  : "Drag across the beep to select it, or click to play from there."}
+              </span>
+            )}
+            {mode === "excerpt" && range && inspection && (
+              <span
+                class={`inline-flex min-w-0 items-center gap-1 ${inspection.found ? "text-emerald-300" : "text-amber-300"}`}
+                data-testid="decode-result"
+                title={
+                  inspection.found
+                    ? "Read back from the sound: the 32 bits a registration sound carries. The same seed always gives the same code."
+                    : "Nothing in this stretch reads as a registration sound."
+                }
+              >
+                <Icon icon={inspection.found ? CheckCircle : Warning} />
+                <span class="truncate">
+                  {inspection.found
+                    ? `Registration sound found · code ${inspection.code}`
+                    : "No registration sound found in this stretch"}
+                </span>
+              </span>
+            )}
+            {tooLong && (
+              <span class="truncate text-amber-300">Select just the sound (at most 5 s).</span>
+            )}
+          </div>
+        </RibbonSet>
+      </RibbonGroup>
+
+      <RibbonGroup title="Files">
+        {results ? (
+          <div
+            class="grid grid-flow-col auto-cols-max gap-x-4"
+            style={{ gridTemplateRows: "repeat(4, 2.0625rem)" }}
+          >
             {media
-              .filter((m) => sync.results[m.id])
+              .filter((m) => results[m.id])
               .map((m) => {
-                const r = sync.results[m.id];
+                const r = results[m.id];
                 return (
-                  <li key={m.id} class="flex items-center gap-2">
-                    <span class="w-24 truncate" title={m.label}>
+                  <div
+                    key={m.id}
+                    class="grid items-center gap-[3px] text-sm"
+                    style={{ gridTemplateColumns: "repeat(13, 2.0625rem)" }}
+                  >
+                    <span class="truncate px-1" style={{ gridColumn: "span 3" }} title={m.label}>
                       {m.label}
                     </span>
-                    {describe(r)}
+                    <span style={{ gridColumn: "span 3" }}>{describe(r)}</span>
                     <span
-                      class="w-16 text-neutral-400"
+                      class="text-neutral-400"
+                      style={{ gridColumn: "span 2" }}
                       title="Where this file starts on the timeline"
                     >
                       {r.start_s === null ? "—" : formatTime(r.start_s, 3)}
                     </span>
                     <span
-                      class="w-9 text-xs text-neutral-400"
+                      class="text-xs text-neutral-400"
                       title="Match: 1.0 is identical; lower in noisy rooms or for a different sound"
                     >
                       {r.score === null ? "" : r.score.toFixed(2)}
                     </span>
                     <span
-                      class="w-16 whitespace-nowrap text-xs text-neutral-500"
+                      class="whitespace-nowrap text-xs text-neutral-500"
+                      style={{ gridColumn: "span 2" }}
                       title="Clock drift relative to the group"
                     >
                       {r.drift_ppm === null ? "" : `${r.drift_ppm.toFixed(0)} ppm`}
                     </span>
-                    <input
-                      aria-label={`Nudge ${m.label}`}
-                      title="Nudge (ms)"
-                      class="w-12 rounded bg-neutral-900 px-1 py-0.5"
-                      type="number"
-                      step="10"
-                      value={Math.round((sync.nudges[m.id] ?? 0) * 1000)}
-                      onChange={(e) => nudge(m.id, Number(e.currentTarget.value))}
+                    <RibbonNumber
+                      label={`Nudge ${m.label}`}
+                      unit="ms"
+                      step={10}
+                      columns={2}
+                      value={Math.round((sync?.nudges[m.id] ?? 0) * 1000)}
+                      onChange={(v) => nudge(m.id, v)}
                     />
-                  </li>
+                  </div>
                 );
               })}
-          </ul>
+          </div>
         ) : (
-          <p class="text-neutral-500">
+          <p class="m-[2px] w-72 text-xs text-neutral-500">
             Results appear here: each file's start on the timeline, how well the sound matched, its
             clock drift, and whether it was found.
           </p>
         )}
-      </div>
+      </RibbonGroup>
     </div>
   );
 }

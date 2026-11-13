@@ -8,7 +8,6 @@ export { default as CaretDown } from "@ant-design/icons-svg/es/asn/CaretDownOutl
 export { default as Ellipsis } from "@ant-design/icons-svg/es/asn/EllipsisOutlined";
 export { default as CaretRight } from "@ant-design/icons-svg/es/asn/CaretRightOutlined";
 export { default as Compress } from "@ant-design/icons-svg/es/asn/CompressOutlined";
-export { default as Aim } from "@ant-design/icons-svg/es/asn/AimOutlined";
 export { default as Edit } from "@ant-design/icons-svg/es/asn/EditOutlined";
 export { default as Home } from "@ant-design/icons-svg/es/asn/HomeOutlined";
 export { default as Desktop } from "@ant-design/icons-svg/es/asn/DesktopOutlined";
@@ -16,6 +15,7 @@ export { default as FileText } from "@ant-design/icons-svg/es/asn/FileTextOutlin
 export { default as FolderAdd } from "@ant-design/icons-svg/es/asn/FolderAddOutlined";
 export { default as ArrowRight } from "@ant-design/icons-svg/es/asn/ArrowRightOutlined";
 export { default as PlaySquare } from "@ant-design/icons-svg/es/asn/PlaySquareOutlined";
+export { default as FileSearch } from "@ant-design/icons-svg/es/asn/FileSearchOutlined";
 export { default as Check } from "@ant-design/icons-svg/es/asn/CheckOutlined";
 export { default as CheckCircle } from "@ant-design/icons-svg/es/asn/CheckCircleOutlined";
 export { default as Close } from "@ant-design/icons-svg/es/asn/CloseOutlined";

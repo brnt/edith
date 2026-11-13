@@ -169,6 +169,52 @@ export function RibbonCell({
   );
 }
 
+// A button joined to a neighbour (the slider's action, a stack's buttons): raised like any
+// button, square where it meets the neighbour, and a disabled edge with no seam on that side.
+const JOINED_BUTTON =
+  "flex items-center justify-center bg-[#505050] p-0 text-xl text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.14)] hover:bg-[#5c5c5c] disabled:cursor-not-allowed disabled:bg-[#2c2c2c] disabled:text-[#686868] disabled:shadow-[inset_0_1px_0_#4a4a4a,inset_0_-1px_0_#4a4a4a,inset_-1px_0_0_#4a4a4a] disabled:hover:bg-[#2c2c2c]";
+
+/**
+ * Buttons stacked in a column on the grid's `column`, from `row`, joined to each other (no gaps,
+ * rounded only on the outer right) and to whatever sits on their left (a waveform): the left side
+ * is square and reaches 5 px back to meet it. One unit wide less the 2 px inset, one unit tall each.
+ */
+export function RibbonButtonStack({
+  column,
+  row,
+  actions,
+}: {
+  column: number;
+  row: number;
+  actions: { icon: IconDefinition; label: string; disabled?: boolean; onClick: () => void }[];
+}) {
+  return (
+    <div
+      class="my-[2px] flex flex-col self-stretch justify-self-end"
+      style={{
+        gridColumn: column,
+        gridRow: `${row} / span ${actions.length}`,
+        width: SMALL,
+        marginRight: 2,
+      }}
+    >
+      {actions.map((a, i) => (
+        <button
+          key={a.label}
+          type="button"
+          title={a.label}
+          aria-label={a.label}
+          disabled={a.disabled}
+          class={`${JOINED_BUTTON} flex-1 ${i === 0 ? "rounded-tr-[5px]" : ""} ${i === actions.length - 1 ? "rounded-br-[5px]" : ""}`}
+          onClick={a.onClick}
+        >
+          <Icon icon={a.icon} />
+        </button>
+      ))}
+    </div>
+  );
+}
+
 /**
  * A slider on the grid: sunken like the number field, one unit tall, `columns` units wide, with its
  * readout (`display`) inside. `onInput` follows the drag; `onCommit` fires once on release.
@@ -240,7 +286,7 @@ export function RibbonSlider({
           title={action.label}
           aria-label={action.label}
           disabled={action.disabled}
-          class="flex shrink-0 items-center justify-center rounded-r-[5px] bg-[#505050] p-0 text-xl text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.14)] hover:bg-[#5c5c5c] disabled:cursor-not-allowed disabled:bg-[#2c2c2c] disabled:text-[#686868] disabled:shadow-[inset_0_1px_0_#4a4a4a,inset_0_-1px_0_#4a4a4a,inset_-1px_0_0_#4a4a4a] disabled:hover:bg-[#2c2c2c]"
+          class={`${JOINED_BUTTON} shrink-0 rounded-r-[5px]`}
           style={{ width: SMALL }}
           onClick={action.onClick}
         >
@@ -281,6 +327,47 @@ export function RibbonProgress({
         {percent}%
       </span>
     </div>
+  );
+}
+
+/** A text field on the grid: sunken like the number field, one unit tall, `columns` units wide. */
+export function RibbonText({
+  label,
+  value,
+  placeholder,
+  maxLength,
+  columns = 4,
+  onInput,
+  onBlur,
+  onKeyDown,
+}: {
+  label: string;
+  value: string;
+  placeholder?: string;
+  maxLength?: number;
+  columns?: number;
+  onInput: (value: string) => void;
+  onBlur?: () => void;
+  onKeyDown?: (e: KeyboardEvent) => void;
+}) {
+  return (
+    <label
+      title={label}
+      class="m-[2px] flex min-w-0 items-center rounded-[5px] bg-[#1c1c1c] px-1.5 text-[12.5px] shadow-[inset_0_0_0_1px_#505050]"
+      style={{ gridColumn: `span ${columns}` }}
+    >
+      <input
+        type="text"
+        aria-label={label}
+        class="min-w-0 flex-1 bg-transparent focus:outline-none"
+        placeholder={placeholder}
+        maxLength={maxLength}
+        value={value}
+        onInput={(e) => onInput(e.currentTarget.value)}
+        onBlur={onBlur}
+        onKeyDown={onKeyDown}
+      />
+    </label>
   );
 }
 
