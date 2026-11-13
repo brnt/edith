@@ -1,3 +1,4 @@
+import { loadUi, saveUi } from "../lib/uiState";
 import type { ComponentChildren } from "preact";
 import type { IconDefinition } from "@ant-design/icons-svg/es/types";
 import { useState } from "preact/hooks";
@@ -51,6 +52,7 @@ const FORMATS: {
 ];
 
 type TabId = "media" | "sync" | "edit" | "export";
+const TABS: TabId[] = ["media", "sync", "edit", "export"];
 
 interface Props {
   /** Undo, redo and save: shown at the right of the ribbon's tab strip. */
@@ -89,7 +91,10 @@ export function Studio(props: Props) {
     onError: props.onError,
     ready: props.ready,
   });
-  const [chosen, setChosen] = useState<TabId | null>(null);
+  const [chosen, setChosen] = useState<TabId | null>(() => {
+    const tab = loadUi(slug).tab; // the tab the page was left on
+    return TABS.includes(tab as TabId) ? (tab as TabId) : null;
+  });
 
   const synced = sync !== null && Object.keys(sync.results).length > 0;
   const newFiles = props.available.filter((m) => !m.included && !m.missing).length;
@@ -111,7 +116,10 @@ export function Studio(props: Props) {
       <Ribbon
         active={active}
         actions={props.actions}
-        onSelect={(id) => setChosen(id as TabId)}
+        onSelect={(id) => {
+          setChosen(id as TabId);
+          saveUi(slug, { tab: id });
+        }}
         tabs={[
           {
             id: "media",

@@ -16,6 +16,7 @@ import {
   setCut,
   showOver,
 } from "./editOps";
+import { loadUi, restoredPick, restoredSelection, restoredTime, saveUi } from "./uiState";
 import {
   advancePlayhead,
   channelsOf,
@@ -97,8 +98,42 @@ export function useEditor({ slug, media, sync, edit, onEdit, onError, ready }: A
   useEffect(() => {
     if (placed.current || !ready) return;
     placed.current = true;
-    setT(firstKept);
+    // Where the page was left (this browser, this project), when that still makes sense.
+    const saved = loadUi(slug);
+    setT(restoredTime(saved, end) ?? firstKept);
+    const range = restoredSelection(saved, end);
+    if (range) setSelection(range);
+    else {
+      const pick = restoredPick(saved, {
+        switches: state.current.edit.switches.length,
+        cuts: state.current.edit.cuts.length,
+        mix: state.current.edit.mix.length,
+      });
+      if (pick) setPicked(pick);
+    }
   }, [ready, firstKept]);
+
+  // Remember the playhead, selection and pick. Playback moves the playhead every frame, so the
+  // write waits (a pending one picks up the latest values), and a reload flushes it.
+  const remembered = useRef({ t, selection, picked });
+  remembered.current = { t, selection, picked };
+  const writeTimer = useRef<number | null>(null);
+  const remember = () => {
+    writeTimer.current = null;
+    if (!placed.current) return; // not restored yet: do not overwrite what is saved
+    const { t: at, selection: sel, picked: pk } = remembered.current;
+    saveUi(slug, { t: at, selection: sel, picked: pk && pk.kind !== "edge" ? pk : null });
+  };
+  useEffect(() => {
+    if (writeTimer.current === null) writeTimer.current = window.setTimeout(remember, 400);
+  }, [t, selection, picked]);
+  useEffect(() => {
+    window.addEventListener("pagehide", remember);
+    return () => {
+      window.removeEventListener("pagehide", remember);
+      if (writeTimer.current !== null) window.clearTimeout(writeTimer.current);
+    };
+  }, []);
 
   // Playback: advance a wall clock, jumping cuts and stopping at the last kept moment.
   useEffect(() => {

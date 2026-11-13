@@ -1,3 +1,4 @@
+import { loadUi, restoredPick, restoredSelection, restoredTime, saveUi } from "./uiState";
 import { describe, expect, test } from "vitest";
 
 import type { EditList, MediaItem, SyncState } from "./api";
@@ -806,5 +807,35 @@ describe("uncut", () => {
     expect(insideCuts(cutEdit, [12, 25])).toBe(true);
     expect(insideCuts(cutEdit, [5, 15])).toBe(false);
     expect(insideCuts(cutEdit, [25, 35])).toBe(false);
+  });
+});
+
+describe("what the page remembers", () => {
+  test("a playhead, selection or pick is only restored while it still fits", () => {
+    expect(restoredTime({ t: 12 }, 60)).toBe(12);
+    expect(restoredTime({ t: 61 }, 60)).toBeNull();
+    expect(restoredTime({ t: -1 }, 60)).toBeNull();
+    expect(restoredTime({}, 60)).toBeNull();
+    expect(restoredSelection({ selection: [5, 8] }, 60)).toEqual([5, 8]);
+    expect(restoredSelection({ selection: [8, 5] }, 60)).toBeNull();
+    expect(restoredSelection({ selection: [5, 90] }, 60)).toBeNull();
+    const counts = { switches: 2, cuts: 1, mix: 0 };
+    expect(restoredPick({ picked: { kind: "segment", index: -1 } }, counts)).toEqual({
+      kind: "segment",
+      index: -1,
+    });
+    expect(restoredPick({ picked: { kind: "segment", index: 2 } }, counts)).toBeNull();
+    expect(restoredPick({ picked: { kind: "cut", index: 0 } }, counts)).not.toBeNull();
+    expect(restoredPick({ picked: { kind: "mix", index: 0 } }, counts)).toBeNull();
+    expect(restoredPick({ picked: { kind: "edge", index: 0 } }, counts)).toBeNull();
+  });
+
+  test("nothing stored, or garbage, reads as nothing remembered", () => {
+    expect(loadUi("none")).toEqual({});
+    localStorage.setItem("edith.ui.bad", "{not json");
+    expect(loadUi("bad")).toEqual({});
+    saveUi("p", { tab: "sync" });
+    saveUi("p", { t: 4 });
+    expect(loadUi("p")).toEqual({ tab: "sync", t: 4 });
   });
 });

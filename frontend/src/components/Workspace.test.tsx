@@ -1027,6 +1027,39 @@ describe("where the playhead starts", () => {
   });
 });
 
+describe("what survives a reload", () => {
+  test("the tab, the playhead and the pick come back; the selection too", async () => {
+    savedEdit = { ...baseEdit, switches: [{ at_s: 10, media_id: "camB" }] };
+    localStorage.setItem(
+      "edith.ui.show",
+      JSON.stringify({ tab: "export", t: 12.5, picked: { kind: "segment", index: 0 } }),
+    );
+    const first = render(<Workspace slug="show" />);
+    await screen.findByTestId("timeline");
+    expect(screen.getByRole("tab", { name: "Export" })).toHaveAttribute("aria-selected", "true");
+    await waitFor(() => expect(screen.getByText("0:12.50")).toBeInTheDocument());
+    first.unmount();
+
+    localStorage.setItem("edith.ui.show", JSON.stringify({ t: 3, selection: [5, 8] }));
+    render(<Workspace slug="show" />);
+    await screen.findByTestId("timeline");
+    await waitFor(() => expect(screen.getByText("0:03.00")).toBeInTheDocument());
+    expect(await screen.findByText("0:05.00–0:08.00")).toBeInTheDocument();
+  });
+
+  test("a click on another tab is remembered; stale values are ignored", async () => {
+    localStorage.setItem(
+      "edith.ui.show",
+      JSON.stringify({ t: 99999, selection: [3, 99999], picked: { kind: "cut", index: 7 } }),
+    );
+    render(<Workspace slug="show" />);
+    await screen.findByTestId("timeline");
+    await waitFor(() => expect(screen.getByText("0:00.00")).toBeInTheDocument()); // not past the end
+    fireEvent.click(screen.getByRole("tab", { name: /^Sync/ }));
+    expect(JSON.parse(localStorage.getItem("edith.ui.show") ?? "{}").tab).toBe("sync");
+  });
+});
+
 test("channels share one palette on the grid tiles and on the timeline rows", async () => {
   render(<Workspace slug="show" />);
   const timeline = await screen.findByTestId("timeline");
