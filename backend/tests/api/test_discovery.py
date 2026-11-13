@@ -221,3 +221,24 @@ def test_a_file_already_in_the_project_is_not_new_even_when_its_id_is_not_its_pa
     media = _media(client, project)
     assert media["cam.mp4"]["included"] is True and media["cam.mp4"]["id"] == "from-the-old-path"
     assert len(media) == 1  # not listed a second time as "new"
+
+
+def test_media_keeps_the_order_it_was_added_in_when_more_lands(
+    client: TestClient, project_dir: Path, project: str
+):
+    _age(write_video(project_dir / "m_cam.mp4"))
+    _age(write_video(project_dir / "z_cam.mp4"))
+    found = _media(client, project)
+    for name in ("z_cam.mp4", "m_cam.mp4"):
+        client.post(f"/projects/{project}/media", json={"path": found[name]["path"]})
+    # An earlier name and another kind arrive later: they join at the end, nothing is renumbered.
+    _age(write_video(project_dir / "a_cam.mp4"))
+    _age(write_image(project_dir / "b_still.png"))
+    found = _media(client, project)
+    for name in ("b_still.png", "a_cam.mp4"):
+        client.post(f"/projects/{project}/media", json={"path": found[name]["path"]})
+    # Including one again changes nothing.
+    client.post(f"/projects/{project}/media", json={"path": found["z_cam.mp4"]["path"]})
+
+    listed = [m["label"] for m in client.get(f"/projects/{project}/media").json() if m["included"]]
+    assert listed == ["z_cam.mp4", "m_cam.mp4", "b_still.png", "a_cam.mp4"]

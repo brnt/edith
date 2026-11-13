@@ -115,6 +115,10 @@ Root `justfile` delegates to both; Compose runs `api` (:8000) and `web` (:8080).
   into `cache/probe/`. Looking never writes `project.edith`; including a file (`POST /media`) is the
   edit that does. The frontend polls `GET /media` (5s, and on focus). Only `included` media go to
   the editor; the Media tab gets all of them (`available`).
+  Included media keep the order they were added in (`MediaItem.added`, set by `include_media`,
+  kept by relink): channel numbers never shuffle as media lands. Projects from before it was
+  recorded (`added` is None) stay in kind-then-name order, ahead of anything added since;
+  `sortMedia` and `channelsOf` keep the server's order for included media (channels: cameras, then stills).
 - **Relinking** (`media_items.relink_media`, `POST /media/{id}/relink`): media ids come from paths,
   so a relinked file gets a new id and the edit and sync documents are rewritten server-side; the
   client mirrors it with `renameMedia` over the saved edit and every undo step (`history.mapAll`),
@@ -140,7 +144,7 @@ Root `justfile` delegates to both; Compose runs `api` (:8000) and `web` (:8080).
 - **Clicking a tile or pressing a number while a stretch is selected is a cutaway** (`showOver` in
   `lib/editOps.ts`, via `cutTo` in `useEditor`): the channel is shown over the range, then the edit
   returns to what was showing at its end, and the selection clears. No selection: switch at the playhead.
-- **Channels are numbered cameras-first, then stills, by name, only 1-9** (`channelsOf` in
+- **Channels are numbered cameras-first, then stills, each in the order added, only 1-9** (`channelsOf` in
   `lib/timeline.ts`): this numbering drives the number keys, the ribbon buttons, the timeline row
   badges and the switch list, so change it in one place. Channels in `EditList.disabled` (the Media
   tab's eye switch) get no number and no tile and are dimmed on the timeline; the Player decodes

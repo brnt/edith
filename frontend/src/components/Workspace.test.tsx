@@ -1362,9 +1362,7 @@ describe("the media cards", () => {
     fireEvent.click(await screen.findByRole("checkbox", { name: "Include c.mp4 in the project" }));
     await waitFor(() => expect(mediaPosts).toEqual([{ path: "show/day 1/cam C/c.mp4" }]));
     // Included now: it takes part (the grid has a tile for it).
-    expect(
-      await within(tiles).findByRole("button", { name: /Preview of camera 3/ }),
-    ).toBeInTheDocument();
+    expect(await within(tiles).findByLabelText(/camera 3/i)).toBeInTheDocument();
   });
 
   test("a folder can be folded away", async () => {
@@ -1413,7 +1411,7 @@ describe("the media cards", () => {
     expect(screen.queryByText("unsaved changes")).toBeNull();
     // Make a change and save: the saved edit names the new id, never the old one.
     const tiles = await screen.findByTestId("channel-tiles");
-    fireEvent.click(await within(tiles).findByRole("button", { name: /Preview of camera 2/ }));
+    fireEvent.click(await within(tiles).findByRole("button", { name: /Preview of camera 1/ }));
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(puts).toHaveLength(1));
     const ids = (puts[0] as { switches: { media_id: string | null }[] }).switches.map(
