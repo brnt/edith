@@ -2,9 +2,17 @@ import { useEffect, useState } from "preact/hooks";
 
 import { fetchRenders, renderUrl, startRender, type Job, type RenderFile } from "../lib/api";
 import { waitForJob } from "../lib/jobs";
-import { Dropdown, Progress } from "./ui";
-import { RibbonButton, RibbonCell, RibbonGroup, RibbonSet } from "./RibbonGrid";
+import { Dropdown } from "./ui";
+import { RibbonButton, RibbonCell, RibbonGroup, RibbonProgress, RibbonSet } from "./RibbonGrid";
 import { PlayCircle } from "./icons";
+
+/** When a render was made, in the viewer's own time: "Nov 13, 2026, 8:48 AM". */
+const when = (iso: string) => {
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime())
+    ? ""
+    : date.toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
+};
 
 export function RenderPanel({
   slug,
@@ -56,11 +64,7 @@ export function RenderPanel({
           disabled={disabled || job !== null}
           onClick={render}
         />
-        {job && (
-          <RibbonCell columns={2}>
-            <Progress value={job.progress} label={job.message} />
-          </RibbonCell>
-        )}
+        {job && <RibbonProgress value={job.progress} label={job.message || "Rendering"} />}
       </RibbonSet>
       <RibbonSet columns={4}>
         <RibbonCell columns={4}>
@@ -73,8 +77,10 @@ export function RenderPanel({
                   <li key={f.name}>
                     <a class="text-sky-300 underline" href={renderUrl(slug, f.name)} download>
                       {f.name}
-                    </a>{" "}
-                    <span class="text-neutral-500">{(f.size / 1e6).toFixed(1)} MB</span>
+                    </a>
+                    <div class="text-xs text-neutral-500">
+                      {when(f.modified)} · {(f.size / 1e6).toFixed(1)} MB
+                    </div>
                   </li>
                 ))}
               </ul>

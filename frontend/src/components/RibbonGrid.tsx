@@ -252,6 +252,39 @@ export function RibbonSlider({
 }
 
 /**
+ * Progress on the grid: a sunken one-unit-tall bar, `columns` units wide, filling in the buttons' own
+ * grey with the percentage over it. `label` (what is happening) is its tooltip and accessible name.
+ */
+export function RibbonProgress({
+  value,
+  label,
+  columns = 2,
+}: {
+  value: number;
+  label: string;
+  columns?: number;
+}) {
+  const percent = Math.max(0, Math.min(100, Math.round(value * 100)));
+  return (
+    <div
+      role="progressbar"
+      aria-label={label}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={percent}
+      title={label}
+      class="relative m-[2px] min-w-0 overflow-hidden rounded-[5px] bg-[#1c1c1c] shadow-[inset_0_0_0_1px_#505050]"
+      style={{ gridColumn: `span ${columns}` }}
+    >
+      <div class="absolute inset-y-0 left-0 bg-[#505050]" style={{ width: `${percent}%` }} />
+      <span class="relative grid h-full place-items-center text-[12px] tabular-nums text-neutral-200">
+        {percent}%
+      </span>
+    </div>
+  );
+}
+
+/**
  * A number field on the grid: sunken (so it reads as typeable), one unit tall, `columns` units wide, with
  * its prefix and unit inside the field. `label` is its name (tooltip + aria-label).
  */

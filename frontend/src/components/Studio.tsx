@@ -175,6 +175,17 @@ export function Studio(props: Props) {
                 ))}
               </RibbonSet>
             </RibbonGroup>
+            <ProjectPanel
+              edit={ed.edit}
+              media={media}
+              exported={exportedChannelIds(
+                ed.edit.switches,
+                defaultCamera(media, ed.offsets),
+                ed.end,
+                ed.keeps,
+              )}
+              onEdit={props.onEdit}
+            />
             <RenderPanel
               slug={slug}
               disabled={dirty || !props.outputSeconds}
@@ -188,17 +199,6 @@ export function Studio(props: Props) {
                     : "Render"
               }
               onError={props.onError}
-            />
-            <ProjectPanel
-              edit={ed.edit}
-              media={media}
-              exported={exportedChannelIds(
-                ed.edit.switches,
-                defaultCamera(media, ed.offsets),
-                ed.end,
-                ed.keeps,
-              )}
-              onEdit={props.onEdit}
             />
           </div>
         )}

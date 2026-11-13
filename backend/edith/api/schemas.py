@@ -210,6 +210,7 @@ class SilenceRead(BaseModel):
 class RenderRead(BaseModel):
     name: str
     size: int
+    modified: str  # when it was written (ISO, UTC)
 
 
 class VideoDetailsRead(BaseModel):
