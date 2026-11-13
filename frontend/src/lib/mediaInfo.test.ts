@@ -99,7 +99,12 @@ test("a still is described by its real image format, with a wrong extension call
   const sections = detailSections(avif, still, null);
   expect(sections.map((s) => s.title)).toEqual(["File", "Picture"]);
   const file = sections[0].rows;
-  expect(file[0]).toEqual({ label: "Format", value: "AVIF", warn: true });
+  expect(file[0]).toEqual({
+    label: "Format",
+    value: "AVIF",
+    warn: true,
+    note: "not what the name says",
+  });
   expect(file.find((r) => r.label === "Name")?.value).toBe(
     ".jpg in the name, but the file is AVIF",
   );

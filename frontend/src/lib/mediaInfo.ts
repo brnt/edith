@@ -25,6 +25,8 @@ export interface DetailRow {
   value: string;
   /** Something worth noticing (variable frame rate, a mismatch with the project). */
   warn?: boolean;
+  /** What the warning says, shown after the value (without it the icon alone). */
+  note?: string;
 }
 
 export interface DetailSection {
@@ -33,6 +35,9 @@ export interface DetailSection {
 }
 
 /** The details popover's rows, grouped; `project` is the edit's frame rate, to flag a mismatch. */
+const smallerThan = (project: ProjectFormat | null) =>
+  project ? `smaller than the project's ${project.width}×${project.height}` : undefined;
+
 export function detailSections(
   d: MediaDetails,
   item: MediaItem,
@@ -46,7 +51,12 @@ export function detailSections(
     const mismatch = d.image_extension_matches === false;
     const ext = item.label.includes(".") ? item.label.slice(item.label.lastIndexOf(".")) : "";
     const file: DetailRow[] = [
-      { label: "Format", value: d.image_format ?? "–", warn: mismatch },
+      {
+        label: "Format",
+        value: d.image_format ?? "–",
+        warn: mismatch,
+        note: mismatch ? "not what the name says" : undefined,
+      },
       { label: "Size", value: formatBytes(d.size_bytes) },
     ];
     if (mismatch)
@@ -64,6 +74,7 @@ export function detailSections(
         label: "Resolution",
         value: w ? `${w}×${h}` : "–",
         warn: isLowRes(w, h, project) || undefined,
+        note: isLowRes(w, h, project) ? smallerThan(project) : undefined,
       },
     ];
     const colour = [v?.bit_depth ? `${v.bit_depth}-bit` : null, v?.pix_fmt, v?.color_space].filter(
@@ -91,6 +102,7 @@ export function detailSections(
         label: "Resolution",
         value: v.width ? `${v.width}×${v.height}` : "–",
         warn: isLowRes(v.width, v.height, project) || undefined,
+        note: isLowRes(v.width, v.height, project) ? smallerThan(project) : undefined,
       },
     ];
     if (v.fps) {
@@ -100,6 +112,10 @@ export function detailSections(
         label: "Frame rate",
         value: `${v.fps.toFixed(3).replace(/\.?0+$/, "")} fps${variable ? " (variable)" : ""}`,
         warn: variable || mismatch,
+        note:
+          [variable && "variable", mismatch && `the project is ${project.fps.toFixed(2)} fps`]
+            .filter(Boolean)
+            .join("; ") || undefined,
       });
     }
     const colour = [

@@ -29,7 +29,8 @@ import {
   nudgeStep,
   advancePlayhead,
   boundaryPreview,
-  groupMedia,
+  inFolder,
+  mediaFolders,
   usedChannelIds,
   stageLayout,
   movedSwitches,
@@ -458,23 +459,29 @@ describe("usedChannelIds", () => {
   });
 });
 
-describe("groupMedia", () => {
-  const m = (label: string, folder: string, kind: "video" | "audio" | "image" = "video") =>
-    ({ id: label, path: `${folder}/${label}`, label, kind, folder }) as unknown as MediaItem;
+describe("the media folders", () => {
+  const m = (label: string, folder: string) =>
+    ({
+      id: label,
+      path: `${folder}/${label}`,
+      label,
+      kind: "video",
+      folder,
+    }) as unknown as MediaItem;
 
-  test("the project folder first, then its subfolders in natural order", () => {
-    const groups = groupMedia([m("a.mp4", "day 10"), m("b.mp4", ""), m("c.mp4", "day 2/cam A")]);
-    expect(groups.map((g) => g.title)).toEqual(["", "day 2 / cam A", "day 10"]);
+  test("every folder with media and the ones above it, in natural order", () => {
+    const folders = mediaFolders([m("a.mp4", "day 10"), m("b.mp4", ""), m("c.mp4", "day 2/cam A")]);
+    expect(folders.map((f) => f.path)).toEqual(["day 2", "day 2/cam A", "day 10"]);
+    expect(folders[1].title).toBe("day 2 / cam A");
   });
 
-  test("within a folder: cameras, then audio, then stills, by name", () => {
-    const [group] = groupMedia([
-      m("car.png", "", "image"),
-      m("mic.wav", "", "audio"),
-      m("b.mp4", ""),
-      m("a.mp4", ""),
-    ]);
-    expect(group.items.map((i) => i.label)).toEqual(["a.mp4", "b.mp4", "mic.wav", "car.png"]);
+  test("a folder holds its own files and everything below it", () => {
+    const deep = m("c.mp4", "day 2/cam A");
+    expect(inFolder(deep, "")).toBe(true);
+    expect(inFolder(deep, "day 2")).toBe(true);
+    expect(inFolder(deep, "day 2/cam A")).toBe(true);
+    expect(inFolder(deep, "day 2/cam")).toBe(false); // a name that only starts the same
+    expect(inFolder(m("a.mp4", "day 20"), "day 2")).toBe(false);
   });
 });
 
