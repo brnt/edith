@@ -160,7 +160,15 @@ beforeEach(() => {
           error: null,
           result: { name: "show-20260101-000001.mp4" },
         });
-      if (path.includes("/sync/inspect")) return respond(inspectAnswer);
+      if (path.includes("/sync/inspect")) {
+        const start = Number(new URLSearchParams(path.split("?")[1]).get("start_s"));
+        // The burst is at 5.5 s: a stretch that starts there already starts at the burst.
+        return respond(
+          inspectAnswer.found
+            ? { ...inspectAnswer, offset_s: Math.max(0.005, 5.5 - start) }
+            : inspectAnswer,
+        );
+      }
       if (init?.method === "POST" && path.endsWith("/sync")) {
         syncPosts.push(JSON.parse(init.body as string));
         return respond({
@@ -639,6 +647,42 @@ describe("choosing the registration sound", () => {
     expect(screen.getByRole("button", { name: "Find the sound in every file" })).toBeDisabled();
   });
 
+  test("Find sits with the source drop-down and buttons in the Registration sound panel, with a file-search icon", async () => {
+    const source = await openSync();
+    const find = screen.getByRole("button", { name: "Find the sound in every file" });
+    // One ribbon grid holds the source drop-down, the buttons and Find: the first panel.
+    const grid = (el: HTMLElement) => el.closest("div.grid");
+    expect(grid(find)).not.toBeNull();
+    expect(grid(find)).toBe(grid(source));
+    expect(grid(find)).toBe(
+      grid(within(screen.getByTestId("ribbon")).getByRole("button", { name: "Zoom in" })),
+    );
+    expect(find.querySelector("[data-icon]")?.getAttribute("data-icon")).toBe("file-search");
+  });
+
+  test("zoom is one joined stack right of the waveform (in above out); the first row stays full width", async () => {
+    await openSync();
+    const ribbon = screen.getByTestId("ribbon");
+    const zoomIn = within(ribbon).getByRole("button", { name: "Zoom in" });
+    const zoomOut = within(ribbon).getByRole("button", { name: "Zoom out" });
+    // Both buttons are in the same stack: no gap between them, in on top, in the last column.
+    const stack = zoomIn.parentElement!;
+    expect(zoomOut.parentElement).toBe(stack);
+    expect([...stack.children]).toEqual([zoomIn, zoomOut]);
+    expect(stack).toHaveStyle({ gridColumn: "17", gridRow: "2 / span 2" });
+    expect(zoomIn.className).toContain("rounded-tr-[5px]"); // rounded only on the outside
+    expect(zoomOut.className).toContain("rounded-br-[5px]");
+    expect(zoomIn.className).not.toContain("rounded-br");
+    // The waveform's box is square on the right, where it meets them, and reaches across the gap.
+    const cell = ribbon.querySelector(".cursor-crosshair")!.parentElement!.parentElement!;
+    expect(cell).toHaveStyle({ gridColumn: "span 16", marginRight: "-5px" });
+    expect(cell.firstElementChild!.className).toContain("rounded-l-[5px]");
+    expect(cell.firstElementChild!.className).not.toContain("rounded-[5px]");
+    // The recording drop-down takes up the slack: source 5 + recording 9 + two play buttons + Find = 17.
+    const recording = screen.getByLabelText("Recording").closest("div.min-w-0") as HTMLElement;
+    expect(recording).toHaveStyle({ gridColumn: "span 9" });
+  });
+
   test("marked in a recording: play the whole recording or just the selection, to check it", async () => {
     const played: { src: string; from: number }[] = [];
     let paused = 0;
@@ -774,6 +818,127 @@ describe("choosing the registration sound", () => {
       ),
     );
     expect(within(ribbon).queryByTestId("decoded-burst")).toBeNull();
+  });
+
+  test("a stretch with a burst in it is trimmed to the burst; one without is left alone", async () => {
+    await openSync();
+    const ribbon = screen.getByTestId("ribbon");
+    const wave = ribbon.querySelector(".cursor-crosshair") as HTMLElement;
+    const mark = (from: number, to: number) => {
+      fireEvent.pointerDown(wave, { clientX: from, pointerId: 1 });
+      fireEvent.pointerMove(wave, { clientX: to, pointerId: 1 });
+      fireEvent.pointerUp(wave, { clientX: to, pointerId: 1 });
+    };
+    mark(100, 200); // 5 s to 10 s, with the burst read at 5.5 s
+    await waitFor(() =>
+      expect(
+        within(ribbon).getByText(/Selected 0:05\.(49|50) – 0:05\.(70|71) \(0\.21 s\)/),
+      ).toBeInTheDocument(),
+    );
+    // Stable: it was read again at the start of the trimmed stretch, and left as it is.
+    await new Promise((r) => setTimeout(r, 600));
+    expect(within(ribbon).getByText(/Selected 0:05\.(49|50) – 0:05\.(70|71)/)).toBeInTheDocument();
+    inspectAnswer = { found: false, offset_s: null, code: null, confidence: null };
+    mark(300, 400); // 15 s to 20 s: nothing in it
+    await waitFor(() =>
+      expect(within(ribbon).getByTestId("decode-result")).toHaveTextContent(
+        "No registration sound",
+      ),
+    );
+    expect(
+      within(ribbon).getByText(/Selected 0:15\.00 – 0:20\.00 \(5\.00 s\)/),
+    ).toBeInTheDocument();
+  });
+
+  test("the waveform shows only the first two minutes, fitted to the panel's width, and zoom magnifies it", async () => {
+    // A recording of an hour, in a ribbon whose waveform box is measured at 480 px.
+    const mic = baseMedia.find((m) => m.id === "mic")!;
+    const was = mic.duration_s;
+    mic.duration_s = 3600;
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        cb: () => void;
+        constructor(cb: () => void) {
+          this.cb = cb;
+        }
+        observe() {
+          this.cb();
+        }
+        disconnect() {}
+      },
+    );
+    const width = vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(480);
+    try {
+      const source = await openSync();
+      fireEvent.change(await screen.findByLabelText("Recording"), { target: { value: "mic" } });
+      expect(source).toHaveValue("excerpt");
+      const ribbon = screen.getByTestId("ribbon");
+      const wave = () => ribbon.querySelector(".cursor-crosshair") as HTMLElement;
+      // Two minutes (not an hour) across 480 px: it fits, with nothing to scroll.
+      await waitFor(() => expect(wave()).toHaveStyle({ width: "480px" }));
+      // Put the playhead at 90 s, then zoom: the view is scrolled to keep it in the middle.
+      const scrolled: number[] = [];
+      Object.defineProperty(wave().parentElement!, "scrollLeft", {
+        configurable: true,
+        get: () => 0,
+        set: (v: number) => scrolled.push(v),
+      });
+      fireEvent.pointerDown(wave(), { clientX: 360, pointerId: 1 }); // 360 px = 90 s at 4 px/s
+      fireEvent.pointerUp(wave(), { clientX: 360, pointerId: 1 });
+      fireEvent.click(within(ribbon).getByRole("button", { name: "Zoom in" }));
+      expect(wave()).toHaveStyle({ width: "960px" }); // zoom doubles it, to scroll
+      expect(scrolled.at(-1)).toBe(720 - 240); // 90 s is now at 720 px; centre it in 480 px
+      fireEvent.click(within(ribbon).getByRole("button", { name: "Zoom out" }));
+      expect(wave()).toHaveStyle({ width: "480px" });
+      expect(within(ribbon).getByRole("button", { name: "Zoom out" })).toBeDisabled(); // not below fit
+    } finally {
+      mic.duration_s = was;
+      width.mockRestore();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  test("with a stretch marked and no playhead, zoom stays centred on the stretch", async () => {
+    const mic = baseMedia.find((m) => m.id === "mic")!;
+    const was = mic.duration_s;
+    mic.duration_s = 3600;
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        cb: () => void;
+        constructor(cb: () => void) {
+          this.cb = cb;
+        }
+        observe() {
+          this.cb();
+        }
+        disconnect() {}
+      },
+    );
+    const width = vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(480);
+    try {
+      await openSync();
+      fireEvent.change(await screen.findByLabelText("Recording"), { target: { value: "mic" } });
+      const ribbon = screen.getByTestId("ribbon");
+      const wave = ribbon.querySelector(".cursor-crosshair") as HTMLElement;
+      await waitFor(() => expect(wave).toHaveStyle({ width: "480px" }));
+      const scrolled: number[] = [];
+      Object.defineProperty(wave.parentElement!, "scrollLeft", {
+        configurable: true,
+        get: () => 0,
+        set: (v: number) => scrolled.push(v),
+      });
+      fireEvent.pointerDown(wave, { clientX: 200, pointerId: 1 }); // 50 s to 60 s at 4 px/s
+      fireEvent.pointerMove(wave, { clientX: 240, pointerId: 1 });
+      fireEvent.pointerUp(wave, { clientX: 240, pointerId: 1 });
+      fireEvent.click(within(ribbon).getByRole("button", { name: "Zoom in" }));
+      expect(scrolled.at(-1)).toBe(55 * 8 - 240); // the middle of the stretch, centred
+    } finally {
+      mic.duration_s = was;
+      width.mockRestore();
+      vi.unstubAllGlobals();
+    }
   });
 
   test("the play buttons are only for marking a stretch of a recording", async () => {
