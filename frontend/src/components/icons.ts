@@ -159,3 +159,42 @@ export const Hdd: IconDefinition = {
 // A stop button: the conventional solid square (Ant's own "stop" is a prohibition sign, which
 // reads as delete).
 export const StopSquare = glyph("stop-square", "M3 3h10v10H3z");
+
+// "Add to photos" (as `MdAddToPhotos`) from Google's Material Icons
+// (https://github.com/google/material-design-icons, Apache 2.0), filled, on a 24 grid: a stack of
+// pictures with a plus, for adding everything at once.
+export const AddAll: IconDefinition = {
+  name: "add-all",
+  theme: "filled",
+  icon: {
+    tag: "svg",
+    attrs: { viewBox: "0 0 24 24", focusable: "false" },
+    children: [
+      {
+        tag: "path",
+        attrs: {
+          d: "M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9h-4v4h-2v-4H9V9h4V5h2v4h4v2z",
+        },
+      },
+    ],
+  },
+};
+
+// The negation of AddAll: the same stack of pictures with a minus where the plus was (Material
+// Icons has no such glyph, so the plus is swapped for a bar in the same cut-out).
+export const RemoveAll: IconDefinition = {
+  name: "remove-all",
+  theme: "filled",
+  icon: {
+    tag: "svg",
+    attrs: { viewBox: "0 0 24 24", focusable: "false" },
+    children: [
+      {
+        tag: "path",
+        attrs: {
+          d: "M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 9H9V9h10v2z",
+        },
+      },
+    ],
+  },
+};

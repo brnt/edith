@@ -78,9 +78,10 @@ comes next.
      project's), colour depth, bit rate, audio format, size (the
      file itself is never touched).
    - **Folders:** the cards are grouped by folder, and a folder's header can be folded away,
-     **Include all** its new files, or **Exclude all / Show all** its files at once. A **Show**
-     filter narrows the cards to cameras, audio, stills, new files, or files the sync hasn't
-     placed.
+     or **Include all** its new files. A **Show** filter narrows the cards to cameras, audio,
+     stills, new files, or files the sync hasn't placed; under it, **Add all** switches every
+     listed file back on and **Exclude unused** switches off the cameras and stills no segment of
+     the edit shows.
    - **Heads-up marks:** an amber warning button on a card (click it for the details) means a frame rate that differs from the
      project's, or a portrait (vertical) picture; the details say which. They also say how many
      segments of the edit show a camera or still.
