@@ -18,7 +18,7 @@ import {
 import { waitForJob } from "../lib/jobs";
 import { formatTime } from "../lib/timeline";
 import { MAX_CANVAS_PX, Waveform } from "./Waveform";
-import { Badge, Select } from "./ui";
+import { Select } from "./ui";
 import { Icon } from "./Icon";
 import {
   RibbonButton,
@@ -62,6 +62,30 @@ type Mode = SyncTemplate["kind"];
 const MAX_TEMPLATE_S = 5;
 // The first panel is this many units wide: the source drop-down, its controls and Find fill row one.
 const PANEL_COLS = 17;
+// The Files panel is this many units wide: a 6-unit name and the 10 units of fixed cells, with gaps.
+const FILES_COLS = 12;
+/** Files table columns: name (grows) | status | start | match | drift | nudge. */
+const FILE_ROW_COLUMNS = "minmax(4rem, 1fr) 32px 66px 52px 40px 56px";
+const FILE_HEADERS = [
+  { label: "File", pad: "px-1", tip: "File name" },
+  { label: "OK", pad: "text-center", tip: "Status: synced, check (a weak match) or not found" },
+  { label: "Start", pad: "px-1 text-right", tip: "Where the file starts on the timeline" },
+  {
+    label: "Match",
+    pad: "px-1 text-right",
+    tip: "Match: 1.0 is identical; lower in noisy rooms or for a different sound",
+  },
+  {
+    label: "Drift",
+    pad: "px-1 text-right",
+    tip: "Clock drift relative to the group, in parts per million",
+  },
+  {
+    label: "Nudge",
+    pad: "pr-2 text-right",
+    tip: "Nudge: move the file by milliseconds after syncing",
+  },
+];
 // The waveform fills its box: two units tall (69 px) less the 2 px inset a side, less the 1 px border.
 const WAVE_HEIGHT = 63;
 // Only the start of a recording is shown: that is where the registration sound is marked.
@@ -69,7 +93,11 @@ const WAVE_LIMIT_S = 120;
 // The generated burst is 0.2 s; a marked stretch is trimmed to it, with a little air either side.
 const BURST_S = 0.2;
 const BURST_PAD_S = 0.005;
-const TONES = { synced: "good", low_confidence: "warn", unsynced: "bad" } as const;
+const ICON_TEXT = {
+  synced: "text-emerald-400",
+  low_confidence: "text-amber-400",
+  unsynced: "text-red-400",
+} as const;
 const LABELS = { synced: "synced", low_confidence: "check", unsynced: "not found" } as const;
 const MODES: { id: Mode; label: string }[] = [
   { id: "excerpt", label: "Marked in a recording" },
@@ -83,12 +111,22 @@ const STATUS_ICON = {
   unsynced: CloseCircle,
 } as const;
 
+/** A drift in ppm, rounded, with an explicit + when positive. */
+const signed = (ppm: number) => {
+  const n = Math.round(ppm);
+  return n > 0 ? `+${n}` : String(n);
+};
+
 function describe(result: SyncResult | undefined) {
   if (!result) return null;
   return (
-    <Badge tone={TONES[result.status]} icon={STATUS_ICON[result.status]}>
-      {LABELS[result.status]}
-    </Badge>
+    <span
+      class={`flex justify-center text-base ${ICON_TEXT[result.status]}`}
+      title={LABELS[result.status]}
+    >
+      <Icon icon={STATUS_ICON[result.status]} />
+      <span class="sr-only">{LABELS[result.status]}</span>
+    </span>
   );
 }
 
@@ -572,63 +610,75 @@ export function SyncPanel(props: Props) {
       </RibbonGroup>
 
       <RibbonGroup title="Files">
-        {results ? (
+        {/* A fixed width: the file name takes what the other cells leave (status, start, match, drift
+            and nudge take 246px). The headers stay; three files show and the list scrolls. */}
+        <div style={{ width: `calc(${FILES_COLS} * 2.0625rem + ${FILES_COLS - 1} * 3px)` }}>
           <div
-            class="grid grid-flow-col auto-cols-max gap-x-4"
-            style={{ gridTemplateRows: "repeat(4, 2.0625rem)" }}
+            class="grid h-[2.0625rem] items-center gap-[3px] overflow-hidden text-xs text-neutral-500 [scrollbar-gutter:stable]"
+            style={{ gridTemplateColumns: FILE_ROW_COLUMNS }}
           >
-            {media
-              .filter((m) => results[m.id])
-              .map((m) => {
-                const r = results[m.id];
-                return (
-                  <div
-                    key={m.id}
-                    class="grid items-center gap-[3px] text-sm"
-                    style={{ gridTemplateColumns: "repeat(13, 2.0625rem)" }}
-                  >
-                    <span class="truncate px-1" style={{ gridColumn: "span 3" }} title={m.label}>
-                      {m.label}
-                    </span>
-                    <span style={{ gridColumn: "span 3" }}>{describe(r)}</span>
-                    <span
-                      class="text-neutral-400"
-                      style={{ gridColumn: "span 2" }}
-                      title="Where this file starts on the timeline"
-                    >
-                      {r.start_s === null ? "—" : formatTime(r.start_s, 3)}
-                    </span>
-                    <span
-                      class="text-xs text-neutral-400"
-                      title="Match: 1.0 is identical; lower in noisy rooms or for a different sound"
-                    >
-                      {r.score === null ? "" : r.score.toFixed(2)}
-                    </span>
-                    <span
-                      class="whitespace-nowrap text-xs text-neutral-500"
-                      style={{ gridColumn: "span 2" }}
-                      title="Clock drift relative to the group"
-                    >
-                      {r.drift_ppm === null ? "" : `${r.drift_ppm.toFixed(0)} ppm`}
-                    </span>
-                    <RibbonNumber
-                      label={`Nudge ${m.label}`}
-                      unit="ms"
-                      step={10}
-                      columns={2}
-                      value={Math.round((sync?.nudges[m.id] ?? 0) * 1000)}
-                      onChange={(v) => nudge(m.id, v)}
-                    />
-                  </div>
-                );
-              })}
+            {FILE_HEADERS.map((h) => (
+              <span key={h.label} class={`truncate ${h.pad}`} title={h.tip}>
+                {h.label}
+              </span>
+            ))}
           </div>
-        ) : (
-          <p class="m-[2px] w-72 text-xs text-neutral-500">
-            Results appear here: each file's start on the timeline, how well the sound matched, its
-            clock drift, and whether it was found.
-          </p>
-        )}
+          {results ? (
+            <div
+              class="grid overflow-y-auto [scrollbar-gutter:stable]"
+              style={{ gridAutoRows: "2.0625rem", height: "calc(3 * 2.0625rem)" }}
+            >
+              {media
+                .filter((m) => results[m.id])
+                .map((m) => {
+                  const r = results[m.id];
+                  return (
+                    <div
+                      key={m.id}
+                      class="grid items-center gap-[3px] text-sm"
+                      style={{ gridTemplateColumns: FILE_ROW_COLUMNS }}
+                    >
+                      <span class="truncate px-1" title={m.label}>
+                        {m.label}
+                      </span>
+                      <span>{describe(r)}</span>
+                      <span
+                        class="px-1 text-right font-mono text-xs text-neutral-400"
+                        title="Where this file starts on the timeline"
+                      >
+                        {r.start_s === null ? "—" : formatTime(r.start_s, 3)}
+                      </span>
+                      <span
+                        class="px-1 text-right font-mono text-xs text-neutral-400"
+                        title="Match: 1.0 is identical; lower in noisy rooms or for a different sound"
+                      >
+                        {r.score === null ? "" : r.score.toFixed(2)}
+                      </span>
+                      <span
+                        class="whitespace-nowrap px-1 text-right font-mono text-xs text-neutral-500"
+                        title="Clock drift relative to the group, in parts per million"
+                      >
+                        {r.drift_ppm === null ? "" : signed(r.drift_ppm)}
+                      </span>
+                      <RibbonNumber
+                        label={`Nudge ${m.label}`}
+                        unit="ms"
+                        step={10}
+                        columns={1}
+                        value={Math.round((sync?.nudges[m.id] ?? 0) * 1000)}
+                        onChange={(v) => nudge(m.id, v)}
+                      />
+                    </div>
+                  );
+                })}
+            </div>
+          ) : (
+            <p class="m-[2px] text-xs text-neutral-500">
+              Results appear here: each file's start on the timeline, how well the sound matched,
+              its clock drift, and whether it was found.
+            </p>
+          )}
+        </div>
       </RibbonGroup>
     </div>
   );
