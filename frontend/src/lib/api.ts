@@ -296,6 +296,8 @@ export const exportUrl = (slug: string, format: ExportFormat) =>
 export interface RenderFile {
   name: string;
   size: number;
+  /** When it was written (ISO, UTC). */
+  modified: string;
 }
 export const startRender = (slug: string) => request<Job>(`${p(slug)}/render`, json("POST"));
 export const fetchRenders = (slug: string) => request<RenderFile[]>(`${p(slug)}/renders`);

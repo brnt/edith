@@ -131,7 +131,13 @@ beforeEach(() => {
         return respond({ edit: puts[puts.length - 1], needs_upgrade: false });
       }
       if (path.endsWith("/renders"))
-        return respond([{ name: "show-20260101-000000.mp4", size: 18200000 }]);
+        return respond([
+          {
+            name: "show-20260101-000000.mp4",
+            size: 18200000,
+            modified: "2026-01-01T09:30:00+00:00",
+          },
+        ]);
       if (init?.method === "POST" && path.endsWith("/render"))
         return respond({
           id: "r1",
@@ -355,6 +361,9 @@ test("renders from the export section and lists finished renders", async () => {
   fireEvent.click(await screen.findByRole("tab", { name: "Export" }));
   fireEvent.click(await screen.findByRole("button", { name: /Renders \(1\)/ }));
   expect(await screen.findByText("show-20260101-000000.mp4")).toBeInTheDocument();
+  // Each render says when it was made, and how big it is.
+  expect(screen.getByText(/2026.*MB/)).toBeInTheDocument();
+  expect(screen.getByText(/Jan 1, 2026/)).toBeInTheDocument();
   fireEvent.click(await screen.findByRole("button", { name: "Render MP4 (1080p)" }));
   const calls = () => (fetch as unknown as { mock: { calls: unknown[][] } }).mock.calls;
   await waitFor(() =>
@@ -1477,4 +1486,19 @@ describe("the Project panel", () => {
     ribbon = await openExport();
     expect(within(ribbon).queryByTestId("scaled-up-warning")).toBeNull();
   });
+});
+
+test("while rendering, the ribbon shows a compact progress bar in its own cell, not a wide one", async () => {
+  render(<Workspace slug="show" />);
+  await screen.findByTestId("timeline");
+  const ribbon = screen.getByTestId("ribbon");
+  fireEvent.click(await screen.findByRole("tab", { name: "Export" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Render MP4 (1080p)" }));
+  const bar = await within(ribbon).findByRole("progressbar");
+  expect(bar).toHaveAttribute("aria-valuenow", "0");
+  expect(bar).toHaveTextContent("0%");
+  // It lives on the ribbon grid (two units wide, inset like every control), so it cannot overlap.
+  expect(bar).toHaveStyle({ gridColumn: "span 2" });
+  expect(bar.className).toContain("m-[2px]");
+  expect(bar.className).not.toContain("w-48");
 });

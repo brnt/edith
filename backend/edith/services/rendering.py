@@ -62,7 +62,16 @@ def list_renders(slug: str) -> list[dict]:
         key=lambda f: f.stat().st_mtime,
         reverse=True,
     )
-    return [{"name": f.name, "size": f.stat().st_size} for f in files]
+    return [
+        {
+            "name": f.name,
+            "size": f.stat().st_size,
+            "modified": datetime.fromtimestamp(f.stat().st_mtime, UTC).isoformat(
+                timespec="seconds"
+            ),
+        }
+        for f in files
+    ]
 
 
 def render_file(slug: str, name: str) -> Path:

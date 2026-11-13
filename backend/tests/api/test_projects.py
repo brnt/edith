@@ -293,9 +293,9 @@ def test_projects_sharing_a_folder_each_list_only_their_own_renders(
     renders.mkdir()
     for name in ("Cut-A-20261112-100000.mp4", "Cut-B-20261112-110000.mov", "notes.mp4"):
         (renders / name).write_bytes(b"x")
-    assert [r["name"] for r in client.get(f"/projects/{a['slug']}/renders").json()] == [
-        "Cut-A-20261112-100000.mp4"
-    ]
+    listed = client.get(f"/projects/{a['slug']}/renders").json()
+    assert [r["name"] for r in listed] == ["Cut-A-20261112-100000.mp4"]
+    assert listed[0]["modified"].endswith("+00:00")  # when it was written, so the UI can show it
     assert [r["name"] for r in client.get(f"/projects/{b['slug']}/renders").json()] == [
         "Cut-B-20261112-110000.mov"
     ]
