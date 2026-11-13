@@ -151,12 +151,14 @@ export function useEditor({ slug, media, sync, edit, onEdit, onError, ready }: A
   };
 
   const deletePicked = () => {
-    const { picked: p, edit: current } = state.current;
+    const { picked: p, edit: current, fallback: fb } = state.current;
     if (!p) return;
     if (p.kind === "edge") return; // a selection handle is moved, not deleted
     if (p.kind === "mix") onEdit(removeMix(current, p.index));
     else
-      onEdit(p.kind === "segment" ? deleteSegment(current, p.index) : removeCut(current, p.index));
+      onEdit(
+        p.kind === "segment" ? deleteSegment(current, p.index, fb) : removeCut(current, p.index),
+      );
     setPicked(null);
   };
 
