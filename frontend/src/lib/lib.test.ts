@@ -561,9 +561,24 @@ describe("segment operations", () => {
 
   test("deleting a segment lets the one before it carry on", () => {
     // camB's segment goes; camA (the opening default) continues, and the camA switch at 30 merges in.
-    expect(deleteSegment(two, 0).switches).toEqual([{ at_s: 30, media_id: "camA" }]);
+    expect(deleteSegment(two, 0, "camA").switches).toEqual([]);
     expect(deleteSegment(two, 1).switches).toEqual([{ at_s: 10, media_id: "camB" }]);
     expect(deleteSegment(two, -1)).toBe(two); // the opening stretch has no switch to delete
+  });
+
+  test("a switch back to the opening channel does not outlive the segment it ended", () => {
+    // Delete camB's segment (10-30): the opening camA shows throughout. Then cut to camB at 20:
+    // it stays on camB, with no stale "back to camA at 30" left behind.
+    const after = deleteSegment(two, 0, "camA");
+    expect(setCamera(after, 20, "camB").switches).toEqual([{ at_s: 20, media_id: "camB" }]);
+    // A switch to some other channel after the deleted segment is kept.
+    const three = edit({
+      switches: [
+        { at_s: 10, media_id: "camB" },
+        { at_s: 30, media_id: "mic" },
+      ],
+    });
+    expect(deleteSegment(three, 0, "camA").switches).toEqual([{ at_s: 30, media_id: "mic" }]);
   });
 
   test("deleting between two segments of one channel merges them", () => {

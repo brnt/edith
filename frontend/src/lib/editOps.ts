@@ -1,5 +1,5 @@
 // Immutable edit operations. Every function returns a new EditList.
-import type { Cut, EditList, MediaItem, MixRegion } from "./api";
+import type { CameraSwitch, Cut, EditList, MediaItem, MixRegion } from "./api";
 import {
   activeChannel,
   EPS,
@@ -38,13 +38,25 @@ export function setCamera(edit: EditList, at_s: number, media_id: string | null)
   return { ...edit, switches: compact };
 }
 
-/** Delete the segment that starts at switch `index` (in time order): the one before it carries on. */
-export function deleteSegment(edit: EditList, index: number): EditList {
+/**
+ * Delete the segment that starts at switch `index` (in time order): the one before it carries on.
+ * Before the first switch the `fallback` channel shows, so when the first segment goes, a switch
+ * back to the fallback right after it is a no-op to drop; left in, it would cut back at that moment
+ * whenever the channel is changed before it.
+ */
+export function deleteSegment(
+  edit: EditList,
+  index: number,
+  fallback: string | null = null,
+): EditList {
   const ordered = inTimeOrder(edit.switches);
   if (index < 0 || index >= ordered.length) return edit;
   const rest = ordered.filter((_, i) => i !== index);
+  const shows = (s: CameraSwitch | undefined) => (s ? (s.media_id ?? fallback) : undefined);
   // The segment before may now meet one showing the same channel: that is one segment.
-  const switches = rest.filter((s, i) => i === 0 || s.media_id !== rest[i - 1].media_id);
+  const switches = rest.filter((s, i) =>
+    i === 0 ? index !== 0 || shows(s) !== fallback : s.media_id !== rest[i - 1].media_id,
+  );
   return { ...edit, switches };
 }
 

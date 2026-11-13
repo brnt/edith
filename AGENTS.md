@@ -87,7 +87,7 @@ Root `justfile` delegates to both; Compose runs `api` (:8000) and `web` (:8080).
 - **Timeline pick (`picked`) is separate from the drag selection (except its edge handles).** Segments come from
   `segments()` in `lib/timeline.ts` (index = the switch that starts it, in time order; -1 = the
   opening stretch with no switch). Edge drags and deletes are switch edits (`moveSegmentEdge`,
-  `deleteSegment`); handles show only on the picked item. Click targets carry `data-pick`/`data-index`,
+  `deleteSegment`, which takes the opening channel so a switch back to it right after the first segment goes too); handles show only on the picked item. Click targets carry `data-pick`/`data-index`,
   read at pointer-up (the lanes hold pointer capture, so `e.target` there is the lanes).
 - **Edge drags are previewed, not committed:** the Timeline reports a `Preview` (the would-be edit
   plus an optional `Compare`) through `onPreview`; `useEditor.preview` overrides `edit` for the player
