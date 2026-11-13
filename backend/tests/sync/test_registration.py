@@ -1,10 +1,13 @@
 import numpy as np
+import pytest
 
 from edith.sync.registration import (
     SAMPLE_RATE,
+    decode_burst,
     find_candidates,
     normalized_correlation,
     registration_burst,
+    seed_bits,
     trim_silence,
 )
 
@@ -69,3 +72,37 @@ def test_trim_silence_drops_padding_but_keeps_the_sound():
     assert abs(len(trimmed) - len(burst)) < 200  # the burst's own faint edges may trim a little
     assert np.array_equal(trim_silence(burst * 0), burst * 0)  # nothing loud: left alone
     assert trim_silence(np.zeros(0)).size == 0
+
+
+def test_a_burst_is_read_back_with_its_bits_and_where_it_starts():
+    audio = _noise(3.0, 0.002)
+    _place(audio, registration_burst("stickshift") * 0.3, 1.25)
+    decoded = decode_burst(audio)
+    assert decoded is not None
+    assert decoded.offset_s == pytest.approx(1.25, abs=0.003)
+    assert decoded.bits == seed_bits("stickshift") and decoded.confidence > 0.9
+    assert decoded.code == f"{int(seed_bits('stickshift'), 2):08X}"
+    assert decode_burst(audio[: int(1.3 * SR)]) is None  # cut off partway: not a whole burst
+
+
+def test_a_burst_is_read_through_noise_and_other_seeds_give_other_codes():
+    audio = _noise(2.0, 0.15)  # the burst below is only a few dB above this
+    burst = registration_burst("another seed")
+    _place(audio, burst * 0.3, 0.5)
+    decoded = decode_burst(audio)
+    assert decoded is not None and decoded.bits == seed_bits("another seed")
+    assert seed_bits("another seed") != seed_bits("stickshift")
+
+
+def test_things_that_are_not_a_registration_burst_are_not_read_as_one():
+    t = np.arange(3 * SR) / SR
+    cases = {
+        "silence": np.zeros(3 * SR),
+        "noise": _noise(3.0, 0.3),
+        "a low note": 0.5 * np.sin(2 * np.pi * 440 * t),
+        "the 0 tone held": 0.5 * np.sin(2 * np.pi * 600 * t),
+        "the 1 tone held": 0.5 * np.sin(2 * np.pi * 5500 * t),
+        "a voice-like hum": sum(0.2 * np.sin(2 * np.pi * f * t) for f in (120, 240, 480, 960)),
+    }
+    for name, audio in cases.items():
+        assert decode_burst(audio.astype(np.float32)) is None, name

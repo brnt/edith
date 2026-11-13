@@ -272,6 +272,24 @@ export const registrationFileName = (seed: string) => {
 };
 export const registrationSoundUrl = (seed: string) =>
   `${BASE_URL}/registration/sound?seed=${encodeURIComponent(seed)}`;
+export interface RegistrationInspection {
+  found: boolean;
+  /** Where the burst starts, within the stretch. */
+  offset_s: number | null;
+  /** The 32 bits it carries, as 8 hex digits. */
+  code: string | null;
+  confidence: number | null;
+}
+/** Decode a marked stretch of a recording: is there a registration sound in it? */
+export const inspectRegistration = (
+  slug: string,
+  mediaId: string,
+  start_s: number,
+  end_s: number,
+) =>
+  request<RegistrationInspection>(
+    `${p(slug)}/sync/inspect?media_id=${encodeURIComponent(mediaId)}&start_s=${start_s}&end_s=${end_s}`,
+  );
 export const putNudges = (slug: string, nudges: Record<string, number>) =>
   request<SyncState>(`${p(slug)}/sync/nudges`, json("PUT", { nudges }));
 

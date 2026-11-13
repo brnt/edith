@@ -105,6 +105,7 @@ let puts: unknown[] = [];
 let mediaPosts: { path: string }[] = [];
 let relinks: { from: string; path: string }[] = [];
 let syncPosts: { template: Record<string, unknown> }[] = [];
+let inspectAnswer: Record<string, unknown> = {};
 
 function respond(body: unknown, status = 200) {
   return Promise.resolve({
@@ -122,6 +123,7 @@ beforeEach(() => {
   mediaPosts = [];
   relinks = [];
   syncPosts = [];
+  inspectAnswer = { found: true, offset_s: 0.5, code: "1387DE4E", confidence: 0.97 };
   vi.stubGlobal(
     "fetch",
     vi.fn((url: string, init?: RequestInit) => {
@@ -158,6 +160,7 @@ beforeEach(() => {
           error: null,
           result: { name: "show-20260101-000001.mp4" },
         });
+      if (path.includes("/sync/inspect")) return respond(inspectAnswer);
       if (init?.method === "POST" && path.endsWith("/sync")) {
         syncPosts.push(JSON.parse(init.body as string));
         return respond({
@@ -548,6 +551,26 @@ describe("choosing the registration sound", () => {
     expect(syncPosts[0].template).toEqual({ kind: "seed", seed: "stickshift" });
   });
 
+  test("a committed seed is searched for at once: Enter or leaving the field, once per seed", async () => {
+    const source = await openSync();
+    fireEvent.change(source, { target: { value: "seed" } });
+    const field = screen.getByLabelText("Registration text");
+    fireEvent.input(field, { target: { value: "stickshift" } });
+    expect(syncPosts).toHaveLength(0); // typing alone searches nothing
+    fireEvent.blur(field); // leaving the field commits it
+    await waitFor(() => expect(syncPosts).toHaveLength(1));
+    expect(syncPosts[0].template).toEqual({ kind: "seed", seed: "stickshift" });
+    fireEvent.keyDown(field, { key: "Enter" }); // the same seed again: nothing new to find
+    fireEvent.blur(field);
+    await new Promise((r) => setTimeout(r, 100));
+    expect(syncPosts).toHaveLength(1);
+    // A different seed, committed with Enter, searches again.
+    fireEvent.input(field, { target: { value: "another" } });
+    fireEvent.keyDown(field, { key: "Enter" });
+    await waitFor(() => expect(syncPosts).toHaveLength(2));
+    expect(syncPosts[1].template).toEqual({ kind: "seed", seed: "another" });
+  });
+
   test("a chosen audio file changes the project setting too, and Undo takes it back", async () => {
     const source = await openSync();
     fireEvent.change(source, { target: { value: "file" } });
@@ -614,6 +637,150 @@ describe("choosing the registration sound", () => {
     expect(screen.getByLabelText("Recording")).toBeInTheDocument();
     expect(screen.getByText(/Drag across the beep/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Find the sound in every file" })).toBeDisabled();
+  });
+
+  test("marked in a recording: play the whole recording or just the selection, to check it", async () => {
+    const played: { src: string; from: number }[] = [];
+    let paused = 0;
+    vi.stubGlobal(
+      "Audio",
+      class {
+        src: string;
+        currentTime = 0;
+        ended = false;
+        constructor(src: string) {
+          this.src = src;
+        }
+        play() {
+          played.push({ src: this.src, from: this.currentTime });
+          return Promise.resolve();
+        }
+        pause() {
+          paused += 1;
+        }
+      },
+    );
+    await openSync();
+    const ribbon = screen.getByTestId("ribbon");
+    const whole = within(ribbon).getByRole("button", { name: "Play the whole recording" });
+    const part = within(ribbon).getByRole("button", { name: "Play just the selection" });
+    expect(whole).toBeEnabled();
+    expect(part).toBeDisabled(); // nothing marked yet
+
+    // Mark 5 s to 10 s on the waveform (20 px per second in jsdom).
+    const wave = ribbon.querySelector(".cursor-crosshair") as HTMLElement;
+    fireEvent.pointerDown(wave, { clientX: 100, pointerId: 1 });
+    fireEvent.pointerMove(wave, { clientX: 200, pointerId: 1 });
+    fireEvent.pointerUp(wave, { clientX: 200, pointerId: 1 });
+    expect(part).toBeEnabled();
+
+    fireEvent.click(part);
+    expect(played).toHaveLength(1);
+    expect(played[0].src).toMatch(/\/media\/.+\/proxy$/);
+    expect(played[0].from).toBeCloseTo(5, 1); // starts at the marked stretch
+    expect(within(ribbon).getByTestId("sync-playhead")).toBeInTheDocument();
+    // Pressing it again stops it; the whole recording starts from the top.
+    fireEvent.click(within(ribbon).getByRole("button", { name: "Stop the selection" }));
+    expect(paused).toBe(1);
+    expect(within(ribbon).queryByTestId("sync-playhead")).toBeNull();
+    fireEvent.click(whole);
+    expect(played).toHaveLength(2);
+    expect(played[1].from).toBe(0);
+    // Starting the selection while the recording plays stops the recording first.
+    fireEvent.click(within(ribbon).getByRole("button", { name: "Play just the selection" }));
+    expect(paused).toBe(2);
+    expect(played).toHaveLength(3);
+    vi.unstubAllGlobals();
+  });
+
+  test("clicking the waveform sets where the whole recording plays from, even while it plays", async () => {
+    const created: { currentTime: number; played: number }[] = [];
+    vi.stubGlobal(
+      "Audio",
+      class {
+        currentTime = 0;
+        ended = false;
+        played = 0;
+        constructor() {
+          created.push(this);
+        }
+        play() {
+          this.played += 1;
+          return Promise.resolve();
+        }
+        pause() {}
+      },
+    );
+    await openSync();
+    const ribbon = screen.getByTestId("ribbon");
+    const wave = ribbon.querySelector(".cursor-crosshair") as HTMLElement;
+    const click = (x: number) => {
+      fireEvent.pointerDown(wave, { clientX: x, pointerId: 1 });
+      fireEvent.pointerUp(wave, { clientX: x, pointerId: 1 });
+    };
+    expect(within(ribbon).queryByTestId("sync-playhead")).toBeNull();
+    click(300); // 15 s (20 px per second in jsdom)
+    expect(within(ribbon).getByTestId("sync-playhead")).toHaveStyle({ left: "300px" });
+    // A click is not a selection: the play-selection button stays off.
+    expect(within(ribbon).getByRole("button", { name: "Play just the selection" })).toBeDisabled();
+
+    fireEvent.click(within(ribbon).getByRole("button", { name: "Play the whole recording" }));
+    expect(created[0].currentTime).toBeCloseTo(15, 1); // from the playhead, not the top
+    click(500); // skip ahead while it plays
+    expect(created[0].currentTime).toBeCloseTo(25, 1);
+    expect(created).toHaveLength(1); // the same playback, moved
+    // Stopping leaves the playhead where you put it, and the button is Stop, not Pause.
+    const stop = within(ribbon).getByRole("button", { name: "Stop the recording" });
+    expect(stop.querySelector("[data-icon]")?.getAttribute("data-icon")).toBe("stop-square");
+    fireEvent.click(stop);
+    expect(within(ribbon).getByTestId("sync-playhead")).toHaveStyle({ left: "500px" });
+    vi.unstubAllGlobals();
+  });
+
+  test("dragging across the waveform marks a stretch and does not move the playhead", async () => {
+    await openSync();
+    const ribbon = screen.getByTestId("ribbon");
+    const wave = ribbon.querySelector(".cursor-crosshair") as HTMLElement;
+    fireEvent.pointerDown(wave, { clientX: 100, pointerId: 1 });
+    fireEvent.pointerMove(wave, { clientX: 140, pointerId: 1 });
+    fireEvent.pointerUp(wave, { clientX: 140, pointerId: 1 });
+    expect(within(ribbon).getByText(/Selected 0:05\.00 – 0:07\.00/)).toBeInTheDocument();
+    expect(within(ribbon).queryByTestId("sync-playhead")).toBeNull();
+  });
+
+  test("a marked stretch is decoded: it says whether a registration sound is in it, and shows where", async () => {
+    await openSync();
+    const ribbon = screen.getByTestId("ribbon");
+    const wave = ribbon.querySelector(".cursor-crosshair") as HTMLElement;
+    const mark = (from: number, to: number) => {
+      fireEvent.pointerDown(wave, { clientX: from, pointerId: 1 });
+      fireEvent.pointerMove(wave, { clientX: to, pointerId: 1 });
+      fireEvent.pointerUp(wave, { clientX: to, pointerId: 1 });
+    };
+    mark(100, 200); // 5 s to 10 s
+    const result = await within(ribbon).findByTestId("decode-result");
+    expect(result).toHaveTextContent("Registration sound found · code 1387DE4E");
+    // The burst is marked on the waveform where it was read (5 s + 0.5 s, 0.2 s long).
+    expect(within(ribbon).getByTestId("decoded-burst")).toHaveStyle({
+      left: "110px",
+      width: "4px",
+    });
+    // Nothing there: it says so, with no band.
+    inspectAnswer = { found: false, offset_s: null, code: null, confidence: null };
+    mark(300, 400);
+    await waitFor(() =>
+      expect(within(ribbon).getByTestId("decode-result")).toHaveTextContent(
+        "No registration sound",
+      ),
+    );
+    expect(within(ribbon).queryByTestId("decoded-burst")).toBeNull();
+  });
+
+  test("the play buttons are only for marking a stretch of a recording", async () => {
+    const source = await openSync();
+    fireEvent.change(source, { target: { value: "seed" } });
+    expect(screen.queryByRole("button", { name: "Play the whole recording" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Play just the selection" })).toBeNull();
   });
 
   test("shows how well each file matched", async () => {

@@ -22,7 +22,7 @@ from edith.services import mediafiles as lib
 from edith.services.jobs import Job
 from edith.services.projects import open_project, project_folder
 from edith.sync import analyze
-from edith.sync.registration import trim_silence
+from edith.sync.registration import decode_burst, trim_silence
 
 log = structlog.get_logger()
 
@@ -108,6 +108,38 @@ def run_sync(slug: str, template: SyncTemplate, job: Job) -> dict:
         project.put(SYNC, SYNC_ID, SyncState(template=template, results=results, nudges=nudges))
     log.info("sync_saved", slug=slug, files=len(results))
     return {"synced": sum(r.status != "unsynced" for r in results.values()), "files": len(results)}
+
+
+MAX_INSPECT_S = 10.0
+
+
+def inspect_registration(slug: str, media_id: str, start_s: float, end_s: float) -> dict:
+    """Read a marked stretch of a recording back: is there a registration sound in it?
+
+    Registration sounds are always the generated 32-bit burst, so the stretch is decoded rather
+    than just matched. Answers where the burst starts (within the stretch), the 8-hex-digit code
+    it carries and how clean it is, or `found: False`.
+    """
+    length = end_s - start_s
+    if start_s < 0 or not 0 < length <= MAX_INSPECT_S:
+        raise InvalidTemplate(f"mark a stretch of at most {MAX_INSPECT_S:g} s")
+    with open_project(slug) as project:
+        loaded = project.get(MEDIA, media_id)
+    item = loaded.document if loaded else None
+    if not isinstance(item, MediaItem):
+        raise media_items.MediaNotFound(media_id)
+    audio = analyze.template_from_audio(
+        lib.media_file(project_folder(slug), item.path), start_s=start_s, duration_s=length
+    )
+    decoded = decode_burst(audio)
+    if decoded is None:
+        return {"found": False, "offset_s": None, "code": None, "confidence": None}
+    return {
+        "found": True,
+        "offset_s": round(decoded.offset_s, 3),
+        "code": decoded.code,
+        "confidence": round(decoded.confidence, 3),
+    }
 
 
 def set_nudges(slug: str, nudges: dict[str, float]) -> SyncState:

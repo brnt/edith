@@ -15,6 +15,7 @@ export { default as Desktop } from "@ant-design/icons-svg/es/asn/DesktopOutlined
 export { default as FileText } from "@ant-design/icons-svg/es/asn/FileTextOutlined";
 export { default as FolderAdd } from "@ant-design/icons-svg/es/asn/FolderAddOutlined";
 export { default as ArrowRight } from "@ant-design/icons-svg/es/asn/ArrowRightOutlined";
+export { default as PlaySquare } from "@ant-design/icons-svg/es/asn/PlaySquareOutlined";
 export { default as Check } from "@ant-design/icons-svg/es/asn/CheckOutlined";
 export { default as CheckCircle } from "@ant-design/icons-svg/es/asn/CheckCircleOutlined";
 export { default as Close } from "@ant-design/icons-svg/es/asn/CloseOutlined";
@@ -154,3 +155,7 @@ export const Hdd: IconDefinition = {
     ],
   },
 };
+
+// A stop button: the conventional solid square (Ant's own "stop" is a prohibition sign, which
+// reads as delete).
+export const StopSquare = glyph("stop-square", "M3 3h10v10H3z");

@@ -207,3 +207,32 @@ def test_the_registration_sound_source_is_a_setting_of_the_edit(client: TestClie
     assert saved.status_code == 200, saved.text
     again = client.get(f"/projects/{project}/edit").json()["edit"]
     assert again["registration"]["seed"] == "stickshift"  # saved with the edit, like the size
+
+
+def test_a_marked_stretch_is_decoded_to_check_there_is_a_registration_sound_in_it(
+    client: TestClient, project, session
+):
+    from edith.sync.registration import seed_bits
+
+    def inspect(start, end, media="zoom.wav"):
+        return client.get(
+            f"/projects/{project}/sync/inspect",
+            params={"media_id": session[media], "start_s": start, "end_s": end},
+        )
+
+    found = inspect(12.0, 14.0)  # the burst starts 1 s in
+    assert found.status_code == 200, found.text
+    body = found.json()
+    assert body["found"] is True and body["offset_s"] == pytest.approx(1.0, abs=0.01)
+    assert body["code"] == f"{int(seed_bits('stickshift'), 2):08X}"  # the same 32 bits
+    assert body["confidence"] > 0.8
+    # Quiet room, and a loud clap: neither is a registration sound.
+    assert inspect(20.0, 22.0).json()["found"] is False
+    assert inspect(24.5, 26.0).json()["found"] is False
+    # A stretch that long is not a mark of the sound; a recording that isn't there is a 404.
+    assert inspect(0.0, 30.0).status_code == 422
+    missing = client.get(
+        f"/projects/{project}/sync/inspect",
+        params={"media_id": "nope", "start_s": 0, "end_s": 1},
+    )
+    assert missing.status_code == 404

@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 
 import {
+  inspectRegistration,
+  proxyUrl,
   putNudges,
   registrationFileName,
   registrationSoundUrl,
   startSync,
   type EditList,
+  type RegistrationInspection,
   type MediaItem,
   type Peaks,
   type SyncResult,
@@ -16,8 +19,20 @@ import { waitForJob } from "../lib/jobs";
 import { formatTime } from "../lib/timeline";
 import { MAX_CANVAS_PX, Waveform } from "./Waveform";
 import { Badge, Progress, Select } from "./ui";
+import { Icon } from "./Icon";
 import { RibbonButton, RibbonSet } from "./RibbonGrid";
-import { Aim, CheckCircle, CloseCircle, Download, Warning, ZoomIn, ZoomOut } from "./icons";
+import {
+  Aim,
+  CaretRight,
+  CheckCircle,
+  CloseCircle,
+  Download,
+  PlaySquare,
+  StopSquare,
+  Warning,
+  ZoomIn,
+  ZoomOut,
+} from "./icons";
 
 interface Props {
   slug: string;
@@ -78,7 +93,7 @@ export function SyncPanel(props: Props) {
   const audioFiles = props.available.filter((m) => m.kind === "audio" && !m.missing);
   const [pxPerSec, setPxPerSec] = useState(20);
   const [progress, setProgress] = useState<{ value: number; label: string } | null>(null);
-  const drag = useRef<{ x0: number; t0: number } | null>(null);
+  const drag = useRef<{ x0: number; t0: number; moved: boolean } | null>(null);
   const source = withAudio.find((m) => m.id === sourceId);
   const data = source ? peaks[source.id] : undefined;
   const duration = source?.duration_s ?? 0;
@@ -100,6 +115,78 @@ export function SyncPanel(props: Props) {
   useEffect(() => {
     if (!sourceId && withAudio.length) setSourceId(withAudio[0].id);
   }, [withAudio.length]);
+
+  // Reading the marked stretch back: a registration sound is always the generated 32-bit burst, so
+  // the server decodes the stretch and says whether it holds one (and which, by its code).
+  const [inspection, setInspection] = useState<RegistrationInspection | null>(null);
+  useEffect(() => {
+    setInspection(null);
+    if (mode !== "excerpt" || !source || !range || tooLong || range[1] - range[0] > 10) return;
+    let current = true;
+    const timer = setTimeout(() => {
+      inspectRegistration(slug, source.id, range[0], range[1]).then(
+        (found) => current && setInspection(found),
+        () => undefined, // not being able to check is not worth a message
+      );
+    }, 400);
+    return () => {
+      current = false;
+      clearTimeout(timer);
+    };
+  }, [mode, source?.id, range?.[0], range?.[1]]);
+
+  // Listening, to check the marked stretch is the sound: the whole recording, or just the stretch.
+  const audio = useRef<{ el: HTMLAudioElement; timer: number } | null>(null);
+  const [playing, setPlaying] = useState<"recording" | "selection" | null>(null);
+  const [playT, setPlayT] = useState<number | null>(null);
+  // Where "play the whole recording" starts: set by clicking the waveform (to skip a long preamble).
+  const [cursor, setCursor] = useState<number | null>(null);
+  const stopPlaying = () => {
+    if (audio.current) {
+      clearInterval(audio.current.timer);
+      audio.current.el.pause();
+      audio.current = null;
+    }
+    setPlaying(null);
+    setPlayT(null);
+  };
+  useEffect(() => {
+    setCursor(null); // a different recording starts from its beginning
+    return stopPlaying; // and so does leaving
+  }, [sourceId, mode]);
+  // Clicking the waveform puts the playhead there; if something is playing it jumps there too.
+  const seek = (t: number) => {
+    setCursor(t);
+    if (audio.current) {
+      audio.current.el.currentTime = t;
+      setPlayT(t);
+    }
+  };
+  const play = (what: "recording" | "selection") => {
+    const wasPlaying = playing === what;
+    stopPlaying();
+    if (wasPlaying || !source) return;
+    const [from, to] = what === "selection" && range ? range : [cursor ?? 0, Infinity];
+    const el = new Audio(proxyUrl(slug, source.id));
+    el.currentTime = from;
+    // A recording that can't be played (still being prepared, or the browser refuses) says so.
+    el.onerror = () => {
+      stopPlaying();
+      onError("Can't play this recording yet: its preview may still be getting ready.");
+    };
+    el.play().catch((e: unknown) => {
+      if (audio.current?.el !== el) return;
+      stopPlaying();
+      onError(e instanceof Error ? e.message : String(e));
+    });
+    const timer = window.setInterval(() => {
+      setPlayT(el.currentTime);
+      if (el.currentTime >= to || el.ended) stopPlaying();
+    }, 50);
+    audio.current = { el, timer };
+    setPlaying(what);
+    setPlayT(from);
+  };
 
   const timeAt = (event: PointerEvent) => {
     const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
@@ -142,6 +229,22 @@ export function SyncPanel(props: Props) {
     link.href = registrationSoundUrl(seed.trim());
     link.download = registrationFileName(seed.trim());
     link.click();
+  };
+
+  // A seed needs no marked region: once it is committed (Enter, or leaving the field) every recording
+  // is searched for it, with no button to press. Once per seed (not again for the same one).
+  const autoFound = useRef<string | null>(null);
+  const commitSeed = () => {
+    const text = seed.trim();
+    if (mode !== "seed" || !text || progress !== null) return;
+    const alreadyFound =
+      sync?.template?.kind === "seed" &&
+      sync.template.seed === text &&
+      Object.keys(sync.results).length > 0;
+    if (autoFound.current === text || alreadyFound) return;
+    autoFound.current = text;
+    setSource();
+    void run();
   };
 
   const run = async () => {
@@ -201,7 +304,7 @@ export function SyncPanel(props: Props) {
                   </option>
                 ))}
               </Select>
-              <RibbonSet columns={2}>
+              <RibbonSet columns={4}>
                 <RibbonButton
                   icon={ZoomIn}
                   label="Zoom in"
@@ -211,6 +314,20 @@ export function SyncPanel(props: Props) {
                   icon={ZoomOut}
                   label="Zoom out"
                   onClick={() => setPxPerSec((v) => Math.max(v / 2, 2))}
+                />
+                <RibbonButton
+                  icon={playing === "recording" ? StopSquare : CaretRight}
+                  label={
+                    playing === "recording" ? "Stop the recording" : "Play the whole recording"
+                  }
+                  disabled={!source}
+                  onClick={() => play("recording")}
+                />
+                <RibbonButton
+                  icon={playing === "selection" ? StopSquare : PlaySquare}
+                  label={playing === "selection" ? "Stop the selection" : "Play just the selection"}
+                  disabled={!source || !range}
+                  onClick={() => play("selection")}
                 />
               </RibbonSet>
             </>
@@ -225,10 +342,12 @@ export function SyncPanel(props: Props) {
                 maxLength={64}
                 value={seed}
                 onInput={(e) => setSeed(e.currentTarget.value)}
+                onBlur={commitSeed}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     e.preventDefault();
                     downloadSound();
+                    commitSeed();
                   }
                 }}
               />
@@ -279,7 +398,23 @@ export function SyncPanel(props: Props) {
             <span class="text-xs text-neutral-400">
               {range
                 ? `Selected ${formatTime(range[0], 2)} – ${formatTime(range[1], 2)} (${(range[1] - range[0]).toFixed(2)} s)`
-                : "Drag across the beep (a quiet one shows as a small bump) to select it."}
+                : "Drag across the beep (a quiet one shows as a small bump) to select it, or click the waveform to start playing from there."}
+            </span>
+          )}
+          {mode === "excerpt" && range && inspection && (
+            <span
+              class={`inline-flex items-center gap-1 text-xs ${inspection.found ? "text-emerald-300" : "text-amber-300"}`}
+              data-testid="decode-result"
+              title={
+                inspection.found
+                  ? "Read back from the sound: the 32 bits a registration sound carries. The same seed always gives the same code."
+                  : "Nothing in this stretch reads as a registration sound."
+              }
+            >
+              <Icon icon={inspection.found ? CheckCircle : Warning} />
+              {inspection.found
+                ? `Registration sound found · code ${inspection.code}`
+                : "No registration sound found in this stretch"}
             </span>
           )}
           {tooLong && (
@@ -293,17 +428,38 @@ export function SyncPanel(props: Props) {
               class="relative cursor-crosshair"
               style={{ width: Math.max(1, duration * px), height: WAVE_HEIGHT }}
               onPointerDown={(e) => {
-                (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-                drag.current = { x0: e.clientX, t0: timeAt(e) };
+                (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+                drag.current = { x0: e.clientX, t0: timeAt(e), moved: false };
               }}
               onPointerMove={(e) => {
-                if (!drag.current) return;
+                const d = drag.current;
+                if (!d) return;
+                if (Math.abs(e.clientX - d.x0) > 3) d.moved = true; // a drag, not a click
+                if (!d.moved) return;
                 const t = timeAt(e);
-                setRange([Math.min(drag.current.t0, t), Math.max(drag.current.t0, t)]);
+                setRange([Math.min(d.t0, t), Math.max(d.t0, t)]);
               }}
-              onPointerUp={() => (drag.current = null)}
+              onPointerUp={(e) => {
+                const d = drag.current;
+                drag.current = null;
+                if (d && !d.moved) seek(timeAt(e)); // a click
+              }}
             >
               <Waveform peaks={data} pxPerSec={px} width={duration * px} height={WAVE_HEIGHT} />
+              {(playT ?? cursor) !== null && (
+                <div
+                  class="pointer-events-none absolute inset-y-0 z-10 w-0.5 bg-white"
+                  style={{ left: (playT ?? cursor ?? 0) * px }}
+                  data-testid="sync-playhead"
+                />
+              )}
+              {range && inspection?.found && inspection.offset_s !== null && (
+                <div
+                  class="pointer-events-none absolute inset-y-1 bg-emerald-400/40 ring-1 ring-emerald-300"
+                  style={{ left: (range[0] + inspection.offset_s) * px, width: 0.2 * px }}
+                  data-testid="decoded-burst"
+                />
+              )}
               {range && (
                 <div
                   class="absolute inset-y-0 bg-amber-400/30 ring-1 ring-amber-400"

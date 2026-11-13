@@ -101,8 +101,14 @@ comes next.
    every file** (the magnifier). Three ways:
    - **Marked in a recording:** pick any recording that contains it and drag across the sound on
      the waveform (a quiet beep shows as a small bump). Works for any sound, including ones Edith
-     didn't generate.
-   - **Generated from text:** type the seed string (e.g. `stickshift`); press Enter, or the download icon,
+     didn't generate. Edith reads the stretch back: a registration sound
+     it generated carries a 32-bit code, so it says whether one is there (and its code) and marks
+     where the burst starts; a different sound, say an older beep, reads as "not found". To check
+     you marked the right stretch by ear, **play the whole recording** or **just
+     the selection** (the two play buttons by the zoom buttons; a white line follows the sound, and
+     pressing the button again stops it).
+   - **Generated from text:** type the seed string (e.g. `stickshift`); when you press Enter or leave the field, Edith
+     searches every recording for it at once (once per seed); press Enter, or the download icon,
      to save the sound to play on set (as `<seed>.wav`). The seed is a setting of the project: typing it
      marks the project modified (Save keeps it, Undo takes it back), and Find needs no file to be uploaded. Edith searches every file for that same sound.
    - **An audio file:** choose an audio file from the project folder (silence around the sound is

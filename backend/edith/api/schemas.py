@@ -140,6 +140,13 @@ class SyncTemplateIn(BaseModel):
         return self
 
 
+class RegistrationInspectRead(BaseModel):
+    found: bool
+    offset_s: float | None  # where the burst starts, within the stretch
+    code: str | None  # the 32 bits it carries, as 8 hex digits
+    confidence: float | None
+
+
 class SyncRun(BaseModel):
     template: SyncTemplateIn
 
