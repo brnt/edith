@@ -35,19 +35,21 @@ import {
 } from "../lib/timeline";
 import { channelStyle } from "../lib/channelStyle";
 import type { IconDefinition } from "@ant-design/icons-svg/es/types";
-import { Button, Progress, Select } from "./ui";
+import { Button, Select } from "./ui";
+import { RibbonButton, RibbonCell, RibbonGroup, RibbonProgress, RibbonSet } from "./RibbonGrid";
 import { Icon } from "./Icon";
 import {
+  AddAll,
   CaretDown,
   CaretRight,
   CheckCircle,
   Close,
   CloseCircle,
   ExclamationCircle,
-  Folder,
   InfoCircle,
   Loading,
   Picture,
+  RemoveAll,
   Sound,
   Speaker,
   SpeakerMuted,
@@ -183,6 +185,18 @@ export function MediaPanel(props: Props) {
     onChange();
   };
 
+  // What the buttons under the filter act on: the project's files that the filter lists. Add all
+  // turns them all on; Exclude unused switches off the cameras and stills no segment shows.
+  const shownHere = groups.flatMap((g) => g.items).filter((m) => m.included);
+  const isOn = (m: MediaItem) =>
+    m.kind === "audio" ? trackIncluded(edit, media, m.id) : !edit.disabled.includes(m.id);
+  const nothingHidden = shownHere.every(isOn);
+  const unusedHere = shownHere.filter(
+    (m) => m.kind !== "audio" && isOn(m) && (usage.get(m.id) ?? 0) === 0,
+  );
+
+  const rootName = folder.split("/").filter(Boolean).pop() ?? "Project folder";
+
   const toggleFolder = (key: string) =>
     setCollapsed((prev) => {
       const next = new Set(prev);
@@ -192,40 +206,59 @@ export function MediaPanel(props: Props) {
 
   return (
     <div class="flex h-full gap-4">
-      <div class="flex shrink-0 flex-col items-start gap-2">
-        <p
-          class="flex max-w-[9rem] items-center gap-1 text-[11px] leading-4 text-neutral-400"
-          title={`Put media in this folder (subfolders are fine): ${folder}`}
+      {available.length > 0 && (
+        <RibbonGroup
+          title={
+            preparing > 0 ? (
+              <span
+                class="flex items-center justify-center gap-1"
+                title="Low-resolution previews are made in the background as media is found"
+                data-testid="preparing"
+              >
+                <Icon icon={Loading} class="animate-spin" />
+                Previews ({preparing})
+              </span>
+            ) : (
+              "View"
+            )
+          }
         >
-          <Icon icon={Folder} class="shrink-0" />
-          <span class="truncate">{folder.split("/").filter(Boolean).pop()}</span>
-        </p>
-        {preparing > 0 && (
-          <p
-            class="flex items-center gap-1 text-[11px] leading-4 text-neutral-400"
-            title="Low-resolution previews are made in the background as media is found"
-            data-testid="preparing"
-          >
-            <Icon icon={Loading} class="animate-spin" />
-            Preparing previews ({preparing})
-          </p>
-        )}
-        {job && <Progress value={job.progress} label={job.message} />}
-        {available.length > 0 && (
-          <Select
-            aria-label="Show"
-            value={filter}
-            onChange={(e) => setFilter(e.currentTarget.value as MediaFilter)}
-          >
-            <option value="all">All files</option>
-            <option value="video">Cameras</option>
-            <option value="audio">Audio</option>
-            <option value="image">Stills</option>
-            <option value="new">New (not included)</option>
-            <option value="unsynced">Not synced</option>
-          </Select>
-        )}
-      </div>
+          <RibbonSet columns={4}>
+            <RibbonCell columns={4}>
+              <Select
+                block
+                aria-label="Show"
+                value={filter}
+                onChange={(e) => setFilter(e.currentTarget.value as MediaFilter)}
+              >
+                <option value="all">All files</option>
+                <option value="video">Cameras</option>
+                <option value="audio">Audio</option>
+                <option value="image">Stills</option>
+                <option value="new">New (not included)</option>
+                <option value="unsynced">Not synced</option>
+              </Select>
+            </RibbonCell>
+            <RibbonButton
+              size={2}
+              label="Add all"
+              text="Add all"
+              icon={AddAll}
+              disabled={nothingHidden}
+              onClick={() => onEdit(setAllEnabled(edit, media, shownHere, true))}
+            />
+            <RibbonButton
+              size={2}
+              label="Exclude unused"
+              text="Unused"
+              icon={RemoveAll}
+              disabled={unusedHere.length === 0}
+              onClick={() => onEdit(setAllEnabled(edit, media, unusedHere, false))}
+            />
+            {job && <RibbonProgress columns={4} value={job.progress} label={job.message} />}
+          </RibbonSet>
+        </RibbonGroup>
+      )}
       {available.length === 0 ? (
         <p class="self-center text-sm text-neutral-500">
           No media yet. Drop the camera and audio files from this session into the project folder
@@ -242,26 +275,10 @@ export function MediaPanel(props: Props) {
             <FolderGroup
               key={g.key}
               group={g}
+              rootName={rootName}
               collapsed={collapsed.has(g.key)}
               onToggle={() => toggleFolder(g.key)}
               onIncludeAll={() => include(g.items.filter((m) => !m.included).map((m) => m.path))}
-              onShowAll={(on) =>
-                onEdit(
-                  setAllEnabled(
-                    edit,
-                    media,
-                    g.items.filter((m) => m.included),
-                    on,
-                  ),
-                )
-              }
-              allShown={g.items
-                .filter((m) => m.included)
-                .every((m) =>
-                  m.kind === "audio"
-                    ? trackIncluded(edit, media, m.id)
-                    : !edit.disabled.includes(m.id),
-                )}
             >
               {g.items.map((m) => (
                 <MediaCard
@@ -314,24 +331,22 @@ export function MediaPanel(props: Props) {
 /** One folder of the hierarchy: a header you can fold, and its cards in two rows. */
 function FolderGroup({
   group,
+  rootName,
   collapsed,
   onToggle,
   onIncludeAll,
-  onShowAll,
-  allShown,
   children,
 }: {
   group: MediaGroup;
+  /** What the files directly in the project folder are called: the folder's own name. */
+  rootName: string;
   collapsed: boolean;
   onToggle: () => void;
   onIncludeAll: () => void;
-  onShowAll: (on: boolean) => void;
-  allShown: boolean;
   children: preact.ComponentChildren;
 }) {
   const waiting = group.items.filter((m) => !m.included).length;
-  const included = group.items.length - waiting;
-  const name = group.title || "Project folder";
+  const name = group.title || rootName;
   return (
     <section class="flex shrink-0 flex-col gap-1" data-testid="media-folder" aria-label={name}>
       <div class="flex items-center gap-2 text-[11px] leading-4">
@@ -353,18 +368,6 @@ function FolderGroup({
             title="Include every new file of this folder in the project"
           >
             Include {waiting === group.items.length ? "all" : `${waiting} new`}
-          </button>
-        )}
-        {included > 1 && (
-          <button
-            type="button"
-            class="text-neutral-500 hover:text-neutral-200"
-            onClick={() => onShowAll(!allShown)}
-            title={
-              allShown ? "Exclude all of this folder's files" : "Show all of this folder's files"
-            }
-          >
-            {allShown ? "Exclude all" : "Show all"}
           </button>
         )}
       </div>

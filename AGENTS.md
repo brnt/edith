@@ -118,6 +118,8 @@ Root `justfile` delegates to both; Compose runs `api` (:8000) and `web` (:8080).
   Included media keep the order they were added in (`MediaItem.added`, set by `include_media`,
   kept by relink): channel numbers never shuffle as media lands. Projects from before it was
   recorded (`added` is None) stay in kind-then-name order, ahead of anything added since;
+  The Media tab's first column is a formal panel ("View", or "Previews (n)" while they are made; a running job's progress bar is its fourth row) and the root folder's group is named after the folder itself. Its **Add all / Exclude unused** are 2×2 buttons under the filter (they act on the
+  files the filter lists; "unused" = a camera or still no segment shows; audio is never "unused").
   `sortMedia` and `channelsOf` keep the server's order for included media (channels: cameras, then stills).
 - **A reload keeps the tab, playhead, selection and picked segment/cut/level**, in the browser's
   `localStorage` per project (`lib/uiState.ts`: `edith.ui.<slug>`; never in the project file). Values

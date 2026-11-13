@@ -1370,7 +1370,7 @@ describe("the media cards", () => {
     fireEvent.click(await screen.findByRole("tab", { name: /Media/ }));
     const folders = await screen.findAllByTestId("media-folder");
     expect(folders.map((f) => f.getAttribute("aria-label"))).toEqual([
-      "Project folder",
+      "show", // the project folder's own name
       "day 1 / cam C",
     ]);
     const cards = within(folders[1]).getAllByTestId("media-card");
@@ -1491,7 +1491,7 @@ describe("the media cards", () => {
     expect(await screen.findByText("Nothing matches this filter.")).toBeInTheDocument();
   });
 
-  test("a folder's header includes all its new files, or shows and hides all its files at once", async () => {
+  test("a folder's header includes all its new files in one click", async () => {
     media = [
       ...baseMedia,
       found({ id: "n1", path: "show/b/1.mp4", label: "1.mp4", folder: "b" }),
@@ -1499,16 +1499,29 @@ describe("the media cards", () => {
     ];
     render(<Workspace slug="show" />);
     fireEvent.click(await screen.findByRole("tab", { name: /Media/ }));
-    const [root, folderB] = await screen.findAllByTestId("media-folder");
-    // The project folder: hide everything, then show it again (an edit, saved later).
-    fireEvent.click(within(root).getByRole("button", { name: "Exclude all" }));
-    expect(screen.getByText("unsaved changes")).toBeInTheDocument();
-    expect(within(root).getByRole("button", { name: "Show all" })).toBeInTheDocument();
-    // A folder of new files: one click includes them all.
+    const [, folderB] = await screen.findAllByTestId("media-folder");
     fireEvent.click(within(folderB).getByRole("button", { name: "Include all" }));
     await waitFor(() =>
       expect(mediaPosts.map((p) => p.path)).toEqual(["show/b/1.mp4", "show/b/2.mp4"]),
     );
+  });
+
+  test("Exclude unused switches off the cameras no segment shows; Add all brings them back", async () => {
+    media = [...baseMedia, { ...baseMedia[1], id: "camC", label: "Cam C", path: "show/c.mp4" }];
+    savedEdit = { ...baseEdit, switches: [{ at_s: 10, media_id: "camB" }] };
+    render(<Workspace slug="show" />);
+    fireEvent.click(await screen.findByRole("tab", { name: /Media/ }));
+    const showAll = await screen.findByRole("button", { name: "Add all" });
+    const excludeUnused = screen.getByRole("button", { name: "Exclude unused" });
+    expect(showAll).toBeDisabled(); // nothing is hidden yet
+    expect(excludeUnused).toBeEnabled(); // Cam C has no segment
+    fireEvent.click(excludeUnused);
+    expect(screen.getByText("unsaved changes")).toBeInTheDocument();
+    expect(excludeUnused).toBeDisabled(); // and nothing else is unused
+    expect(showAll).toBeEnabled();
+    fireEvent.click(showAll);
+    expect(excludeUnused).toBeEnabled(); // Cam C is back, still unused
+    expect(showAll).toBeDisabled();
   });
 
   test("a frame rate that differs from the project's is flagged on the card, and clicking the flag opens the details", async () => {
@@ -1547,8 +1560,6 @@ describe("the media cards", () => {
     fireEvent.click(screen.getByRole("button", { name: "Details for Cam A" }));
     await screen.findByRole("dialog", { name: "Details for Cam A" });
     expect(screen.queryByRole("button", { name: /Remove/ })).toBeNull();
-    // It says which folder to put media in.
-    expect(screen.getByTitle(/Put media in this folder.*\/Volumes\/SSD\/show/)).toBeInTheDocument();
   });
 
   test("a missing file with no obvious match can be relinked to another file of the folder", async () => {
@@ -1655,7 +1666,7 @@ test("previews are made on their own: the media tab shows progress, and there is
   );
   render(<Workspace slug="show" />);
   fireEvent.click(await screen.findByRole("tab", { name: /Media/ }));
-  expect(await screen.findByTestId("preparing")).toHaveTextContent("Preparing previews (1)");
+  expect(await screen.findByTestId("preparing")).toHaveTextContent("Previews (1)");
   expect(screen.queryByRole("button", { name: /Build proxies/ })).toBeNull();
   const card = screen.getAllByTestId("media-card").find((c) => within(c).queryByText("Cam A"))!;
   expect(within(card).getByTitle("Preparing the preview…")).toBeInTheDocument();
