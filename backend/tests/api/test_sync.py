@@ -173,7 +173,7 @@ def test_an_incomplete_template_is_rejected_up_front(client: TestClient, project
 def test_the_registration_sound_downloads_as_a_playable_wav(client: TestClient):
     response = client.get("/registration/sound", params={"seed": "stickshift"})
     assert response.status_code == 200 and response.headers["content-type"] == "audio/wav"
-    assert "registration.wav" in response.headers["content-disposition"]
+    assert 'filename="stickshift.wav"' in response.headers["content-disposition"]
     with wave.open(io.BytesIO(response.content)) as w:
         assert (w.getnchannels(), w.getframerate()) == (1, 44_100)
         assert w.getnframes() == pytest.approx(1.2 * 44_100, abs=2)  # 0.5 s + 0.2 s burst + 0.5 s
@@ -182,3 +182,28 @@ def test_the_registration_sound_downloads_as_a_playable_wav(client: TestClient):
     start = int(0.5 * 44_100)
     assert np.corrcoef(samples[start : start + len(burst)], burst)[0, 1] > 0.999
     assert client.get("/registration/sound").status_code == 422  # a seed is required
+
+
+def test_the_sound_file_is_named_after_its_seed_safely(client: TestClient):
+    def disposition(seed: str) -> str:
+        return client.get("/registration/sound", params={"seed": seed}).headers[
+            "content-disposition"
+        ]
+
+    assert 'filename="my show.wav"' in disposition("my show")
+    assert 'filename="a-b.wav"' in disposition("a/b")  # nothing a file name can't hold
+    assert 'filename="registration.wav"' in disposition("...")  # nothing left of it
+    unicode_name = disposition("café")
+    assert (
+        'filename="caf_.wav"' in unicode_name and "filename*=UTF-8''caf%C3%A9.wav" in unicode_name
+    )
+
+
+def test_the_registration_sound_source_is_a_setting_of_the_edit(client: TestClient, project):
+    edit = client.get(f"/projects/{project}/edit").json()["edit"]
+    assert edit["registration"] is None  # nothing chosen yet
+    edit["registration"] = {"kind": "seed", "seed": "stickshift"}
+    saved = client.put(f"/projects/{project}/edit", json=edit)
+    assert saved.status_code == 200, saved.text
+    again = client.get(f"/projects/{project}/edit").json()["edit"]
+    assert again["registration"]["seed"] == "stickshift"  # saved with the edit, like the size

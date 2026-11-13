@@ -102,8 +102,9 @@ comes next.
    - **Marked in a recording:** pick any recording that contains it and drag across the sound on
      the waveform (a quiet beep shows as a small bump). Works for any sound, including ones Edith
      didn't generate.
-   - **Generated from text:** type the seed string (e.g. `stickshift`); **Download .wav** (the download icon) gives
-     you the sound to play on set. Edith searches every file for that same sound.
+   - **Generated from text:** type the seed string (e.g. `stickshift`); press Enter, or the download icon,
+     to save the sound to play on set (as `<seed>.wav`). The seed is a setting of the project: typing it
+     marks the project modified (Save keeps it, Undo takes it back), and Find needs no file to be uploaded. Edith searches every file for that same sound.
    - **An audio file:** choose an audio file from the project folder (silence around the sound is
      trimmed). It is searched for, not added to the project.
 

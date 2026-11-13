@@ -1,3 +1,6 @@
+import re
+from urllib.parse import quote
+
 from fastapi import APIRouter, Depends, Query, Response, status
 
 from edith.api.schemas import JobRead, NudgesIn, SyncRead, SyncRun
@@ -9,6 +12,12 @@ from edith.services.jobs import Job, jobs
 from edith.sync.registration import padded_wav
 
 router = APIRouter()
+
+
+def sound_filename(seed: str) -> str:
+    """`<seed>.wav`, with what a file name can't hold swapped for a dash."""
+    stem = re.sub(r'[\\/:*?"<>|\x00-\x1f]+', "-", seed).strip(" .") or "registration"
+    return f"{stem[:64]}.wav"
 
 
 def _read(state, needs_upgrade: bool) -> SyncRead:
@@ -56,8 +65,14 @@ def get_registration_sound(
     tail_s: float = Query(0.5, ge=0, le=5),
 ):
     """The seeded registration sound as a WAV to play on set."""
+    name = sound_filename(seed)
+    ascii_name = name.encode("ascii", "replace").decode().replace("?", "_")
     return Response(
         padded_wav(seed, lead_s, tail_s),
         media_type="audio/wav",
-        headers={"Content-Disposition": 'attachment; filename="registration.wav"'},
+        # Named after the seed (the plain name for old clients, the exact one for the rest).
+        headers={
+            "Content-Disposition": f'attachment; filename="{ascii_name}"; '
+            f"filename*=UTF-8''{quote(name)}"
+        },
     )

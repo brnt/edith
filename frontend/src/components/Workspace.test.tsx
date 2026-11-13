@@ -510,9 +510,82 @@ describe("choosing the registration sound", () => {
       "href",
       "/api/registration/sound?seed=stickshift",
     );
+    // Saved as <seed>.wav, with nothing in the name a file can't hold.
+    expect(screen.getByRole("link", { name: /Download the sound/ })).toHaveAttribute(
+      "download",
+      "stickshift.wav",
+    );
+    fireEvent.input(screen.getByLabelText("Registration text"), { target: { value: "a/b" } });
+    expect(screen.getByRole("link", { name: /Download the sound/ })).toHaveAttribute(
+      "download",
+      "a-b.wav",
+    );
+    fireEvent.input(screen.getByLabelText("Registration text"), {
+      target: { value: "stickshift" },
+    });
     fireEvent.click(find);
     await waitFor(() => expect(syncPosts).toHaveLength(1));
     expect(syncPosts[0].template).toEqual({ kind: "seed", seed: "stickshift" });
+  });
+
+  test("a typed seed becomes a modified project setting (Save keeps it), and Find uses it without a file", async () => {
+    const source = await openSync();
+    fireEvent.change(source, { target: { value: "seed" } });
+    const save = screen.getByRole("button", { name: "Save" });
+    expect(save).toBeDisabled(); // nothing changed yet
+    const field = screen.getByLabelText("Registration text");
+    fireEvent.input(field, { target: { value: "stick" } });
+    fireEvent.input(field, { target: { value: "stickshift" } });
+    // A moment after the last keystroke the edit changes: the project is marked modified, not saved.
+    await waitFor(() => expect(save).toBeEnabled());
+    expect(puts).toHaveLength(0);
+    fireEvent.click(save);
+    await waitFor(() => expect(puts).toHaveLength(1));
+    expect(puts[0]).toMatchObject({ registration: { kind: "seed", seed: "stickshift" } });
+    // Find then uses the seed straight away.
+    fireEvent.click(screen.getByRole("button", { name: "Find the sound in every file" }));
+    await waitFor(() => expect(syncPosts).toHaveLength(1));
+    expect(syncPosts[0].template).toEqual({ kind: "seed", seed: "stickshift" });
+  });
+
+  test("a chosen audio file changes the project setting too, and Undo takes it back", async () => {
+    const source = await openSync();
+    fireEvent.change(source, { target: { value: "file" } });
+    fireEvent.change(await screen.findByRole("combobox", { name: "Audio file" }), {
+      target: { value: "m/mic.wav" },
+    });
+    await waitFor(() => expect(screen.getByRole("button", { name: "Save" })).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Save" })).toBeDisabled());
+  });
+
+  test("a project's saved sound is shown without marking it modified", async () => {
+    savedEdit = { ...baseEdit, registration: { kind: "seed", seed: "stickshift" } };
+    const source = await openSync();
+    await waitFor(() => expect(source).toHaveValue("seed"));
+    expect(screen.getByLabelText("Registration text")).toHaveValue("stickshift");
+    await new Promise((r) => setTimeout(r, 700)); // longer than the debounce
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+  });
+
+  test("Enter in the seed field downloads the sound, like the button", async () => {
+    const clicks: { href: string; download: string }[] = [];
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (
+      this: HTMLAnchorElement,
+    ) {
+      clicks.push({ href: this.getAttribute("href") ?? "", download: this.download });
+    });
+    const source = await openSync();
+    fireEvent.change(source, { target: { value: "seed" } });
+    const field = screen.getByLabelText("Registration text");
+    fireEvent.keyDown(field, { key: "Enter" });
+    expect(clicks).toEqual([]); // nothing typed: nothing to download
+    fireEvent.input(field, { target: { value: "  my show " } });
+    fireEvent.keyDown(field, { key: "Enter" });
+    expect(clicks).toEqual([
+      { href: "/api/registration/sound?seed=my%20show", download: "my show.wav" },
+    ]);
+    click.mockRestore();
   });
 
   test("an audio file of the project folder: only audio is offered, and its path is sent", async () => {

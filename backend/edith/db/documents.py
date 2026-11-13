@@ -151,6 +151,9 @@ class EditList(Document):
     # Cameras and stills switched off in the Media tab: not in the playback grid, no channel number,
     # not decoded unless on screen. A working-set setting; it never changes the rendered output.
     disabled: list[str] = []
+    # The registration sound's source (a seed, an audio file or a marked stretch): a setting of
+    # the project, saved with the edit. None until chosen (then the last sync's sound is used).
+    registration: SyncTemplate | None = None
     # How a render is encoded (a key of edith.export.encodings.ENCODINGS).
     encoding: str = "h264"
     fps_num: int = 30000
