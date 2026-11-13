@@ -3,7 +3,7 @@ from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Query, Response, status
 
-from edith.api.schemas import JobRead, NudgesIn, SyncRead, SyncRun
+from edith.api.schemas import JobRead, NudgesIn, RegistrationInspectRead, SyncRead, SyncRun
 from edith.core.auth import require_token
 from edith.core.config import Settings, get_settings
 from edith.db.documents import SyncTemplate
@@ -56,6 +56,22 @@ def post_sync(slug: str, payload: SyncRun, settings: Settings = Depends(get_sett
 )
 def put_nudges(slug: str, payload: NudgesIn, settings: Settings = Depends(get_settings)):
     return _read(syncing.set_nudges(slug, payload.nudges), False)
+
+
+@router.get(
+    "/projects/{slug}/sync/inspect",
+    response_model=RegistrationInspectRead,
+    dependencies=[Depends(require_token)],
+)
+def get_inspect(
+    slug: str,
+    media_id: str,
+    start_s: float = Query(ge=0),
+    end_s: float = Query(gt=0),
+    settings: Settings = Depends(get_settings),
+):
+    """Is there a registration sound in this stretch of a recording? (Decodes the burst.)"""
+    return syncing.inspect_registration(slug, media_id, start_s, end_s)
 
 
 @router.get("/registration/sound")

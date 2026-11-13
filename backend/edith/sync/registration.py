@@ -18,6 +18,7 @@ import hashlib
 from dataclasses import dataclass
 
 import numpy as np
+from numpy.lib.stride_tricks import sliding_window_view
 from scipy import signal
 
 SAMPLE_RATE = 44_100  # everything is analysed at one rate; media is resampled on extraction
@@ -128,3 +129,77 @@ def find_candidates(
     return [
         Candidate(float(peaks[i] / sample_rate), float(props["peak_heights"][i])) for i in order
     ]
+
+
+@dataclass(frozen=True)
+class Decoded:
+    """A registration burst found in a stretch of audio and read back."""
+
+    offset_s: float  # where the burst starts within the audio
+    bits: str  # the 32 bits it carries (from the sha256 of the seed, high nibbles)
+    confidence: float  # 0..1: how cleanly every bit frame is one of the two tones
+
+    @property
+    def code(self) -> str:
+        """The bits as 8 hex digits: what identifies the sound (the seed itself is hashed away)."""
+        return f"{int(self.bits, 2):08X}"
+
+
+def seed_bits(seed: str) -> str:
+    """The 32 bits a seed's burst carries."""
+    digest = hashlib.sha256(seed.encode()).hexdigest()
+    return "".join("1" if int(c, 16) > 7 else "0" for c in digest[:SEED_BITS])
+
+
+_DECODE_HOP = 25  # samples between the starts tried (divides a bit's length, 275, evenly)
+MIN_DECODE_CONFIDENCE = 0.55
+
+
+def _bit_kernels(length: int, sample_rate: int) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    t = np.arange(length) / sample_rate
+    window = np.hanning(length)
+    return (
+        window,
+        window * np.exp(-2j * np.pi * F0_HZ * t),
+        window * np.exp(-2j * np.pi * F1_HZ * t),
+    )
+
+
+def decode_burst(audio: np.ndarray, sample_rate: int = SAMPLE_RATE) -> Decoded | None:
+    """Look for a registration burst (32 bits of two-tone FSK) in a stretch of audio and read it.
+
+    Every position (every 25 samples) is scored by how purely each of its 32 bit-length frames is
+    a tone at one of the two frequencies; the bit is whichever tone is stronger. Speech, music and
+    noise are not tone-pure in that way, and a burst of all one bit is refused.
+    """
+    n = int(BURST_SECONDS * sample_rate)
+    per_bit = n // SEED_BITS
+    if len(audio) < n:
+        return None
+    window, k0, k1 = _bit_kernels(per_bit, sample_rate)
+    frames = sliding_window_view(audio.astype(np.float64), per_bit)[::_DECODE_HOP]
+    weighted = frames * window
+    norm = np.maximum((weighted**2).sum(axis=1), 1e-12)
+    p0 = np.abs(frames @ k0) ** 2 / (norm * (window**2).sum())
+    p1 = np.abs(frames @ k1) ** 2 / (norm * (window**2).sum())
+    # A pure tone scores about 0.5 with this kernel; scale so a clean frame is near 1.
+    purity = np.minimum(np.maximum(p0, p1) / 0.5, 1.0)
+    purity = np.where(norm > 1e-8 * per_bit, purity, 0.0)  # silence is not a tone
+
+    step = per_bit // _DECODE_HOP
+    starts = (len(audio) - n) // _DECODE_HOP + 1
+    if starts <= 0:
+        return None
+    score = np.zeros(starts)
+    for i in range(SEED_BITS):
+        score += purity[i * step : i * step + starts]
+    score /= SEED_BITS
+    best = int(np.argmax(score))
+    if score[best] < MIN_DECODE_CONFIDENCE:
+        return None
+    bits = "".join(
+        "1" if p1[best + i * step] > p0[best + i * step] else "0" for i in range(SEED_BITS)
+    )
+    if min(bits.count("0"), bits.count("1")) < 4:  # a sustained single tone is not a burst
+        return None
+    return Decoded(best * _DECODE_HOP / sample_rate, bits, float(score[best]))
