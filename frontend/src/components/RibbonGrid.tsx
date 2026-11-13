@@ -29,7 +29,7 @@ export function GroupFrame({
 }) {
   return (
     <div
-      class={`flex h-full shrink-0 flex-col justify-between border-r border-neutral-700 pr-3 text-sm ${width ?? ""}`}
+      class={`flex h-full shrink-0 flex-col justify-between border-r border-neutral-700 pr-3 text-sm last:border-r-0 last:pr-0 ${width ?? ""}`}
     >
       {children}
       <div
@@ -45,14 +45,20 @@ export function GroupFrame({
 /** A ribbon panel: button groups (`RibbonSet`) stacked, with a hairline in the gap between them. */
 export function RibbonGroup({
   title,
+  grow = false,
+  width,
   children,
 }: {
   title: ComponentChildren;
+  /** Take all the width the other panels leave (its contents scroll inside it). */
+  grow?: boolean;
+  /** A fixed width, as a class (the panel's contents scroll inside it). */
+  width?: string;
   children: ComponentChildren;
 }) {
   return (
-    <GroupFrame title={title}>
-      <div class="flex flex-col gap-[3px] [&>*+*]:relative [&>*+*]:before:absolute [&>*+*]:before:-top-[2px] [&>*+*]:before:h-px [&>*+*]:before:w-full [&>*+*]:before:bg-neutral-700">
+    <GroupFrame title={title} width={grow ? "min-w-0 flex-1" : width}>
+      <div class="flex min-w-0 flex-col gap-[3px] [&>*+*]:relative [&>*+*]:before:absolute [&>*+*]:before:-top-[2px] [&>*+*]:before:h-px [&>*+*]:before:w-full [&>*+*]:before:bg-neutral-700">
         {children}
       </div>
     </GroupFrame>

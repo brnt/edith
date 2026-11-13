@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { useEffect, useMemo, useState } from "preact/hooks";
 
 import { setAllEnabled, setAudioIncluded, setEnabled } from "../lib/editOps";
 import {
@@ -26,27 +26,27 @@ import {
 import {
   channelsOf,
   defaultCamera,
-  groupMedia,
+  inFolder,
+  mediaFolders,
+  sortMedia,
   mediaOffsets,
   segments,
   timelineEnd,
   trackIncluded,
-  type MediaGroup,
 } from "../lib/timeline";
 import { channelStyle } from "../lib/channelStyle";
 import type { IconDefinition } from "@ant-design/icons-svg/es/types";
 import { Button, Select } from "./ui";
-import { RibbonButton, RibbonCell, RibbonGroup, RibbonProgress, RibbonSet } from "./RibbonGrid";
+import { RibbonButton, RibbonCell, RibbonGroup, RibbonSet } from "./RibbonGrid";
 import { Icon } from "./Icon";
 import {
   AddAll,
-  CaretDown,
-  CaretRight,
+  Check,
+  Copy,
   CheckCircle,
   Close,
   CloseCircle,
   ExclamationCircle,
-  InfoCircle,
   Loading,
   Picture,
   RemoveAll,
@@ -104,17 +104,20 @@ export function MediaPanel(props: Props) {
   // A missing file being pointed at another: the browser opens to choose the new one.
   const [relinking, setRelinking] = useState<MediaItem | null>(null);
   const [job, setJob] = useState<Job | null>(null);
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
-  const [open, setOpen] = useState<{ item: MediaItem; rect: DOMRect } | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null); // the card whose details show
+  const selected = available.find((m) => m.id === selectedId) ?? null;
   const preparing = available.filter((m) => m.proxy_building).length;
   const numbers = useMemo(
     () => new Map(channelsOf(media, edit.disabled).map((c) => [c.item.id, c.number])),
     [media, edit.disabled],
   );
   const [filter, setFilter] = useState<MediaFilter>("all");
-  const groups = useMemo(
-    () => groupMedia(available.filter((m) => matchesFilter(m, filter, sync))),
-    [available, filter, sync],
+  const [inside, setInside] = useState(""); // the folder listed ("" = all of them)
+  const folders = useMemo(() => mediaFolders(available), [available]);
+  // The cards: the project's media in the order they were added, then files found but not included.
+  const listed = useMemo(
+    () => sortMedia(available.filter((m) => matchesFilter(m, filter, sync) && inFolder(m, inside))),
+    [available, filter, sync, inside],
   );
   const projectFps = edit.fps_den
     ? { fps: edit.fps_num / edit.fps_den, width: edit.width, height: edit.height }
@@ -172,7 +175,7 @@ export function MediaPanel(props: Props) {
 
   /** Search every file for this audio file's sound: the same sync the Sync tab runs. */
   const useAsRegistrationSound = async (item: MediaItem) => {
-    setOpen(null);
+    setSelectedId(null);
     try {
       const started = await startSync(slug, { kind: "file", path: item.path });
       setJob(started);
@@ -185,31 +188,30 @@ export function MediaPanel(props: Props) {
     onChange();
   };
 
-  // What the buttons under the filter act on: the project's files that the filter lists. Add all
-  // turns them all on; Exclude unused switches off the cameras and stills no segment shows.
-  const shownHere = groups.flatMap((g) => g.items).filter((m) => m.included);
+  // What the buttons act on: whatever is listed. Add all brings the new files into the project and
+  // switches on what is hidden; Exclude unused switches off the cameras and stills no segment shows.
   const isOn = (m: MediaItem) =>
     m.kind === "audio" ? trackIncluded(edit, media, m.id) : !edit.disabled.includes(m.id);
-  const nothingHidden = shownHere.every(isOn);
-  const unusedHere = shownHere.filter(
-    (m) => m.kind !== "audio" && isOn(m) && (usage.get(m.id) ?? 0) === 0,
+  const toInclude = listed.filter((m) => !m.included);
+  const hidden = listed.filter((m) => m.included && !isOn(m));
+  const unusedHere = listed.filter(
+    (m) => m.included && m.kind !== "audio" && isOn(m) && (usage.get(m.id) ?? 0) === 0,
   );
-
-  const rootName = folder.split("/").filter(Boolean).pop() ?? "Project folder";
-
-  const toggleFolder = (key: string) =>
-    setCollapsed((prev) => {
-      const next = new Set(prev);
-      if (!next.delete(key)) next.add(key);
-      return next;
-    });
+  const addAll = () => {
+    if (hidden.length) onEdit(setAllEnabled(edit, media, hidden, true));
+    if (toInclude.length) void include(toInclude.map((m) => m.path));
+  };
 
   return (
     <div class="flex h-full gap-4">
       {available.length > 0 && (
         <RibbonGroup
           title={
-            preparing > 0 ? (
+            job ? (
+              <span class="truncate" title={job.message}>
+                {job.message} {Math.round(job.progress * 100)}%
+              </span>
+            ) : preparing > 0 ? (
               <span
                 class="flex items-center justify-center gap-1"
                 title="Low-resolution previews are made in the background as media is found"
@@ -224,6 +226,23 @@ export function MediaPanel(props: Props) {
           }
         >
           <RibbonSet columns={4}>
+            <RibbonCell columns={4}>
+              <Select
+                block
+                aria-label="Folder"
+                title="Which folder's files to list (its subfolders too)"
+                value={inside}
+                disabled={folders.length === 0}
+                onChange={(e) => setInside(e.currentTarget.value)}
+              >
+                <option value="">All folders</option>
+                {folders.map((f) => (
+                  <option key={f.path} value={f.path}>
+                    {f.title}
+                  </option>
+                ))}
+              </Select>
+            </RibbonCell>
             <RibbonCell columns={4}>
               <Select
                 block
@@ -244,8 +263,8 @@ export function MediaPanel(props: Props) {
               label="Add all"
               text="Add all"
               icon={AddAll}
-              disabled={nothingHidden}
-              onClick={() => onEdit(setAllEnabled(edit, media, shownHere, true))}
+              disabled={toInclude.length === 0 && hidden.length === 0}
+              onClick={addAll}
             />
             <RibbonButton
               size={2}
@@ -255,63 +274,62 @@ export function MediaPanel(props: Props) {
               disabled={unusedHere.length === 0}
               onClick={() => onEdit(setAllEnabled(edit, media, unusedHere, false))}
             />
-            {job && <RibbonProgress columns={4} value={job.progress} label={job.message} />}
           </RibbonSet>
         </RibbonGroup>
       )}
-      {available.length === 0 ? (
-        <p class="self-center text-sm text-neutral-500">
-          No media yet. Drop the camera and audio files from this session into the project folder
-          {folder ? ` (${folder})` : ""}, subfolders included, and they show up here by themselves.
-        </p>
-      ) : groups.length === 0 ? (
-        <p class="self-center text-sm text-neutral-500">Nothing matches this filter.</p>
-      ) : (
-        <div
-          class="flex min-w-0 flex-1 items-start gap-4 overflow-x-auto"
-          data-testid="media-groups"
-        >
-          {groups.map((g) => (
-            <FolderGroup
-              key={g.key}
-              group={g}
-              rootName={rootName}
-              collapsed={collapsed.has(g.key)}
-              onToggle={() => toggleFolder(g.key)}
-              onIncludeAll={() => include(g.items.filter((m) => !m.included).map((m) => m.path))}
-            >
-              {g.items.map((m) => (
-                <MediaCard
-                  key={m.id}
-                  slug={slug}
-                  item={m}
-                  media={media}
-                  edit={edit}
-                  number={numbers.get(m.id) ?? null}
-                  syncResult={sync?.results[m.id] ?? null}
-                  peaks={peaks[m.id] ?? null}
-                  projectFps={projectFps}
-                  suggestion={suggestionFor(m)}
-                  onRelink={(path) => (path ? relink(m, path) : setRelinking(m))}
-                  onEdit={onEdit}
-                  onInclude={() => include([m.path])}
-                  onDetails={(rect) => setOpen({ item: m, rect })}
-                />
-              ))}
-            </FolderGroup>
-          ))}
-        </div>
-      )}
-      {open && (
-        <DetailsPopover
+      <RibbonGroup title="Media" grow>
+        {available.length === 0 ? (
+          <p class="m-[2px] text-sm text-neutral-500">
+            No media yet. Drop the camera and audio files from this session into the project folder
+            {folder ? ` (${folder})` : ""}, subfolders included, and they show up here by
+            themselves.
+          </p>
+        ) : listed.length === 0 ? (
+          <p class="m-[2px] text-sm text-neutral-500">Nothing matches this filter.</p>
+        ) : (
+          // Two rows of cards, each two units tall; a card is 16:9 at that height (65 px by 116).
+          <ul
+            class="grid min-w-0 grid-flow-col overflow-x-auto"
+            style={{
+              gridTemplateRows: "repeat(2, 4.3125rem)",
+              gridAutoColumns: "120px",
+              gap: "3px",
+            }}
+            data-testid="media-cards"
+          >
+            {listed.map((m) => (
+              <MediaCard
+                key={m.id}
+                slug={slug}
+                item={m}
+                media={media}
+                edit={edit}
+                number={numbers.get(m.id) ?? null}
+                syncResult={sync?.results[m.id] ?? null}
+                peaks={peaks[m.id] ?? null}
+                projectFps={projectFps}
+                suggestion={suggestionFor(m)}
+                onRelink={(path) => (path ? relink(m, path) : setRelinking(m))}
+                onEdit={onEdit}
+                onInclude={() => include([m.path])}
+                selected={m.id === selectedId}
+                onSelect={(on) => setSelectedId(on ? m.id : null)}
+              />
+            ))}
+          </ul>
+        )}
+      </RibbonGroup>
+      {selected && (
+        <DetailsPanel
           slug={slug}
-          item={open.item}
-          rect={open.rect}
+          folder={folder}
+          item={selected}
           projectFps={projectFps}
-          usedIn={usage.get(open.item.id) ?? 0}
-          onUseAsSound={() => useAsRegistrationSound(open.item)}
-          syncResult={sync?.results[open.item.id] ?? null}
-          onClose={() => setOpen(null)}
+          on={isOn(selected)}
+          usedIn={usage.get(selected.id) ?? 0}
+          onUseAsSound={() => useAsRegistrationSound(selected)}
+          syncResult={sync?.results[selected.id] ?? null}
+          onClose={() => setSelectedId(null)}
         />
       )}
       {relinking && (
@@ -325,56 +343,6 @@ export function MediaPanel(props: Props) {
         />
       )}
     </div>
-  );
-}
-
-/** One folder of the hierarchy: a header you can fold, and its cards in two rows. */
-function FolderGroup({
-  group,
-  rootName,
-  collapsed,
-  onToggle,
-  onIncludeAll,
-  children,
-}: {
-  group: MediaGroup;
-  /** What the files directly in the project folder are called: the folder's own name. */
-  rootName: string;
-  collapsed: boolean;
-  onToggle: () => void;
-  onIncludeAll: () => void;
-  children: preact.ComponentChildren;
-}) {
-  const waiting = group.items.filter((m) => !m.included).length;
-  const name = group.title || rootName;
-  return (
-    <section class="flex shrink-0 flex-col gap-1" data-testid="media-folder" aria-label={name}>
-      <div class="flex items-center gap-2 text-[11px] leading-4">
-        <button
-          type="button"
-          class="flex min-w-0 items-center gap-1 text-left text-neutral-400 hover:text-neutral-200"
-          aria-expanded={!collapsed}
-          onClick={onToggle}
-        >
-          <Icon icon={collapsed ? CaretRight : CaretDown} />
-          <span class="max-w-[16rem] truncate">{name}</span>
-          <span class="text-neutral-600">({group.items.length})</span>
-        </button>
-        {waiting > 0 && (
-          <button
-            type="button"
-            class="text-amber-300 hover:text-amber-200"
-            onClick={onIncludeAll}
-            title="Include every new file of this folder in the project"
-          >
-            Include {waiting === group.items.length ? "all" : `${waiting} new`}
-          </button>
-        )}
-      </div>
-      {!collapsed && (
-        <ul class="grid auto-cols-[7.25rem] grid-flow-col grid-rows-2 gap-1.5">{children}</ul>
-      )}
-    </section>
   );
 }
 
@@ -401,7 +369,8 @@ function MediaCard({
   onRelink,
   onEdit,
   onInclude,
-  onDetails,
+  selected,
+  onSelect,
 }: {
   slug: string;
   item: MediaItem;
@@ -416,7 +385,9 @@ function MediaCard({
   onRelink: (path?: string) => void;
   onEdit: (edit: EditList) => void;
   onInclude: () => void;
-  onDetails: (rect: DOMRect) => void;
+  selected: boolean;
+  /** Show (true) or hide (false) this card's details. */
+  onSelect: (on: boolean) => void;
 }) {
   const included = m.included;
   const audio = m.kind === "audio";
@@ -456,7 +427,11 @@ function MediaCard({
 
   return (
     <li
-      class={`group relative aspect-video ${CARD} overflow-hidden rounded bg-neutral-900`}
+      class={`group relative m-[2px] h-[65px] ${CARD} cursor-pointer overflow-hidden rounded bg-neutral-900 ${selected ? "ring-2 ring-sky-400" : ""}`}
+      onClick={(e) => {
+        // A click on the card itself; its buttons and check box do their own thing.
+        if (!(e.target as HTMLElement).closest("button, input, label")) onSelect(!selected);
+      }}
       data-testid="media-card"
       data-included={included}
     >
@@ -504,7 +479,7 @@ function MediaCard({
           class={`${iconButton} absolute left-1 top-[26px] text-amber-300`}
           aria-label={notes.join(". ")}
           title={`${notes.join("\n")}\nClick for the details`}
-          onClick={(e) => onDetails((e.currentTarget as HTMLElement).getBoundingClientRect())}
+          onClick={() => onSelect(true)}
         >
           <Icon icon={Warning} />
         </button>
@@ -512,15 +487,6 @@ function MediaCard({
       {/* Both rows of chips in one column, so the space between rows equals the space between chips. */}
       <div class="absolute right-1 top-1 flex flex-col items-end gap-1">
         <div class="flex gap-1">
-          <button
-            type="button"
-            class={iconButton}
-            aria-label={`Details for ${m.label}`}
-            title="Details"
-            onClick={(e) => onDetails((e.currentTarget as HTMLElement).getBoundingClientRect())}
-          >
-            <Icon icon={InfoCircle} />
-          </button>
           <label class={`${iconButton} cursor-pointer`} title={title}>
             <input
               type="checkbox"
@@ -628,20 +594,24 @@ function Spark({ peaks }: { peaks: Peaks | null }) {
 }
 
 /** Technical details of one file, in a pop-up over the page (so the ribbon can't clip it). */
-function DetailsPopover({
+function DetailsPanel({
   slug,
+  folder,
   item,
-  rect,
   projectFps,
+  on,
   usedIn,
   onUseAsSound,
   syncResult,
   onClose,
 }: {
   slug: string;
+  /** The project folder (absolute). */
+  folder: string;
   item: MediaItem;
-  rect: DOMRect;
   projectFps: ProjectFormat | null;
+  /** Switched on: shown in the grid (cameras, stills) or its sound in the output (audio). */
+  on: boolean;
   usedIn: number;
   onUseAsSound: () => void;
   syncResult: SyncResult | null;
@@ -649,8 +619,18 @@ function DetailsPopover({
 }) {
   const [details, setDetails] = useState<MediaDetails | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
-  const box = useRef<HTMLDivElement>(null);
-
+  const [copied, setCopied] = useState(false);
+  const rootName = folder.split("/").filter(Boolean).pop() ?? "";
+  const absolute = `${folder.replace(/\/+$/, "")}/${item.path}`;
+  const copyPath = () => {
+    navigator.clipboard?.writeText(absolute).then(
+      () => {
+        setCopied(true);
+        window.setTimeout(() => setCopied(false), 1500);
+      },
+      () => undefined, // blocked: nothing is copied, and the button does not claim it was
+    );
+  };
   useEffect(() => {
     let live = true;
     fetchMediaDetails(slug, item.id).then(
@@ -663,106 +643,129 @@ function DetailsPopover({
   }, [slug, item.id]);
 
   useEffect(() => {
-    const away = (e: MouseEvent) => {
-      if (!box.current?.contains(e.target as Node)) onClose();
-    };
     const key = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    document.addEventListener("mousedown", away);
     document.addEventListener("keydown", key);
-    return () => {
-      document.removeEventListener("mousedown", away);
-      document.removeEventListener("keydown", key);
-    };
+    return () => document.removeEventListener("keydown", key);
   }, [onClose]);
 
-  const width = 288;
-  const left = Math.max(8, Math.min(rect.right - width, window.innerWidth - width - 8));
   const sections = details ? detailSections(details, item, projectFps) : [];
+  const notes = formatNotes(item, projectFps);
 
   return (
-    <div
-      ref={box}
-      role="dialog"
-      aria-label={`Details for ${item.label}`}
-      class="fixed z-50 max-h-[calc(100vh-8rem)] w-72 overflow-y-auto rounded border border-neutral-600 bg-neutral-900 p-3 text-xs shadow-xl"
-      style={{ left, top: rect.bottom + 6 }}
-    >
-      <div class="mb-1 flex items-start justify-between gap-2">
-        <div class="min-w-0">
-          <div class="truncate text-sm font-semibold text-neutral-100">{item.label}</div>
-          <div class="break-all text-[11px] text-neutral-500">{item.path}</div>
-        </div>
-        <button
-          class="text-neutral-500 hover:text-neutral-200"
-          aria-label="Close"
-          onClick={onClose}
-        >
-          <Icon icon={Close} />
-        </button>
-      </div>
-      {problem && <p class="mt-2 text-red-300">{problem}</p>}
-      {!details && !problem && <p class="mt-2 text-neutral-500">Reading the file…</p>}
-      {sections.map((s) => (
-        <div key={s.title} class="mt-2">
-          <div class="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
-            {s.title}
+    <RibbonGroup title="Details" width="w-[24.5rem] shrink-0">
+      <div
+        role="region"
+        aria-label={`Details for ${item.label}`}
+        class="h-[8.5625rem] overflow-y-auto pr-1 text-xs"
+      >
+        <div class="mb-1 flex items-start justify-between gap-2">
+          <div class="min-w-0">
+            <div class="flex items-center gap-1.5 text-sm font-semibold text-neutral-100">
+              <Icon icon={KIND[item.kind].icon} class="shrink-0 text-neutral-400" />
+              <span class="truncate">{item.label}</span>
+              {notes.length > 0 && (
+                <span
+                  class="flex shrink-0 items-center leading-none text-amber-300"
+                  title={notes.join("\n")}
+                >
+                  <Icon icon={Warning} />
+                </span>
+              )}
+            </div>
+            <div class="flex items-start gap-1 text-[11px] text-neutral-500">
+              <span class="min-w-0 break-all" title={absolute}>
+                {rootName}/{item.path}
+              </span>
+              <button
+                type="button"
+                class="mt-px shrink-0 text-neutral-500 hover:text-neutral-200"
+                aria-label="Copy the full path"
+                title={copied ? "Copied" : `Copy the full path: ${absolute}`}
+                onClick={copyPath}
+              >
+                <Icon icon={copied ? Check : Copy} />
+              </button>
+            </div>
           </div>
-          <dl class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5">
-            {s.rows.map((r) => (
-              <>
-                <dt class="text-neutral-400">{r.label}</dt>
-                <dd class={r.warn ? "text-amber-300" : "text-neutral-100"}>
-                  {r.warn && <Icon icon={Warning} class="mr-1" />}
-                  {r.value}
-                </dd>
-              </>
-            ))}
-          </dl>
+          <button
+            class="text-neutral-500 hover:text-neutral-200"
+            aria-label="Close"
+            onClick={onClose}
+          >
+            <Icon icon={Close} />
+          </button>
         </div>
-      ))}
-      <div class="mt-2">
-        <div class="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
-          In this project
-        </div>
-        <dl class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5">
-          <dt class="text-neutral-400">Status</dt>
-          <dd>{item.included ? "included" : "found in the folder, not included yet"}</dd>
-          {item.kind !== "image" && item.included && (
-            <>
-              {item.kind !== "audio" && (
+        {problem && <p class="mt-2 text-red-300">{problem}</p>}
+        {!details && !problem && <p class="mt-2 text-neutral-500">Reading the file…</p>}
+        {sections.map((s) => (
+          <div key={s.title} class="mt-2">
+            <div class="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
+              {s.title}
+            </div>
+            <dl class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5">
+              {s.rows.map((r) => (
                 <>
-                  <dt class="text-neutral-400">Used</dt>
-                  <dd>
-                    {usedIn === 0
-                      ? "not in any segment"
-                      : `in ${usedIn} segment${usedIn === 1 ? "" : "s"}`}
+                  <dt class="text-neutral-400">{r.label}</dt>
+                  <dd class="text-neutral-100">
+                    {r.value}
+                    {r.warn && (
+                      <span class="ml-1.5 text-amber-300">
+                        <Icon icon={Warning} />
+                        {r.note && <span class="ml-1">{r.note}</span>}
+                      </span>
+                    )}
                   </dd>
                 </>
-              )}
-              <dt class="text-neutral-400">Proxy</dt>
-              <dd>{item.proxy_ready ? "built" : "not built yet"}</dd>
-              <dt class="text-neutral-400">Sync</dt>
-              <dd>
-                {syncResult
-                  ? `${SYNC_DOT[syncResult.status].label}${syncResult.start_s !== null ? `, starts at ${syncResult.start_s.toFixed(3)} s` : ""}`
-                  : "not synced yet"}
-              </dd>
-            </>
-          )}
-        </dl>
-      </div>
-      {item.kind === "audio" && !item.missing && (
-        <div class="mt-3 border-t border-neutral-700 pt-2">
-          <Button icon={Sync} onClick={onUseAsSound}>
-            Use as the registration sound
-          </Button>
-          <p class="mt-1 text-[11px] text-neutral-500">
-            Finds this sound in every file and syncs them to it (the same as the Sync tab&apos;s
-            &ldquo;An audio file&rdquo;).
-          </p>
+              ))}
+            </dl>
+          </div>
+        ))}
+        <div class="mt-2">
+          <div class="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-neutral-500">
+            In this project
+          </div>
+          <dl class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5">
+            <dt class="text-neutral-400">Status</dt>
+            <dd>
+              {!item.included
+                ? "not included yet (found in the folder)"
+                : !on
+                  ? item.kind === "audio"
+                    ? "excluded (its sound is left out of the output)"
+                    : "excluded (switched off in the grid)"
+                  : item.kind === "audio"
+                    ? "included, used (its sound is in the output)"
+                    : usedIn === 0
+                      ? "included, not used (no segment shows it)"
+                      : `included, used (in ${usedIn} segment${usedIn === 1 ? "" : "s"})`}
+            </dd>
+            {item.kind !== "image" && item.included && (
+              <>
+                <dt class="text-neutral-400">Proxy</dt>
+                <dd>{item.proxy_ready ? "built" : "not built yet"}</dd>
+                <dt class="text-neutral-400">Sync</dt>
+                <dd>
+                  {syncResult
+                    ? `${SYNC_DOT[syncResult.status].label}${syncResult.start_s !== null ? `, starts at ${syncResult.start_s.toFixed(3)} s` : ""}`
+                    : "not synced yet"}
+                </dd>
+              </>
+            )}
+          </dl>
         </div>
-      )}
-    </div>
+        {item.kind === "audio" && !item.missing && (
+          <div class="mt-3 border-t border-neutral-700 pt-2">
+            <Button icon={Sync} onClick={onUseAsSound}>
+              Use as the registration sound
+            </Button>
+            <p class="mt-1 text-[11px] text-neutral-500">
+              Finds this sound in every file and syncs them to it (the same as the Sync tab&apos;s
+              &ldquo;An audio file&rdquo;).
+            </p>
+          </div>
+        )}
+      </div>
+    </RibbonGroup>
   );
 }
 

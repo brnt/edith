@@ -8,6 +8,7 @@ export { default as CaretDown } from "@ant-design/icons-svg/es/asn/CaretDownOutl
 export { default as Ellipsis } from "@ant-design/icons-svg/es/asn/EllipsisOutlined";
 export { default as CaretRight } from "@ant-design/icons-svg/es/asn/CaretRightOutlined";
 export { default as Compress } from "@ant-design/icons-svg/es/asn/CompressOutlined";
+export { default as Copy } from "@ant-design/icons-svg/es/asn/CopyOutlined";
 export { default as Edit } from "@ant-design/icons-svg/es/asn/EditOutlined";
 export { default as Home } from "@ant-design/icons-svg/es/asn/HomeOutlined";
 export { default as Desktop } from "@ant-design/icons-svg/es/asn/DesktopOutlined";

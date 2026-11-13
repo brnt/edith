@@ -399,7 +399,7 @@ test("the ribbon opens on the next step, switches tabs, and never changes height
   expect(screen.getByRole("button", { name: /Cut \(x\)/ })).toBeInTheDocument(); // the Edit tools
 
   const tabs: [string, RegExp][] = [
-    ["Media (4)", /Details for Cam A/],
+    ["Media (4)", /Add all/],
     ["Sync", /Find the sound in every file/],
     ["Export", /Render MP4/],
     ["Edit", /Cut \(x\)/],
@@ -1352,6 +1352,14 @@ describe("enabling and disabling assets in the Media tab", () => {
   });
 });
 
+/** Click a media card (not one of its buttons) to show its details. */
+const openDetails = async (name: string) => {
+  const card = (await screen.findAllByTestId("media-card")).find((c) =>
+    within(c).queryByText(name),
+  )!;
+  fireEvent.click(within(card).getByText(name));
+};
+
 describe("the media cards", () => {
   const found = (patch: Record<string, unknown>) => ({
     ...baseMedia[0],
@@ -1364,16 +1372,19 @@ describe("the media cards", () => {
     ...patch,
   });
 
-  test("every file of the project folder is a card, grouped by folder, and new ones say so", async () => {
+  test("every file of the project folder is a card in one grid; the Folder drop-down narrows it, and new ones say so", async () => {
     media = [...baseMedia, found({})];
     render(<Workspace slug="show" />);
     fireEvent.click(await screen.findByRole("tab", { name: /Media/ }));
-    const folders = await screen.findAllByTestId("media-folder");
-    expect(folders.map((f) => f.getAttribute("aria-label"))).toEqual([
-      "show", // the project folder's own name
+    const folder = await screen.findByRole("combobox", { name: "Folder" });
+    expect([...(folder as HTMLSelectElement).options].map((o) => o.text)).toEqual([
+      "All folders",
+      "day 1",
       "day 1 / cam C",
     ]);
-    const cards = within(folders[1]).getAllByTestId("media-card");
+    expect(await screen.findAllByTestId("media-card")).toHaveLength(5); // no folder headers
+    fireEvent.change(folder, { target: { value: "day 1" } }); // a folder lists what is below it too
+    const cards = screen.getAllByTestId("media-card");
     expect(cards).toHaveLength(1);
     expect(cards[0]).toHaveAttribute("data-included", "false");
     expect(within(cards[0]).getByText("new")).toBeInTheDocument();
@@ -1398,27 +1409,73 @@ describe("the media cards", () => {
     expect(await within(tiles).findByLabelText(/camera 3/i)).toBeInTheDocument();
   });
 
-  test("a folder can be folded away", async () => {
-    media = [...baseMedia, found({})];
+  test("clicking a card shows its details in a panel beside the cards; clicking it again hides them", async () => {
     render(<Workspace slug="show" />);
     fireEvent.click(await screen.findByRole("tab", { name: /Media/ }));
-    const folder = (await screen.findAllByTestId("media-folder"))[1];
-    fireEvent.click(within(folder).getByRole("button", { name: /day 1 \/ cam C/ }));
-    expect(within(folder).queryByTestId("media-card")).toBeNull();
-    fireEvent.click(within(folder).getByRole("button", { name: /day 1 \/ cam C/ }));
-    expect(within(folder).getAllByTestId("media-card")).toHaveLength(1);
+    const card = (await screen.findAllByTestId("media-card")).find((c) =>
+      within(c).queryByText("Cam B"),
+    )!;
+    expect(screen.queryByRole("region", { name: /Details for/ })).toBeNull();
+    fireEvent.click(within(card).getByText("Cam B")); // the card itself, not one of its buttons
+    expect(await screen.findByRole("region", { name: "Details for Cam B" })).toBeInTheDocument();
+    expect(card).toHaveClass("ring-sky-400"); // the selected one is marked
+    fireEvent.click(within(card).getByText("Cam B"));
+    expect(screen.queryByRole("region", { name: /Details for/ })).toBeNull();
+    // Another card replaces it; Close hides it.
+    await openDetails("Cam A");
+    expect(await screen.findByRole("region", { name: "Details for Cam A" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(screen.queryByRole("region", { name: /Details for/ })).toBeNull();
   });
 
-  test("the details pop-up shows the technical details of a file", async () => {
+  test("the details show the path from the project folder's name, and copy the full path", async () => {
+    const writeText = vi.fn(() => Promise.resolve());
+    vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText } });
     render(<Workspace slug="show" />);
     fireEvent.click(await screen.findByRole("tab", { name: /Media/ }));
-    fireEvent.click(await screen.findByRole("button", { name: "Details for Cam A" }));
-    const dialog = await screen.findByRole("dialog", { name: "Details for Cam A" });
+    await openDetails("Cam A");
+    const panel = await screen.findByRole("region", { name: "Details for Cam A" });
+    expect(within(panel).getByText(/^show\//)).toBeInTheDocument();
+    fireEvent.click(within(panel).getByRole("button", { name: "Copy the full path" }));
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+    expect((writeText.mock.calls[0] as unknown as [string])[0]).toMatch(/^\/Volumes\/SSD\/show\//);
+    vi.unstubAllGlobals();
+  });
+
+  test("the details' status says whether the file is on, switched off, or not in the project yet", async () => {
+    media = [
+      ...baseMedia,
+      { ...baseMedia[1], id: "camC", label: "Cam C", path: "show/c2.mp4" },
+      found({}),
+    ];
+    savedEdit = {
+      ...baseEdit,
+      disabled: ["camB"],
+      switches: [{ at_s: 0, media_id: "camA" }], // camA shows from the start
+    };
+    render(<Workspace slug="show" />);
+    fireEvent.click(await screen.findByRole("tab", { name: /Media/ }));
+    const status = async (name: string) => {
+      await openDetails(name);
+      const panel = await screen.findByRole("region", { name: `Details for ${name}` });
+      return within(panel).getByText("Status").nextElementSibling?.textContent;
+    };
+    expect(await status("Cam A")).toMatch(/^included, used/); // the opening camera
+    expect(await status("Cam B")).toMatch(/^excluded/);
+    expect(await status("Cam C")).toMatch(/^included, not used/); // no segment shows it
+    expect(await status("c.mp4")).toMatch(/^not included yet/);
+  });
+
+  test("the details panel shows the technical details of a file", async () => {
+    render(<Workspace slug="show" />);
+    fireEvent.click(await screen.findByRole("tab", { name: /Media/ }));
+    await openDetails("Cam A");
+    const dialog = await screen.findByRole("region", { name: "Details for Cam A" });
     expect(await within(dialog).findByText("3840×2160")).toBeInTheDocument();
     expect(within(dialog).getByText("h264 · High")).toBeInTheDocument();
     expect(within(dialog).getByText("8-bit · yuv420p · bt709 · tv")).toBeInTheDocument();
     fireEvent.keyDown(document, { key: "Escape" });
-    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await waitFor(() => expect(screen.queryByRole("region", { name: /Details for/ })).toBeNull());
   });
 
   test("a file that is missing says so on its card", async () => {
@@ -1491,19 +1548,32 @@ describe("the media cards", () => {
     expect(await screen.findByText("Nothing matches this filter.")).toBeInTheDocument();
   });
 
-  test("a folder's header includes all its new files in one click", async () => {
+  test("Add all includes the new files that are listed, and switches on what is hidden", async () => {
     media = [
       ...baseMedia,
       found({ id: "n1", path: "show/b/1.mp4", label: "1.mp4", folder: "b" }),
       found({ id: "n2", path: "show/b/2.mp4", label: "2.mp4", folder: "b" }),
+      found({ id: "n3", path: "show/c/3.mp4", label: "3.mp4", folder: "c" }),
     ];
+    savedEdit = {
+      ...baseEdit,
+      disabled: ["camB"],
+      switches: [{ at_s: 0, media_id: "camA" }], // camA shows from the start
+    };
     render(<Workspace slug="show" />);
     fireEvent.click(await screen.findByRole("tab", { name: /Media/ }));
-    const [, folderB] = await screen.findAllByTestId("media-folder");
-    fireEvent.click(within(folderB).getByRole("button", { name: "Include all" }));
+    fireEvent.change(await screen.findByRole("combobox", { name: "Folder" }), {
+      target: { value: "b" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add all" })); // only what is listed
     await waitFor(() =>
       expect(mediaPosts.map((p) => p.path)).toEqual(["show/b/1.mp4", "show/b/2.mp4"]),
     );
+    // Cam B is hidden but not listed here, so it stays hidden: nothing to save.
+    expect(screen.queryByText("unsaved changes")).toBeNull();
+    fireEvent.change(screen.getByRole("combobox", { name: "Folder" }), { target: { value: "" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add all" }));
+    expect(await screen.findByText("unsaved changes")).toBeInTheDocument(); // Cam B is on again
   });
 
   test("Exclude unused switches off the cameras no segment shows; Add all brings them back", async () => {
@@ -1536,7 +1606,7 @@ describe("the media cards", () => {
     expect(within(cardOf("Cam B")).queryByRole("button", { name: /fps, but/ })).toBeNull();
     // Clicking it opens the details, where the same frame rate is marked.
     fireEvent.click(flag);
-    const dialog = await screen.findByRole("dialog", { name: "Details for Cam A" });
+    const dialog = await screen.findByRole("region", { name: "Details for Cam A" });
     expect(await within(dialog).findByText(/59.94 fps/)).toBeInTheDocument();
   });
 
@@ -1544,12 +1614,12 @@ describe("the media cards", () => {
     savedEdit = { ...baseEdit, switches: [{ at_s: 10, media_id: "camB" }] };
     render(<Workspace slug="show" />);
     fireEvent.click(await screen.findByRole("tab", { name: /Media/ }));
-    fireEvent.click(await screen.findByRole("button", { name: "Details for Cam B" }));
-    const dialog = await screen.findByRole("dialog", { name: "Details for Cam B" });
-    expect(within(dialog).getByText("in 1 segment")).toBeInTheDocument();
+    await openDetails("Cam B");
+    const dialog = await screen.findByRole("region", { name: "Details for Cam B" });
+    expect(within(dialog).getByText(/included, used \(in 1 segment\)/)).toBeInTheDocument();
     fireEvent.keyDown(document, { key: "Escape" });
-    fireEvent.click(await screen.findByRole("button", { name: "Details for mic.wav" }));
-    expect(await screen.findByRole("dialog", { name: "Details for mic.wav" })).toBeInTheDocument();
+    await openDetails("mic.wav");
+    expect(await screen.findByRole("region", { name: "Details for mic.wav" })).toBeInTheDocument();
   });
 
   test("there is no Add media and no Remove from project: the folder is the way in and out", async () => {
@@ -1557,8 +1627,8 @@ describe("the media cards", () => {
     fireEvent.click(await screen.findByRole("tab", { name: /Media/ }));
     await screen.findAllByTestId("media-card");
     expect(screen.queryByRole("button", { name: /Add media/ })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Details for Cam A" }));
-    await screen.findByRole("dialog", { name: "Details for Cam A" });
+    await openDetails("Cam A");
+    await screen.findByRole("region", { name: "Details for Cam A" });
     expect(screen.queryByRole("button", { name: /Remove/ })).toBeNull();
   });
 
@@ -1585,13 +1655,13 @@ describe("the media cards", () => {
   test("an audio file can be made the registration sound from its details", async () => {
     render(<Workspace slug="show" />);
     fireEvent.click(await screen.findByRole("tab", { name: /Media/ }));
-    fireEvent.click(await screen.findByRole("button", { name: "Details for mic.wav" }));
+    await openDetails("mic.wav");
     fireEvent.click(await screen.findByRole("button", { name: "Use as the registration sound" }));
     await waitFor(() => expect(syncPosts).toHaveLength(1));
     expect(syncPosts[0].template).toEqual({ kind: "file", path: "m/mic.wav" });
     // Cameras have no such action.
-    fireEvent.click(await screen.findByRole("button", { name: "Details for Cam A" }));
-    await screen.findByRole("dialog", { name: "Details for Cam A" });
+    await openDetails("Cam A");
+    await screen.findByRole("region", { name: "Details for Cam A" });
     expect(screen.queryByRole("button", { name: "Use as the registration sound" })).toBeNull();
   });
 

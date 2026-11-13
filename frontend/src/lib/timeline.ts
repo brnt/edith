@@ -426,39 +426,31 @@ export function exportedChannelIds(
   return out;
 }
 
-/** Media of one folder of the project (the project folder itself has `key` ""). */
-export interface MediaGroup {
-  key: string;
-  /** The folder as a breadcrumb, e.g. "day 1 / camera A"; empty for the project folder itself. */
-  title: string;
-  items: MediaItem[];
-}
-
 const naturalOrder = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
 
-/**
- * The media view's folder hierarchy: the project folder first, then its subfolders in natural
- * order. Within a folder: cameras, audio, then stills.
- */
-export function groupMedia(media: MediaItem[]): MediaGroup[] {
-  const groups = new Map<string, MediaGroup>();
+/** A folder of the project, as the Media tab's Folder drop-down lists it. */
+export interface MediaFolder {
+  /** The path within the project folder ("day 1/cam A"). */
+  path: string;
+  /** As a breadcrumb: "day 1 / cam A". */
+  title: string;
+}
+
+/** Every folder that holds media, and the folders above them, in natural order. */
+export function mediaFolders(media: MediaItem[]): MediaFolder[] {
+  const paths = new Set<string>();
   for (const m of media) {
-    let group = groups.get(m.folder);
-    if (!group) {
-      group = { key: m.folder, title: m.folder.split("/").filter(Boolean).join(" / "), items: [] };
-      groups.set(m.folder, group);
-    }
-    group.items.push(m);
+    const parts = m.folder.split("/").filter(Boolean);
+    for (let i = 1; i <= parts.length; i++) paths.add(parts.slice(0, i).join("/"));
   }
-  return [...groups.values()]
-    .map((g) => ({ ...g, items: sortMedia(g.items) }))
-    .sort((a, b) =>
-      (a.key === "") === (b.key === "")
-        ? naturalOrder.compare(a.key, b.key)
-        : a.key === ""
-          ? -1
-          : 1,
-    );
+  return [...paths]
+    .sort((a, b) => naturalOrder.compare(a, b))
+    .map((path) => ({ path, title: path.split("/").join(" / ") }));
+}
+
+/** Whether a file is in `folder` or below it ("" is the project folder, so everything). */
+export function inFolder(m: MediaItem, folder: string): boolean {
+  return folder === "" || m.folder === folder || m.folder.startsWith(`${folder}/`);
 }
 
 /**

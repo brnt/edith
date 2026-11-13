@@ -77,11 +77,13 @@ comes next.
    - **Details (i):** codec, resolution (flagged when it is smaller than the project's output, since it would be scaled up and look soft), frame rate (flagged when variable or different from the
      project's), colour depth, bit rate, audio format, size (the
      file itself is never touched).
-   - **Folders:** the cards are grouped by folder, and a folder's header can be folded away,
-     or **Include all** its new files. A **Show** filter narrows the cards to cameras, audio,
-     stills, new files, or files the sync hasn't placed; under it, **Add all** switches every
-     listed file back on and **Exclude unused** switches off the cameras and stills no segment of
-     the edit shows.
+   - **Folders:** all cards sit in one grid. A **Folder** drop-down narrows it to one folder and
+     everything below it; a **Show** filter narrows it to cameras, audio, stills, new files, or
+     files the sync hasn't placed. Under them, **Add all** brings the listed new files into the
+     project and switches on any that are hidden, and **Exclude unused** switches off the cameras and
+     stills no segment of the edit shows.
+   - **Details:** click a card and a Details panel opens beside the cards
+     with the file's technical details; click the card again, or Close, to hide it.
    - **Heads-up marks:** an amber warning button on a card (click it for the details) means a frame rate that differs from the
      project's, or a portrait (vertical) picture; the details say which. They also say how many
      segments of the edit show a camera or still.
