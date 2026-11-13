@@ -132,7 +132,7 @@ comes next.
    never shrinks a view that is at full size, and a project with few files has a short timeline.
    When the timeline does scroll, the time ruler and the row labels stay pinned.
    - **Channels:** the output shows one _channel_ at a time: a camera or a still. Cameras are
-     numbered first, then stills (each by name), and only the first nine get a number. Put the
+     numbered first, then stills (each in the order added), and only the first nine get a number. Put the
      playhead where you want the change and press the channel's number (or click its button);
      it stays on screen until the next switch, so a still is cut to and from like a camera.
      **With a stretch selected** (drag on the timeline), clicking a thumbnail or pressing a number

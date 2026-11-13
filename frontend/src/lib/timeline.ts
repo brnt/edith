@@ -139,15 +139,15 @@ export interface Channel {
 }
 
 /**
- * Everything the output can show: cameras first and then stills (each by name). Numbers go to the
- * first nine *enabled* channels, so they always match what the grid shows.
+ * Everything the output can show: cameras first and then stills, each in the order given (the order
+ * they were added in, so a new one never renumbers the others). Numbers go to the first nine
+ * *enabled* channels, so they always match what the grid shows.
  */
 export function channelsOf(media: MediaItem[], disabled: string[] = []): Channel[] {
-  const byName = (a: MediaItem, b: MediaItem) => a.label.localeCompare(b.label);
   const off = new Set(disabled);
   const ordered = [
-    ...media.filter((m) => m.kind === "video").sort(byName),
-    ...media.filter((m) => m.kind === "image").sort(byName),
+    ...media.filter((m) => m.kind === "video"),
+    ...media.filter((m) => m.kind === "image"),
   ];
   let next = 0;
   return ordered.map((item) => {
@@ -336,11 +336,16 @@ export function movedSwitches(
 
 const KIND_ORDER = { video: 0, audio: 1, image: 2 } as const;
 
-/** Stable order for the UI: cameras first, then audio, then stills; by name within each. */
+/**
+ * The UI's order. The project's media keep the order the server gives (the order they were added
+ * in, so channel numbers never shuffle when more lands); files merely found in the folder follow,
+ * cameras first, then audio, then stills, by name.
+ */
 export function sortMedia(media: MediaItem[]): MediaItem[] {
-  return [...media].sort(
-    (a, b) => KIND_ORDER[a.kind] - KIND_ORDER[b.kind] || a.label.localeCompare(b.label),
-  );
+  const found = media
+    .filter((m) => !m.included)
+    .sort((a, b) => KIND_ORDER[a.kind] - KIND_ORDER[b.kind] || a.label.localeCompare(b.label));
+  return [...media.filter((m) => m.included), ...found];
 }
 
 export function formatTime(seconds: number, frac = 1): string {

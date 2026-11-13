@@ -59,9 +59,26 @@ def include_media(slug: str, rel_path: str) -> MediaRecord:
     """Make a file of the project folder part of the project (the edit that writes it)."""
     item = build_item(project_folder(slug), rel_path)
     with open_project(slug, writable=True) as project:
+        # Joins at the end: what is there keeps its place (and so its channel number).
+        existing = project.get(MEDIA, item.id)
+        if existing is not None and isinstance(existing.document, MediaItem):
+            item.added = existing.document.added  # included again: it stays where it was
+        else:
+            item.added = _next_added(project)
         project.put(MEDIA, item.id, item)
     log.info("media_included", slug=slug, media=item.id, kind=item.kind)
     return _record(slug, item, included=True)
+
+
+def _next_added(project: ProjectFile) -> int:
+    return 1 + max(
+        (
+            d.document.added if d.document.added is not None else -1
+            for d in project.documents_of(MEDIA)
+            if isinstance(d.document, MediaItem)
+        ),
+        default=-1,
+    )
 
 
 def _record(slug: str, item: MediaItem, *, included: bool) -> MediaRecord:
@@ -95,6 +112,17 @@ def _referenced(project: ProjectFile) -> set[str]:
     return ids
 
 
+_KIND_ORDER = {"video": 0, "audio": 1, "image": 2}
+
+
+def _order(item: MediaItem) -> tuple[int, int, str]:
+    """The project's order: as added; older projects (nothing recorded) first, cameras then audio
+    then stills, by name."""
+    if item.added is not None:
+        return (1, item.added, "")
+    return (0, _KIND_ORDER[item.kind], item.label.lower())
+
+
 def list_media(slug: str, *, with_available: bool = False) -> list[MediaRecord]:
     """The project's media; with `with_available`, also the files lying in its folder unused.
 
@@ -107,6 +135,7 @@ def list_media(slug: str, *, with_available: bool = False) -> list[MediaRecord]:
             d.document for d in project.documents_of(MEDIA) if isinstance(d.document, MediaItem)
         ]
         referenced = _referenced(project)
+    items.sort(key=_order)
     records = [_record(slug, i, included=True) for i in items]
     records = [r for r in records if not r.missing or r.item.id in referenced]
     if with_available:
@@ -189,6 +218,7 @@ def relink_media(slug: str, media_id_: str, new_rel_path: str) -> MediaRecord:
     with open_project(slug, writable=True) as project:
         if project.get(MEDIA, new.id) is not None:
             raise MediaError(f"{new.label} is already in this project")
+        new.added = old.added  # it keeps its place
         project.put(MEDIA, new.id, new)
         _rename_references(project, old.id, new.id)
         project.delete(MEDIA, old.id)

@@ -76,6 +76,9 @@ class MediaItem(Document):
     height: int | None = None
     fps: float | None = None
     has_audio: bool = False
+    # When it joined the project (0, 1, 2, ...): the order and channel numbers never shuffle as
+    # media lands. None in projects from before this was kept; those stay in kind-then-name order.
+    added: int | None = None
 
 
 class SyncTemplate(Part):

@@ -333,17 +333,19 @@ describe("channels: cameras and stills", () => {
     ...Array.from({ length: 9 }, (_, i) => item(`still${i}`, "image")),
   ];
 
-  test("cameras are numbered first, then stills, each by name; audio gets no number", () => {
+  test("cameras are numbered first, then stills, each in the order given; audio gets no number", () => {
     const channels = channelsOf([
       item("car", "image"),
       item("b-cam", "video"),
       item("mic", "audio"),
       item("a-cam", "video"),
+      item("another-car", "image"),
     ]);
     expect(channels.map((c) => [c.item.id, c.number])).toEqual([
-      ["a-cam", 1],
-      ["b-cam", 2],
+      ["b-cam", 1],
+      ["a-cam", 2],
       ["car", 3],
+      ["another-car", 4],
     ]);
   });
 
@@ -691,14 +693,17 @@ describe("disabled channels", () => {
 });
 
 describe("ordering", () => {
-  test("cameras come first, then audio, then stills, by name", () => {
+  test("the project's media keep the server's order; found files follow, cameras first, by name", () => {
+    const found = (id: string, kind: MediaItem["kind"]) => ({ ...item(id, kind), included: false });
     const list = [
       item("z", "image"),
       item("b", "audio"),
+      found("y", "image"),
       item("cam2", "video"),
-      item("cam1", "video"),
+      found("cam9", "video"),
+      found("a", "audio"),
     ];
-    expect(sortMedia(list).map((m) => m.id)).toEqual(["cam1", "cam2", "b", "z"]);
+    expect(sortMedia(list).map((m) => m.id)).toEqual(["z", "b", "cam2", "cam9", "a", "y"]);
   });
 });
 
