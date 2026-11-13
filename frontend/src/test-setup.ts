@@ -1,5 +1,8 @@
 import "@testing-library/jest-dom";
-import { vi } from "vitest";
+import { afterEach, vi } from "vitest";
+
+// What the page remembers across reloads must not leak from one test into the next.
+afterEach(() => localStorage.clear());
 
 // jsdom implements neither canvas nor media playback.
 HTMLCanvasElement.prototype.getContext = vi.fn(() => ({

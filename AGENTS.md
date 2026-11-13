@@ -119,6 +119,11 @@ Root `justfile` delegates to both; Compose runs `api` (:8000) and `web` (:8080).
   kept by relink): channel numbers never shuffle as media lands. Projects from before it was
   recorded (`added` is None) stay in kind-then-name order, ahead of anything added since;
   `sortMedia` and `channelsOf` keep the server's order for included media (channels: cameras, then stills).
+- **A reload keeps the tab, playhead, selection and picked segment/cut/level**, in the browser's
+  `localStorage` per project (`lib/uiState.ts`: `edith.ui.<slug>`; never in the project file). Values
+  are validated on restore (playhead and selection inside the timeline, a pick's index still in the
+  edit) and ignored otherwise; the playhead is written at most every 400 ms and on `pagehide`.
+  Tests clear storage after each test (`test-setup.ts`).
 - **Relinking** (`media_items.relink_media`, `POST /media/{id}/relink`): media ids come from paths,
   so a relinked file gets a new id and the edit and sync documents are rewritten server-side; the
   client mirrors it with `renameMedia` over the saved edit and every undo step (`history.mapAll`),
