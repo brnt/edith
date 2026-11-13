@@ -151,6 +151,8 @@ export function Studio(props: Props) {
             media={media}
             available={props.available}
             sync={sync}
+            edit={ed.edit}
+            onEdit={props.onEdit}
             peaks={props.peaks}
             onChange={props.onSyncChange}
             onError={props.onError}

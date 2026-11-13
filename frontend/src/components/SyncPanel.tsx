@@ -2,8 +2,10 @@ import { useEffect, useRef, useState } from "preact/hooks";
 
 import {
   putNudges,
+  registrationFileName,
   registrationSoundUrl,
   startSync,
+  type EditList,
   type MediaItem,
   type Peaks,
   type SyncResult,
@@ -23,6 +25,9 @@ interface Props {
   /** Everything in the project folder, for choosing an audio file that isn't in the project. */
   available: MediaItem[];
   sync: SyncState | null;
+  /** The edit, which holds the registration sound's source (`registration`) as a project setting. */
+  edit: EditList;
+  onEdit: (edit: EditList) => void;
   peaks: Record<string, Peaks>;
   onChange: () => void;
   onError: (message: string) => void;
@@ -56,9 +61,10 @@ function describe(result: SyncResult | undefined) {
 }
 
 export function SyncPanel(props: Props) {
-  const { slug, media, sync, peaks, onChange, onError } = props;
+  const { slug, media, sync, edit, onEdit, peaks, onChange, onError } = props;
   const withAudio = media.filter((m) => m.has_audio && m.kind !== "image");
-  const saved = sync?.template ?? null;
+  // The project's setting; for a project that never set it, the sound its last sync used.
+  const saved = edit.registration ?? sync?.template ?? null;
   const [mode, setMode] = useState<Mode>(saved?.kind ?? "excerpt");
   const [sourceId, setSourceId] = useState<string>(saved?.media_id ?? "");
   const [range, setRange] = useState<[number, number] | null>(
@@ -105,6 +111,37 @@ export function SyncPanel(props: Props) {
     if (mode === "file") return filePath ? { kind: "file", path: filePath } : null;
     if (!source || !range || tooLong) return null;
     return { kind: "excerpt", media_id: source.id, start_s: range[0], end_s: range[1] };
+  };
+
+  // The registration sound is a setting of the project: whatever source is fully chosen (a typed
+  // seed, a file, a marked stretch) becomes part of the edit, which marks the project modified (Save
+  // keeps it, Undo takes it back) and means Find needs no re-uploading. It is applied a moment after
+  // the last change, so typing doesn't add an undo step per letter.
+  const chosen = template();
+  const same = (a: SyncTemplate | null, b: SyncTemplate | null) =>
+    a?.kind === b?.kind &&
+    (a?.seed ?? null) === (b?.seed ?? null) &&
+    (a?.path ?? null) === (b?.path ?? null) &&
+    (a?.media_id ?? null) === (b?.media_id ?? null) &&
+    (a?.start_s ?? null) === (b?.start_s ?? null) &&
+    (a?.end_s ?? null) === (b?.end_s ?? null);
+  const setSource = () => {
+    if (chosen && !same(saved, chosen)) onEdit({ ...edit, registration: chosen });
+  };
+  useEffect(() => {
+    if (!chosen || same(saved, chosen)) return;
+    const timer = setTimeout(setSource, 500);
+    return () => clearTimeout(timer);
+  }, [JSON.stringify(chosen), JSON.stringify(saved)]);
+
+  // Enter in the seed field does what the download button does.
+  const downloadSound = () => {
+    if (!seed.trim()) return;
+    setSource(); // and the seed is part of the project from now on
+    const link = document.createElement("a");
+    link.href = registrationSoundUrl(seed.trim());
+    link.download = registrationFileName(seed.trim());
+    link.click();
   };
 
   const run = async () => {
@@ -188,13 +225,19 @@ export function SyncPanel(props: Props) {
                 maxLength={64}
                 value={seed}
                 onInput={(e) => setSeed(e.currentTarget.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    downloadSound();
+                  }
+                }}
               />
               <RibbonSet columns={1}>
                 <RibbonButton
                   icon={Download}
                   label="Download the sound to play on set (.wav)"
                   href={seed.trim() ? registrationSoundUrl(seed.trim()) : ""}
-                  download="registration.wav"
+                  download={registrationFileName(seed.trim())}
                   disabled={seed.trim() === ""}
                 />
               </RibbonSet>

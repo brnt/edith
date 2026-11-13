@@ -132,6 +132,8 @@ export interface EditList {
   mix: MixRegion[];
   /** Cameras and stills switched off in the Media tab (hidden from the grid, no number). */
   disabled: string[];
+  /** The registration sound's source, a project setting (null until chosen). */
+  registration?: SyncTemplate | null;
   /** How a render is encoded: a key of ENCODINGS in the panel. */
   encoding: string;
   fps_num: number;
@@ -260,6 +262,14 @@ export const proxyUrl = (slug: string, id: string) => `${BASE_URL}${p(slug)}/med
 export const fetchSync = (slug: string) => request<SyncState>(`${p(slug)}/sync`);
 export const startSync = (slug: string, template: SyncTemplate) =>
   request<Job>(`${p(slug)}/sync`, json("POST", { template }));
+/** The file the generated sound is saved as: `<seed>.wav` (as the server names it). */
+export const registrationFileName = (seed: string) => {
+  const stem = seed
+    // eslint-disable-next-line no-control-regex
+    .replace(/[\\/:*?"<>|\u0000-\u001f]+/g, "-")
+    .replace(/^[ .]+|[ .]+$/g, "");
+  return `${(stem || "registration").slice(0, 64)}.wav`;
+};
 export const registrationSoundUrl = (seed: string) =>
   `${BASE_URL}/registration/sound?seed=${encodeURIComponent(seed)}`;
 export const putNudges = (slug: string, nudges: Record<string, number>) =>
