@@ -182,10 +182,22 @@ def _append_audio(segs: list[AudioSeg], seg: AudioSeg) -> None:
 def build_plan(edit: EditList, media: dict[str, MediaItem], sync: SyncState) -> RenderPlan:
     offsets = media_offsets(media, sync)
     warnings: list[str] = []
+    fallback = default_camera(media, offsets)
+    tracks = output_tracks(edit, media)
+
+    def matters(i: str) -> bool:
+        """Whether the output can use this file: its sound is in it, or it is shown (a camera or
+        still switched off in the Media tab and never switched to is out of the picture)."""
+        if media[i].kind == "audio":
+            return i in {t[0] for t in tracks}
+        return (
+            i not in edit.disabled or i == fallback or any(s.media_id == i for s in edit.switches)
+        )
+
     timed = [i for i in offsets if media[i].duration_s]
     if len(timed) > 1:
         for i in timed:
-            if i not in sync.results or sync.results[i].status == "unsynced":
+            if matters(i) and (i not in sync.results or sync.results[i].status == "unsynced"):
                 warnings.append(
                     f"{media[i].label} is not synced; assuming it starts at the nudge offset"
                 )
@@ -193,8 +205,6 @@ def build_plan(edit: EditList, media: dict[str, MediaItem], sync: SyncState) -> 
     hi = timeline_end(media, offsets)
     keep = keep_intervals(0.0, hi, [(c.start_s, c.end_s) for c in edit.cuts]) if hi > 0 else []
 
-    fallback = default_camera(media, offsets)
-    tracks = output_tracks(edit, media)
     video: list[VideoSeg] = []
     audio: list[AudioSeg] = []
     warned: set[str] = set()
