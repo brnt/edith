@@ -1,3 +1,4 @@
+import { barHeight, quietLevel } from "./waveform";
 import { trimToRegistration } from "./editOps";
 import { loadUi, restoredPick, restoredSelection, restoredTime, saveUi } from "./uiState";
 import { describe, expect, test } from "vitest";
@@ -912,5 +913,22 @@ describe("registrationMarks", () => {
     expect(marks.a[0][1]).toBeCloseTo(6.7);
     expect(marks.a[1][0]).toBeCloseTo(61.9);
     expect(registrationMarks(null)).toEqual({});
+  });
+});
+
+describe("how loud a waveform looks", () => {
+  test("it is drawn up from the file's own background level, kept between -70 and -30 dBFS", () => {
+    const hiss = Array.from({ length: 100 }, (_, i) => (i < 20 ? 130 : 200)); // 20% of it quiet
+    expect(quietLevel(hiss)).toBe(130);
+    expect(quietLevel([0, 0, 0])).toBe(32); // digital silence is no background: the lowest
+    expect(quietLevel([250, 250, 250])).toBe(159); // never above -30 dBFS
+    expect(quietLevel([5, 5, 5, 200])).toBe(32); // never below -70 dBFS
+  });
+
+  test("a bar is 0 at the background and full at 0 dBFS", () => {
+    expect(barHeight(130, 130)).toBe(0);
+    expect(barHeight(100, 130)).toBe(0);
+    expect(barHeight(255, 130)).toBe(1);
+    expect(barHeight(192.5, 130)).toBeCloseTo(0.5);
   });
 });
