@@ -168,6 +168,23 @@ def test_unsynced_media_is_reported_and_nudges_apply():
     assert plan.audio[0].rec_in_s == pytest.approx(0.25)
 
 
+def test_an_unsynced_file_nothing_uses_is_not_warned_about():
+    sync = SyncState(
+        results={
+            "mic": SyncResult(status="synced", start_s=0.0),
+            "camA": SyncResult(status="synced", start_s=5.0),
+            "beep": SyncResult(status="unsynced"),
+        }
+    )
+    media = {"camA": MEDIA["camA"], "mic": MEDIA["mic"], "beep": item("beep", "audio", 1.2)}
+    # The beep's sound is left out of the output: it cannot be misplaced in it.
+    left_out = EditList(cuts=window(0, 10), tracks=[TrackSetting(media_id="mic", gain_db=0.0)])
+    assert not any("not synced" in w for w in build_plan(left_out, media, sync).warnings)
+    # Used in it, it is worth a warning.
+    used = EditList(cuts=window(0, 10), tracks=[TrackSetting(media_id="beep", gain_db=0.0)])
+    assert any("beep is not synced" in w for w in build_plan(used, media, sync).warnings)
+
+
 def test_empty_project_or_all_cut_gives_an_empty_plan():
     assert build_plan(EditList(), {}, SyncState()).duration_s == 0
     assert build_plan(EditList(cuts=[Cut(start_s=0, end_s=1000)]), MEDIA, SYNC).video == []
