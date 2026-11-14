@@ -1,7 +1,8 @@
-import { useEffect, useRef } from "preact/hooks";
+import { useEffect, useMemo, useRef } from "preact/hooks";
 
 import type { Peaks } from "../lib/api";
 import { AUDIO_WAVEFORM, REGISTRATION_MARK } from "../lib/channelStyle";
+import { barHeight, quietLevel } from "../lib/waveform";
 
 interface Props {
   peaks: Peaks | undefined;
@@ -32,6 +33,7 @@ export function Waveform({
   markColor = REGISTRATION_MARK,
 }: Props) {
   const ref = useRef<HTMLCanvasElement>(null);
+  const quiet = useMemo(() => (peaks ? quietLevel(peaks.values) : 0), [peaks]);
 
   useEffect(() => {
     const canvas = ref.current;
@@ -48,12 +50,12 @@ export function Waveform({
       for (let i = Math.max(0, from); i < Math.min(to, peaks.values.length); i++) {
         if (peaks.values[i] > max) max = peaks.values[i];
       }
-      const h = Math.max(max > 0 ? 1 : 0, (max / 255) * height);
+      const h = Math.max(max > quiet ? 1 : 0, barHeight(max, quiet) * height);
       const t = x / pxPerSec - offset; // this column's moment in the file
       ctx.fillStyle = marks.some(([a, b]) => t >= a && t < b) ? markColor : color;
       ctx.fillRect(x, (height - h) / 2, 1, h);
     }
-  }, [peaks, offset, pxPerSec, width, height, color, marks, markColor]);
+  }, [peaks, quiet, offset, pxPerSec, width, height, color, marks, markColor]);
 
   return <canvas ref={ref} width={Math.min(width, MAX_CANVAS_PX)} height={height} class="block" />;
 }
