@@ -29,6 +29,8 @@ import {
   mediaOffsets,
   nudgeStep,
   playbackEnd,
+  registrationMarks,
+  registrationSpan,
   skipCuts,
   timelineEnd,
   type Picked,
@@ -55,6 +57,9 @@ export function useEditor({ slug, media, sync, edit, onEdit, onError, ready }: A
   const offsets = useMemo(() => mediaOffsets(media, sync), [media, sync]);
   const end = timelineEnd(media, offsets);
   const keeps = useMemo(() => keepIntervals(0, end, cutRanges(edit.cuts)), [end, edit.cuts]);
+  // Between the registration sounds, when the files have both found.
+  const registration = useMemo(() => registrationSpan(media, sync), [media, sync]);
+  const registrationMarksOf = useMemo(() => registrationMarks(sync), [sync]);
   const outputLength = keeps.reduce((sum, [a, b]) => sum + (b - a), 0);
   const firstKept = firstKeptMoment(keeps, 0);
 
@@ -311,6 +316,8 @@ export function useEditor({ slug, media, sync, edit, onEdit, onError, ready }: A
     offsets,
     end,
     firstKept,
+    registration,
+    registrationMarks: registrationMarksOf,
     keeps,
     outputLength,
     t,

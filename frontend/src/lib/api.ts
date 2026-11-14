@@ -92,6 +92,8 @@ export interface SyncTemplate {
   end_s?: number | null;
   seed?: string | null;
   path?: string | null;
+  /** The sound's actual length, recorded when syncing. */
+  duration_s?: number | null;
 }
 
 export interface SyncState {

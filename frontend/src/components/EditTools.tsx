@@ -9,6 +9,7 @@ import {
   removeCut,
   removeMix,
   removeSwitch,
+  trimToRegistration,
 } from "../lib/editOps";
 import { effectiveTracks, formatTime, regionDb, trackBaseDb, type Range } from "../lib/timeline";
 import type { EditorApi } from "../lib/useEditor";
@@ -31,6 +32,7 @@ import {
   Search,
   Speaker,
   SpeakerMuted,
+  TrimTo,
 } from "./icons";
 
 /** A level for display: signed, in dB. */
@@ -247,6 +249,18 @@ export function EditTools({ ed }: { ed: EditorApi }) {
             label="Dismiss suggestions"
             disabled={suggestions.length === 0}
             onClick={() => ed.setSuggestions([])}
+          />
+        </RibbonSet>
+        <RibbonSet columns={2}>
+          <RibbonButton
+            size={2}
+            icon={TrimTo}
+            text="Autotrim"
+            label="Autotrim: cut everything before the opening registration sound and after the closing one, the sounds included"
+            disabled={ed.registration === null}
+            onClick={() =>
+              ed.registration && onEdit(trimToRegistration(edit, ed.registration, ed.end))
+            }
           />
         </RibbonSet>
       </RibbonGroup>

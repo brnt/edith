@@ -206,6 +206,7 @@ export function Stage({
           offsets={ed.offsets}
           edit={ed.edit}
           peaks={peaks}
+          registration={ed.registrationMarks}
           playhead={ed.t}
           end={ed.end}
           pxPerSec={ed.pxPerSec}

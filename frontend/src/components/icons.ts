@@ -199,3 +199,6 @@ export const RemoveAll: IconDefinition = {
     ],
   },
 };
+
+// Trim to the registration marks: an in and an out bracket round the part that stays.
+export const TrimTo = glyph("trim-to", "M1 2h4v2H3v8h2v2H1zM15 2h-4v2h2v8h-2v2h4zM6.5 7h3v2h-3z");

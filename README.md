@@ -148,7 +148,9 @@ comes next.
      selection if there is one, and always
      includes the registration sounds, which are sync marks and not content (it cuts them even
      when speech follows right after). _Cut all_, or drag-select and press `x` to cut by hand.
-     Cuts ripple.
+     Cuts ripple. Under a separator, **Autotrim** cuts everything before the opening registration
+     sound and after the closing one, the sounds themselves included (it needs the sounds found
+     in the files).
    - **Selecting on the timeline:** click a channel's **segment** (a blue or teal block: one
      stretch where that channel is on screen) or a **cut** to select it (it gets a faint diagonal stripe texture).
      Every click on the timeline moves the playhead to the clicked moment; on a segment or a cut it

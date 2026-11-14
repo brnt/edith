@@ -64,6 +64,8 @@ def test_sync_job_places_files_and_saves_the_result(client: TestClient, project,
         13.0,
         13.2,
     )
+    # The sound's own length comes back too (Autotrim needs it to cut the sounds out whole).
+    assert template["duration_s"] == pytest.approx(0.2, abs=0.01)
 
 
 def test_nudges_survive_a_re_sync(client: TestClient, project, session):
