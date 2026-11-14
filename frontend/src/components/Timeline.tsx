@@ -27,7 +27,7 @@ import { Icon } from "./Icon";
 import { MissingFlag } from "./MissingFlag";
 import { CaretDown, CaretRight, Ellipsis } from "./icons";
 
-const ROW = { ruler: 24, video: 34, still: 28, audio: 56 };
+const ROW = { ruler: 24, video: 34, still: 28, audio: 37 };
 
 interface Props {
   media: MediaItem[];
@@ -398,21 +398,23 @@ export function Timeline(props: Props) {
                   </span>
                   <MissingFlag item={m} onShow={props.onShowProblem} class="ml-auto" />
                 </div>
-                <input
-                  type="range"
-                  aria-label={`Gain ${m.label}`}
-                  class="slider block w-full"
-                  style={{ "--zero": 30 / 42 }} // 0 dB on a -30 to +12 dB track
-                  min={-30}
-                  max={12}
-                  step={1}
-                  value={t.gain_db}
-                  onInput={(e) => props.onTrack(m.id, { gain_db: Number(e.currentTarget.value) })}
-                />
-                <span class="text-neutral-500">
-                  {t.gain_db > 0 ? "+" : ""}
-                  {t.gain_db} dB
-                </span>
+                <div class="flex items-center gap-2">
+                  <input
+                    type="range"
+                    aria-label={`Gain ${m.label}`}
+                    class="slider block min-w-0 flex-1"
+                    style={{ "--zero": 30 / 42 }} // 0 dB on a -30 to +12 dB track
+                    min={-30}
+                    max={12}
+                    step={1}
+                    value={t.gain_db}
+                    onInput={(e) => props.onTrack(m.id, { gain_db: Number(e.currentTarget.value) })}
+                  />
+                  <span class="w-12 shrink-0 text-right tabular-nums text-neutral-400">
+                    {t.gain_db > 0 ? "+" : ""}
+                    {t.gain_db} dB
+                  </span>
+                </div>
               </div>
             );
           })}
