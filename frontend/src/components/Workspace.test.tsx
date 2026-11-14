@@ -105,6 +105,7 @@ let puts: unknown[] = [];
 let mediaPosts: { path: string }[] = [];
 let relinks: { from: string; path: string }[] = [];
 let syncPosts: { template: Record<string, unknown> }[] = [];
+let syncAnswer: Record<string, unknown> | null = null; // replaces the default sync state
 let inspectAnswer: Record<string, unknown> = {};
 
 function respond(body: unknown, status = 200) {
@@ -123,6 +124,7 @@ beforeEach(() => {
   mediaPosts = [];
   relinks = [];
   syncPosts = [];
+  syncAnswer = null;
   inspectAnswer = { found: true, offset_s: 0.5, code: "1387DE4E", confidence: 0.97 };
   vi.stubGlobal(
     "fetch",
@@ -249,6 +251,7 @@ beforeEach(() => {
           audio: null,
         });
       if (path.endsWith("/media")) return respond(media);
+      if (path.endsWith("/sync") && syncAnswer) return respond(syncAnswer);
       if (path.endsWith("/sync"))
         return respond({
           template: null,
@@ -1057,6 +1060,38 @@ describe("what survives a reload", () => {
     await waitFor(() => expect(screen.getByText("0:00.00")).toBeInTheDocument()); // not past the end
     fireEvent.click(screen.getByRole("tab", { name: /^Sync/ }));
     expect(JSON.parse(localStorage.getItem("edith.ui.show") ?? "{}").tab).toBe("sync");
+  });
+});
+
+describe("trimming to the registration sounds", () => {
+  test("cuts before the opening sound and after the closing one, the sounds included", async () => {
+    // Every file hears the opening sound at 20 s of the shared timeline and the closing one at 60 s.
+    const found = (start: number, open: number, close: number) => ({
+      ...synced(start),
+      tone_start_s: open,
+      tone_end_s: close,
+    });
+    syncAnswer = {
+      template: { kind: "seed", seed: "x", duration_s: 1 },
+      nudges: {},
+      needs_upgrade: false,
+      results: { camA: found(5, 15, 55), camB: found(10, 10, 50), mic: found(0, 20, 60) },
+    };
+    render(<Workspace slug="show" />);
+    await screen.findByTestId("timeline");
+    fireEvent.click(await screen.findByRole("button", { name: /Autotrim/ }));
+    expect(await screen.findByText("unsaved changes")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(puts).toHaveLength(1));
+    const cuts = (puts[0] as { cuts: { start_s: number; end_s: number }[] }).cuts;
+    expect(cuts[0].end_s).toBeCloseTo(21.2, 6); // the opening sound (1 s) is cut too, and its ring-out
+    expect(cuts[1].start_s).toBeCloseTo(59.95, 6); // from just before the closing sound on
+  });
+
+  test("is off when the sounds were not found in the files", async () => {
+    render(<Workspace slug="show" />); // the default sync finds them at times that cannot be a take
+    await screen.findByTestId("timeline");
+    expect(screen.getByRole("button", { name: /Autotrim/ })).toBeDisabled();
   });
 });
 

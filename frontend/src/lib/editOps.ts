@@ -74,6 +74,17 @@ export function removeSwitch(edit: EditList, index: number): EditList {
   return { ...edit, switches: edit.switches.filter((_, i) => i !== index) };
 }
 
+/**
+ * Cut everything before and after the registration sounds, the sounds themselves included: what
+ * is left is the take between them. `span` is `registrationSpan`; `end` the timeline's length.
+ */
+export function trimToRegistration(edit: EditList, span: Range, end: number): EditList {
+  const cuts: Cut[] = [];
+  if (span[0] > EPS) cuts.push({ start_s: 0, end_s: span[0] });
+  if (end - span[1] > EPS) cuts.push({ start_s: span[1], end_s: end });
+  return cuts.length ? addCuts(edit, cuts) : edit;
+}
+
 export function addCuts(edit: EditList, cuts: Cut[]): EditList {
   const merged = mergeRanges([
     ...edit.cuts.map((c): [number, number] => [c.start_s, c.end_s]),

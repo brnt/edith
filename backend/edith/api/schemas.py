@@ -140,6 +140,11 @@ class SyncTemplateIn(BaseModel):
         return self
 
 
+class SyncTemplateRead(SyncTemplateIn):
+    # The sound's actual length, recorded when syncing: Autotrim cuts the sounds out whole.
+    duration_s: float | None = None
+
+
 class RegistrationInspectRead(BaseModel):
     found: bool
     offset_s: float | None  # where the burst starts, within the stretch
@@ -162,7 +167,7 @@ class SyncResultRead(BaseModel):
 
 
 class SyncRead(BaseModel):
-    template: SyncTemplateIn | None
+    template: SyncTemplateRead | None
     results: dict[str, SyncResultRead]
     nudges: dict[str, float]
     needs_upgrade: bool

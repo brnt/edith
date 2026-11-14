@@ -1,3 +1,4 @@
+import { trimToRegistration } from "./editOps";
 import { loadUi, restoredPick, restoredSelection, restoredTime, saveUi } from "./uiState";
 import { describe, expect, test } from "vitest";
 
@@ -30,6 +31,8 @@ import {
   advancePlayhead,
   boundaryPreview,
   inFolder,
+  registrationMarks,
+  registrationSpan,
   mediaFolders,
   usedChannelIds,
   stageLayout,
@@ -844,5 +847,70 @@ describe("what the page remembers", () => {
     saveUi("p", { tab: "sync" });
     saveUi("p", { t: 4 });
     expect(loadUi("p")).toEqual({ tab: "sync", t: 4 });
+  });
+});
+
+describe("registrationSpan and trimToRegistration", () => {
+  const found = (start: number, open: number, close: number) =>
+    ({ status: "synced", start_s: start, tone_start_s: open, tone_end_s: close }) as never;
+  const media = [item("a", "video"), item("b", "video")];
+  const sync = (template = { kind: "seed", duration_s: 0.5 }) =>
+    ({
+      template,
+      nudges: {},
+      results: { a: found(0, 10, 50), b: found(2, 8, 48.1) },
+    }) as never;
+
+  test("from the end of the last opening sound to the start of the first closing one", () => {
+    // a hears it at 10 and 50 on the timeline; b at 2 + 8 = 10 and 2 + 48.1 = 50.1.
+    const [from, to] = registrationSpan(media, sync())!;
+    expect(from).toBeCloseTo(10.7, 6); // 10 + the 0.5 s sound + 0.2 s for its ring-out
+    expect(to).toBeCloseTo(49.95, 6); // 50 less 50 ms before the closing sound
+  });
+
+  test("nothing when the sounds were not found or cannot be a take", () => {
+    expect(registrationSpan(media, null)).toBeNull();
+    expect(
+      registrationSpan(media, {
+        template: null,
+        nudges: {},
+        results: { a: found(0, 10, 10.05) },
+      } as never),
+    ).toBeNull();
+    expect(
+      registrationSpan(media, {
+        template: null,
+        nudges: {},
+        results: { a: { status: "unsynced", start_s: null, tone_start_s: null, tone_end_s: null } },
+      } as never),
+    ).toBeNull();
+  });
+
+  test("the cuts leave the take between the sounds; none where there is nothing to cut", () => {
+    const trimmed = trimToRegistration(edit(), [10.5, 50], 60);
+    expect(trimmed.cuts).toEqual([
+      { start_s: 0, end_s: 10.5 },
+      { start_s: 50, end_s: 60 },
+    ]);
+    const tight = trimToRegistration(edit(), [0, 60], 60);
+    expect(tight.cuts).toEqual([]);
+  });
+});
+
+describe("registrationMarks", () => {
+  test("each synced file's opening and closing sound, in its own seconds, as long as the sound", () => {
+    const marks = registrationMarks({
+      template: { kind: "seed", duration_s: 0.2 },
+      nudges: {},
+      results: {
+        a: { status: "synced", start_s: 0, tone_start_s: 6.5, tone_end_s: 61.9 },
+        b: { status: "unsynced", start_s: null, tone_start_s: null, tone_end_s: null },
+      },
+    } as never);
+    expect(Object.keys(marks)).toEqual(["a"]);
+    expect(marks.a[0][0]).toBeCloseTo(6.5);
+    expect(marks.a[0][1]).toBeCloseTo(6.7);
+    expect(marks.a[1][0]).toBeCloseTo(61.9);
+    expect(registrationMarks(null)).toEqual({});
   });
 });

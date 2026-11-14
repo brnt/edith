@@ -101,6 +101,72 @@ export function mediaOffsets(media: MediaItem[], sync: SyncState | null): Record
   return offsets;
 }
 
+/**
+ * The stretch of the shared timeline between the registration sounds: it begins where the last
+ * recording's opening sound has finished and ends where the first recording's closing sound
+ * starts (with the margins above). Null when no file has both sounds found (or they overlap).
+ * The sounds themselves lie outside it.
+ */
+/**
+ * How far beyond the sounds Autotrim cuts. After the opening sound it must clear the ring-out of
+ * the room and the speaker (the sound's exact length is known, but its tail lasts about 0.15 s
+ * longer in a recording); before the closing sound only the onset needs clearing.
+ */
+export const TRIM_AFTER_S = 0.2;
+export const TRIM_BEFORE_S = 0.05;
+/** A generated (seed) sound is this long when the length was not recorded. */
+const SEED_SOUND_S = 0.2;
+
+/** How long the registration sound is: recorded when syncing; else what the template implies. */
+function soundLength(sync: SyncState): number {
+  const t = sync.template;
+  return (
+    t?.duration_s ??
+    (t?.start_s != null && t.end_s != null
+      ? t.end_s - t.start_s
+      : t?.kind === "seed"
+        ? SEED_SOUND_S
+        : 0)
+  );
+}
+
+/**
+ * Where each file's registration sounds were found, in the file's own seconds: its opening sound
+ * and its closing one, each as long as the sound is. Files without them are left out. (Drawn over
+ * the waveforms, to show what the sync matched.)
+ */
+export function registrationMarks(sync: SyncState | null): Record<string, Range[]> {
+  const marks: Record<string, Range[]> = {};
+  if (!sync) return marks;
+  const length = soundLength(sync);
+  for (const [id, r] of Object.entries(sync.results)) {
+    if (r.status === "unsynced" || r.tone_start_s === null || r.tone_end_s === null) continue;
+    marks[id] = [
+      [r.tone_start_s, r.tone_start_s + length],
+      [r.tone_end_s, r.tone_end_s + length],
+    ];
+  }
+  return marks;
+}
+
+export function registrationSpan(media: MediaItem[], sync: SyncState | null): Range | null {
+  if (!sync) return null;
+  const offsets = mediaOffsets(media, sync);
+  const length = soundLength(sync);
+  let opened = -Infinity;
+  let closes = Infinity;
+  for (const m of media) {
+    const r = sync.results[m.id];
+    if (!r || r.status === "unsynced" || r.tone_start_s === null || r.tone_end_s === null) continue;
+    if (!(m.id in offsets)) continue;
+    opened = Math.max(opened, offsets[m.id] + r.tone_start_s + length + TRIM_AFTER_S);
+    closes = Math.min(closes, offsets[m.id] + r.tone_end_s - TRIM_BEFORE_S);
+  }
+  return Number.isFinite(opened) && Number.isFinite(closes) && closes - opened > EPS
+    ? [opened, closes]
+    : null;
+}
+
 export function timelineEnd(media: MediaItem[], offsets: Record<string, number>): number {
   return Math.max(
     0,

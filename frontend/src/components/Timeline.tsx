@@ -34,6 +34,8 @@ interface Props {
   offsets: Record<string, number>;
   edit: EditList;
   peaks: Record<string, Peaks>;
+  /** Where the registration sounds were found in each file (its own seconds). */
+  registration?: Record<string, [number, number][]>;
   playhead: number;
   end: number;
   pxPerSec: number;
@@ -491,6 +493,7 @@ export function Timeline(props: Props) {
                 width={total}
                 height={ROW.audio}
                 color={AUDIO_WAVEFORM}
+                marks={props.registration?.[m.id]}
               />
               {edit.mix.map((r, index) => {
                 if (r.media_id !== m.id) return null;
